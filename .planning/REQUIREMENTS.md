@@ -169,16 +169,26 @@ Deferred to post-v0.1.0. Milestones 4-6.
 | REG-01 to REG-05 | Phase 1 | Pending |
 | DIF-01 to DIF-03 | Phase 1 | Pending |
 | DEP-01 to DEP-03 | Phase 1 | Pending |
-| QAL-01 to QAL-08 | Phase 1 | Pending |
+| QAL-01 | Phase 1 | Pending |
+| QAL-04 | Phase 1 | Pending |
+| QAL-05 | Phase 1 | Pending |
 | SRV-01 to SRV-11 | Phase 2 | Pending |
+| QAL-02 | Phase 2 | Pending |
 | PUB-01 to PUB-11 | Phase 3 | Pending |
 | SDK-01 to SDK-03 | Phase 3 | Pending |
+| QAL-03 | Phase 3 | Pending |
+| QAL-06 | Phase 3 | Pending |
+| QAL-07 | Phase 3 | Pending |
+| QAL-08 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 58 total
-- Mapped to phases: 58
+- v1 requirements: 72 total
+- Phase 1: 42 (CLI, Format, Validation, Security, Local Registry, Diff, Dependencies, QAL-01/04/05)
+- Phase 2: 12 (Registry Server, QAL-02)
+- Phase 3: 18 (Pub/Sub, TypeScript SDK, QAL-03/06/07/08)
+- Mapped to phases: 72
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initialization*
+*Last updated: 2026-03-21 after roadmap creation*
