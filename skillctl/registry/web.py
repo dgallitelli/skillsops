@@ -657,6 +657,91 @@ async def optimize_submit(request: Request, namespace: str, name: str, version: 
 
 
 # ---------------------------------------------------------------------------
+# AI Test Data Generation
+# ---------------------------------------------------------------------------
+
+@web_router.post("/web/generate-test-data")
+async def generate_test_data(request: Request):
+    """Generate eval cases or trigger queries using an LLM based on skill content."""
+    from fastapi.responses import JSONResponse
+
+    body = await request.json()
+    skill_name = body.get("skill_name", "")
+    skill_version = body.get("skill_version", "")
+    gen_type = body.get("type", "evals")  # "evals" or "trigger"
+
+    db: MetadataDB = request.app.state.db
+    storage = request.app.state.storage
+
+    # Load skill content
+    record = db.get_skill(skill_name, skill_version)
+    if record is None:
+        return JSONResponse({"error": "Skill not found"}, status_code=404)
+
+    try:
+        blob = await storage.get_blob(record.content_hash)
+        skill_content = blob.decode("utf-8", errors="replace")[:4000]
+    except Exception:
+        skill_content = "(content unavailable)"
+
+    # Build prompt
+    if gen_type == "evals":
+        system = (
+            "You are a test case generator for agent skills. "
+            "Generate functional evaluation test cases as a JSON array. "
+            "Each case must have: id (string), prompt (string — a realistic user request), "
+            "expected_output (string — what a good response should contain), "
+            "assertions (array of strings — specific things to check in the response). "
+            "Generate 3-5 diverse test cases that cover the skill's main capabilities. "
+            "Return ONLY the JSON array, no markdown fences or explanation."
+        )
+        prompt = (
+            f"Skill: {skill_name}\n"
+            f"Description: {record.description}\n"
+            f"Tags: {', '.join(record.tags)}\n\n"
+            f"Skill content:\n{skill_content}\n\n"
+            f"Generate functional eval cases for this skill."
+        )
+    else:
+        system = (
+            "You are a test case generator for agent skills. "
+            "Generate trigger reliability test queries as a JSON array. "
+            "Each item must have: query (string — a user message), "
+            "should_trigger (boolean — true if this skill should activate, false if not). "
+            "Generate 6-8 queries: half that SHOULD trigger the skill, half that should NOT. "
+            "The should-trigger queries should be realistic requests matching the skill's purpose. "
+            "The should-not-trigger queries should be plausible but unrelated requests. "
+            "Return ONLY the JSON array, no markdown fences or explanation."
+        )
+        prompt = (
+            f"Skill: {skill_name}\n"
+            f"Description: {record.description}\n"
+            f"Tags: {', '.join(record.tags)}\n\n"
+            f"Skill content:\n{skill_content}\n\n"
+            f"Generate trigger reliability test queries for this skill."
+        )
+
+    # Call LLM
+    try:
+        from skillctl.optimize.llm_client import LLMClient
+        llm = LLMClient(provider="bedrock")
+        response = llm.call(system=system, prompt=prompt, max_tokens=2048)
+        # Parse the JSON from the response
+        text = response.content.strip()
+        # Strip markdown fences if present
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+        test_data = json.loads(text)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    return JSONResponse({"test_data": test_data})
+
+
+# ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 

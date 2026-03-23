@@ -21,6 +21,11 @@
   .score-bar-fill.low { background: var(--danger); }
   .stat-row { display: flex; justify-content: space-between; font-size: .85rem; color: var(--pico-muted-color); }
   .eval-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+  .phase-data { transition: opacity .2s; }
+  .phase-data.hidden { display: none; }
+  .gen-btn { font-size: .8rem; padding: .3rem .7rem; background: var(--accent); border-color: var(--accent); color: #fff; border-radius: var(--radius); cursor: pointer; border: none; }
+  .gen-btn:hover { background: var(--accent-light); }
+  .gen-btn:disabled { opacity: .5; cursor: wait; }
 </style>
 {% endblock %}
 
@@ -48,7 +53,7 @@
 {% endif %}
 
 {% if report %}
-<!-- Evaluation results -->
+<!-- ── Results ─────────────────────────────────────────── -->
 <div class="detail-section" style="margin-bottom:1.5rem;">
   <h3>Overall Result</h3>
   <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
@@ -75,80 +80,30 @@
 </div>
 
 <div class="eval-grid">
-  {% if report.sections.audit is defined and report.sections.audit.error is not defined and report.sections.audit.skipped is not defined %}
+  {% for key, label, icon in [('audit','Security Audit','🔒'),('functional','Functional','🧪'),('trigger','Trigger Reliability','🎯')] %}
+  {% if report.sections[key] is defined and report.sections[key].error is not defined and report.sections[key].skipped is not defined %}
   <div class="eval-section-card">
-    <h4>🔒 Security Audit</h4>
+    <h4>{{ icon }} {{ label }}</h4>
+    {% set sec = report.sections[key] %}
+    {% set score_val = sec.get('normalized', sec.get('overall', sec.get('pass_rate', 0))) %}
+    {% set grade = sec.get('grade', '') %}
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
-      <span class="badge badge-grade-{{ report.sections.audit.grade }}">{% if report.sections.audit.grade in ['A', 'B'] %}✓{% elif report.sections.audit.grade in ['C', 'D'] %}⚠{% else %}✕{% endif %} {{ report.sections.audit.grade }}</span>
-      <span style="font-size:1.25rem;font-weight:700;">{{ report.sections.audit.score }}/100</span>
+      <span class="badge badge-grade-{{ grade }}">{% if grade in ['A','B'] %}✓{% elif grade in ['C','D'] %}⚠{% else %}✕{% endif %} {{ grade }}</span>
+      <span style="font-size:1.25rem;font-weight:700;">{{ "%.0f"|format(score_val * 100) }}%</span>
     </div>
     <div class="score-bar">
-      <div class="score-bar-fill {% if report.sections.audit.normalized >= 0.8 %}high{% elif report.sections.audit.normalized >= 0.5 %}mid{% else %}low{% endif %}"
-           style="width:{{ "%.0f"|format(report.sections.audit.normalized * 100) }}%"
-           role="progressbar" aria-valuenow="{{ "%.0f"|format(report.sections.audit.normalized * 100) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Score"></div>
-    </div>
-    <div class="stat-row">
-      <span>{{ report.sections.audit.critical or 0 }} critical</span>
-      <span>{{ report.sections.audit.warning or 0 }} warnings</span>
-      <span>{{ report.sections.audit.info or 0 }} info</span>
+      <div class="score-bar-fill {% if score_val >= 0.8 %}high{% elif score_val >= 0.5 %}mid{% else %}low{% endif %}"
+           style="width:{{ "%.0f"|format(score_val * 100) }}%"
+           role="progressbar" aria-valuenow="{{ "%.0f"|format(score_val * 100) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Score"></div>
     </div>
   </div>
-  {% elif report.sections.audit is defined and report.sections.audit.skipped is defined %}
+  {% elif report.sections[key] is defined and report.sections[key].skipped is defined %}
   <div class="eval-section-card">
-    <h4>🔒 Security Audit</h4>
-    <p style="color:var(--pico-muted-color);font-size:.85rem;">Skipped</p>
+    <h4>{{ icon }} {{ label }}</h4>
+    <p style="color:var(--pico-muted-color);font-size:.85rem;">{{ report.sections[key].reason }}</p>
   </div>
   {% endif %}
-
-  {% if report.sections.functional is defined and report.sections.functional.error is not defined and report.sections.functional.skipped is not defined %}
-  <div class="eval-section-card">
-    <h4>🧪 Functional</h4>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;">
-      <span class="badge badge-grade-{{ report.sections.functional.grade }}">{% if report.sections.functional.grade in ['A', 'B'] %}✓{% elif report.sections.functional.grade in ['C', 'D'] %}⚠{% else %}✕{% endif %} {{ report.sections.functional.grade }}</span>
-      <span style="font-size:1.25rem;font-weight:700;">{{ "%.0f"|format(report.sections.functional.overall * 100) }}%</span>
-    </div>
-    <div class="score-bar">
-      <div class="score-bar-fill {% if report.sections.functional.overall >= 0.8 %}high{% elif report.sections.functional.overall >= 0.5 %}mid{% else %}low{% endif %}"
-           style="width:{{ "%.0f"|format(report.sections.functional.overall * 100) }}%"
-           role="progressbar" aria-valuenow="{{ "%.0f"|format(report.sections.functional.overall * 100) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Score"></div>
-    </div>
-    {% if report.sections.functional.scores %}
-    <div class="stat-row" style="margin-top:.5rem;">
-      {% for k, v in report.sections.functional.scores.items() %}
-      <span>{{ k }}: {{ "%.0f"|format(v * 100) }}%</span>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-  {% elif report.sections.functional is defined and report.sections.functional.skipped is defined %}
-  <div class="eval-section-card">
-    <h4>🧪 Functional</h4>
-    <p style="color:var(--pico-muted-color);font-size:.85rem;">{{ report.sections.functional.reason }}</p>
-  </div>
-  {% endif %}
-
-  {% if report.sections.trigger is defined and report.sections.trigger.error is not defined and report.sections.trigger.skipped is not defined %}
-  <div class="eval-section-card">
-    <h4>🎯 Trigger Reliability</h4>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;">
-      <span class="badge badge-grade-{{ report.sections.trigger.grade }}">{% if report.sections.trigger.grade in ['A', 'B'] %}✓{% elif report.sections.trigger.grade in ['C', 'D'] %}⚠{% else %}✕{% endif %} {{ report.sections.trigger.grade }}</span>
-      <span style="font-size:1.25rem;font-weight:700;">{{ "%.0f"|format(report.sections.trigger.pass_rate * 100) }}%</span>
-    </div>
-    <div class="score-bar">
-      <div class="score-bar-fill {% if report.sections.trigger.pass_rate >= 0.8 %}high{% elif report.sections.trigger.pass_rate >= 0.5 %}mid{% else %}low{% endif %}"
-           style="width:{{ "%.0f"|format(report.sections.trigger.pass_rate * 100) }}%"
-           role="progressbar" aria-valuenow="{{ "%.0f"|format(report.sections.trigger.pass_rate * 100) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Score"></div>
-    </div>
-    <div class="stat-row">
-      <span>{{ report.sections.trigger.total_queries or 0 }} queries</span>
-    </div>
-  </div>
-  {% elif report.sections.trigger is defined and report.sections.trigger.skipped is defined %}
-  <div class="eval-section-card">
-    <h4>🎯 Trigger Reliability</h4>
-    <p style="color:var(--pico-muted-color);font-size:.85rem;">{{ report.sections.trigger.reason }}</p>
-  </div>
-  {% endif %}
+  {% endfor %}
 </div>
 
 <div style="margin-top:1.5rem;display:flex;gap:.75rem;">
@@ -159,25 +114,25 @@
 </div>
 
 {% else %}
-<!-- Evaluation form -->
-<form method="post" action="/skills/{{ skill.namespace }}/{{ skill.name.split('/')[1] }}/{{ skill.version }}/evaluate">
+<!-- ── Form ────────────────────────────────────────────── -->
+<form method="post" action="/skills/{{ skill.namespace }}/{{ skill.name.split('/')[1] }}/{{ skill.version }}/evaluate" id="eval-form">
   <div class="detail-grid">
     <div class="detail-section">
       <h3>Evaluation Phases</h3>
       <label>
-        <input type="checkbox" name="include_audit" value="1" checked />
+        <input type="checkbox" name="include_audit" value="1" id="cb-audit" onchange="togglePhase()" />
         Security Audit
-        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Scans for hardcoded secrets, prompt injection, unsafe URLs, shell execution, deserialization risks, and validates manifest structure. Produces an A–F grade on a 100-point scale.</small>
+        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Scans for secrets, prompt injection, unsafe URLs, shell execution, deserialization risks. Produces an A–F grade on a 100-point scale.</small>
       </label>
       <label>
-        <input type="checkbox" name="include_functional" value="1" checked />
+        <input type="checkbox" name="include_functional" value="1" id="cb-functional" onchange="togglePhase()" />
         Functional Eval
-        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Runs an agent with and without the skill against test scenarios defined in <code>evals/evals.json</code>, comparing output quality via LLM-as-judge scoring. Requires eval cases to be defined.</small>
+        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Runs an agent with and without the skill against test scenarios, comparing output quality via LLM-as-judge scoring.</small>
       </label>
       <label>
-        <input type="checkbox" name="include_trigger" value="1" checked />
+        <input type="checkbox" name="include_trigger" value="1" id="cb-trigger" onchange="togglePhase()" />
         Trigger Reliability
-        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Tests whether the skill activates on relevant queries and stays silent on irrelevant ones, using test queries from <code>evals/eval_queries.json</code>. Measures activation precision and recall.</small>
+        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Tests whether the skill activates on relevant queries and stays silent on irrelevant ones. Measures activation precision and recall.</small>
       </label>
     </div>
 
@@ -201,17 +156,20 @@
     </div>
   </div>
 
-  <!-- Test data -->
-  <div class="detail-section" style="margin-top:1.25rem;">
-    <h3>Test Data <small style="text-transform:none;letter-spacing:normal;font-weight:normal;color:var(--pico-muted-color);">(optional — needed for Functional and Trigger phases)</small></h3>
-
-    <details style="margin-bottom:1rem;">
-      <summary style="cursor:pointer;font-weight:500;">Functional eval cases <code>evals.json</code></summary>
-      <p style="font-size:.8rem;color:var(--pico-muted-color);margin:.5rem 0;">
-        JSON array of test scenarios. Each case has an <code>id</code>, a <code>prompt</code> to send to the agent,
-        optional <code>expected_output</code>, and <code>assertions</code> to check against the response.
-      </p>
-      <textarea name="evals_json" rows="8" placeholder='[
+  <!-- Functional test data -->
+  <div id="functional-data" class="detail-section phase-data hidden" style="margin-top:1.25rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+      <h3 style="margin:0;">Functional Eval Cases</h3>
+      <button type="button" class="gen-btn" id="gen-evals-btn"
+              onclick="generateTestData('evals')">
+        ✨ Generate with AI
+      </button>
+    </div>
+    <p style="font-size:.8rem;color:var(--pico-muted-color);margin-bottom:.75rem;">
+      JSON array of test scenarios. Each case needs an <code>id</code>, a <code>prompt</code>,
+      optional <code>expected_output</code>, and <code>assertions</code> to check.
+    </p>
+    <textarea name="evals_json" id="evals-json" rows="10" placeholder='[
   {
     "id": "review-security",
     "prompt": "Review this code for security issues: def login(user, pw): ...",
@@ -219,19 +177,25 @@
     "assertions": ["mentions SQL injection", "suggests parameterized queries"]
   }
 ]' style="font-family:monospace;font-size:.8rem;">{{ evals_json or '' }}</textarea>
-    </details>
+  </div>
 
-    <details>
-      <summary style="cursor:pointer;font-weight:500;">Trigger queries <code>eval_queries.json</code></summary>
-      <p style="font-size:.8rem;color:var(--pico-muted-color);margin:.5rem 0;">
-        JSON array of queries to test activation. Each has a <code>query</code> string and
-        <code>should_trigger</code> boolean (true = skill should activate, false = should stay silent).
-      </p>
-      <textarea name="trigger_queries_json" rows="8" placeholder='[
+  <!-- Trigger test data -->
+  <div id="trigger-data" class="detail-section phase-data hidden" style="margin-top:1.25rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+      <h3 style="margin:0;">Trigger Queries</h3>
+      <button type="button" class="gen-btn" id="gen-trigger-btn"
+              onclick="generateTestData('trigger')">
+        ✨ Generate with AI
+      </button>
+    </div>
+    <p style="font-size:.8rem;color:var(--pico-muted-color);margin-bottom:.75rem;">
+      JSON array of queries. Each has a <code>query</code> string and <code>should_trigger</code>
+      boolean (true = skill should activate, false = should stay silent).
+    </p>
+    <textarea name="trigger_queries_json" id="trigger-json" rows="10" placeholder='[
   {"query": "Review this PR for security issues", "should_trigger": true},
   {"query": "What is the weather today?", "should_trigger": false}
 ]' style="font-family:monospace;font-size:.8rem;">{{ trigger_queries_json or '' }}</textarea>
-    </details>
   </div>
 
   <div style="margin-top:1.25rem;">
@@ -241,5 +205,47 @@
     </button>
   </div>
 </form>
+
+<script>
+function togglePhase() {
+  document.getElementById('functional-data').classList.toggle('hidden', !document.getElementById('cb-functional').checked);
+  document.getElementById('trigger-data').classList.toggle('hidden', !document.getElementById('cb-trigger').checked);
+}
+
+async function generateTestData(type) {
+  const btn = document.getElementById(type === 'evals' ? 'gen-evals-btn' : 'gen-trigger-btn');
+  const textarea = document.getElementById(type === 'evals' ? 'evals-json' : 'trigger-json');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  try {
+    const resp = await fetch('/web/generate-test-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        skill_name: '{{ skill.name }}',
+        skill_version: '{{ skill.version }}',
+        type: type
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      alert('Generation failed: ' + err);
+      return;
+    }
+    const data = await resp.json();
+    textarea.value = JSON.stringify(data.test_data, null, 2);
+  } catch (e) {
+    alert('Generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+
+// Init visibility on page load
+togglePhase();
+</script>
 {% endif %}
 {% endblock %}
