@@ -199,7 +199,7 @@
   </div>
 
   <div style="margin-top:1.25rem;">
-    <button type="submit" style="background:#0ea5e9;border-color:#0ea5e9;color:#fff;font-weight:600;width:100%;"
+    <button type="submit" id="run-eval-btn" disabled style="background:#0ea5e9;border-color:#0ea5e9;color:#fff;font-weight:600;width:100%;opacity:.4;"
             onclick="this.disabled=true;this.textContent='Running…';this.form.submit()">
       Run Evaluation
     </button>
@@ -210,6 +210,10 @@
 function togglePhase() {
   document.getElementById('functional-data').classList.toggle('hidden', !document.getElementById('cb-functional').checked);
   document.getElementById('trigger-data').classList.toggle('hidden', !document.getElementById('cb-trigger').checked);
+  const anyChecked = document.getElementById('cb-audit').checked || document.getElementById('cb-functional').checked || document.getElementById('cb-trigger').checked;
+  const btn = document.getElementById('run-eval-btn');
+  btn.disabled = !anyChecked;
+  btn.style.opacity = anyChecked ? '1' : '.4';
 }
 
 async function generateTestData(type) {
