@@ -167,17 +167,17 @@
       <label>
         <input type="checkbox" name="include_audit" value="1" checked />
         Security Audit
-        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Structure, permissions, capabilities</small>
+        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Scans for hardcoded secrets, prompt injection, unsafe URLs, shell execution, deserialization risks, and validates manifest structure. Produces an A–F grade on a 100-point scale.</small>
       </label>
       <label>
         <input type="checkbox" name="include_functional" value="1" checked />
         Functional Eval
-        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Runs evals.json test cases</small>
+        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Runs an agent with and without the skill against test scenarios defined in <code>evals/evals.json</code>, comparing output quality via LLM-as-judge scoring. Requires eval cases to be defined.</small>
       </label>
       <label>
         <input type="checkbox" name="include_trigger" value="1" checked />
         Trigger Reliability
-        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Tests query matching</small>
+        <br /><small style="color:var(--pico-muted-color);font-weight:normal;">Tests whether the skill activates on relevant queries and stays silent on irrelevant ones, using test queries from <code>evals/eval_queries.json</code>. Measures activation precision and recall.</small>
       </label>
     </div>
 
