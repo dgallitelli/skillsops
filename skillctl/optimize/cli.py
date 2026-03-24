@@ -10,17 +10,10 @@ from skillctl.optimize.types import OptimizeConfig
 
 
 def register_optimize_commands(subparsers):
-    """Add optimize subcommands to the skillctl CLI."""
-    opt_parser = subparsers.add_parser(
-        "optimize", help="Optimize a skill via automated eval loop",
+    """Add optimize command to the skillctl CLI."""
+    subparsers.add_parser(
+        "optimize", help="Optimize a skill via automated eval loop (or: optimize history, optimize diff)",
     )
-    opt_sub = opt_parser.add_subparsers(dest="optimize_command")
-    hist = opt_sub.add_parser("history", help="List past optimization runs")
-    hist.add_argument("--skill", default=None, help="Filter by skill name")
-    hist.add_argument("--json", action="store_true", dest="json_output")
-    diff = opt_sub.add_parser("diff", help="Show original vs promoted diff")
-    diff.add_argument("run_id", help="Run ID to show diff for")
-    diff.add_argument("--json", action="store_true", dest="json_output")
 
 
 def _build_run_parser():
@@ -45,14 +38,14 @@ def _build_run_parser():
 
 def handle_optimize(args, remaining=None):
     """Dispatch to the appropriate optimize subcommand."""
-    subcmd = getattr(args, "optimize_command", None)
-    if subcmd == "history":
-        _handle_history(args)
-    elif subcmd == "diff":
-        _handle_diff(args)
+    remaining = remaining or []
+    if remaining and remaining[0] == "history":
+        _handle_history(remaining[1:])
+    elif remaining and remaining[0] == "diff":
+        _handle_diff(remaining[1:])
     else:
         run_parser = _build_run_parser()
-        run_args = run_parser.parse_args(remaining or [])
+        run_args = run_parser.parse_args(remaining)
         _handle_optimize_run(run_args)
 
 
@@ -80,8 +73,13 @@ def _handle_optimize_run(args):
         _print_optimize_summary(run)
 
 
-def _handle_history(args):
+def _handle_history(remaining):
     """List past optimization runs."""
+    p = argparse.ArgumentParser(prog="skillctl optimize history")
+    p.add_argument("--skill", default=None, help="Filter by skill name")
+    p.add_argument("--json", action="store_true", dest="json_output")
+    args = p.parse_args(remaining)
+
     runs = ProvenanceStore.list_runs(skill_name=args.skill)
     if args.json_output:
         print(json.dumps([r.to_dict() for r in runs], indent=2))
@@ -103,8 +101,13 @@ def _handle_history(args):
             r.run_id, r.skill_name, score_str, cost_str, r.status))
 
 
-def _handle_diff(args):
+def _handle_diff(remaining):
     """Show unified diff between original and promoted skill."""
+    p = argparse.ArgumentParser(prog="skillctl optimize diff")
+    p.add_argument("run_id", help="Run ID to show diff for")
+    p.add_argument("--json", action="store_true", dest="json_output")
+    args = p.parse_args(remaining)
+
     run = ProvenanceStore.load_run(args.run_id)
     run_dir = Path.home() / ".skillctl" / "optimize" / args.run_id
     original_path = run_dir / "original.md"
