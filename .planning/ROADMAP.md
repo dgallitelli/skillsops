@@ -2,23 +2,22 @@
 
 ## Overview
 
-skillctl delivers a governance-first CLI, registry, and evaluation platform for agent skills in three milestone releases. v0.1.0 covers the full "validate, evaluate, distribute" story: a CLI for local governance, a self-hosted registry for teams, and an eval suite with certification grading. v0.2.0 adds runtime enforcement via a skills gateway, pub/sub channels, and governance workflows. v0.3.0 closes the loop with automated skill optimization — using eval as a reward signal to iteratively improve skills without human supervision.
+skillctl delivers a governance-first CLI, registry, and evaluation platform for agent skills in three milestone releases. v0.1.0 covers the full "validate, evaluate, distribute" story: a CLI for local governance, a self-hosted registry for teams, and an eval suite with certification grading. v0.2.0 adds registry-side policy enforcement, approval workflows, webhook notifications, and deprecation management. v0.3.0 closes the loop with automated skill optimization — using eval as a reward signal to iteratively improve skills without human supervision.
 
 ## Phases
 
 **Phase Numbering:**
 - Phases 1-3: v0.1.0 milestone
-- Phases 4-5: v0.2.0 milestone
-- Phases 6-7: v0.3.0 milestone
+- Phases 4-5: v0.2.0 milestone (merged into single Phase 4)
+- Phase 6-7: v0.3.0 milestone
 - Decimal phases (e.g. 2.1): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: CLI and Local Governance** - Single-developer tool: init, validate, scan, push/pull, diff, dependencies, local registry
 - [x] **Phase 2: Registry Server** - Self-hostable team registry with auth, publish/search, and audit logging
 - [x] **Phase 3: Eval Suite** - Eval engine with LLM-as-judge, certification grades, registry integration
-- [ ] **Phase 4: Skills Gateway** - Policy enforcement proxy between agents and MCP servers
-- [ ] **Phase 5: Pub/Sub, SDK, and Governance** - Channel distribution, TypeScript SDK, approval workflows, policy engine
-- [x] **Phase 6: Skill Optimizer** - Automated improvement loop: eval → failure analysis → variant generation → promotion
-- [x] **Phase 7: Optimization Governance** - Audit, provenance, cost controls, and registry integration for optimization runs
+- [ ] **Phase 4: Registry Governance** - Publish policies, approval workflows, webhook notifications, deprecation, namespace rules
+- [x] **Phase 5: Skill Optimizer** - Automated improvement loop: eval → failure analysis → variant generation → promotion
+- [x] **Phase 6: Optimization Governance** - Audit, provenance, cost controls, and registry integration for optimization runs
 
 ## Phase Details
 
@@ -71,39 +70,47 @@ Plans:
 - [x] 03-01: Audit, functional, trigger evaluation engines
 - [x] 03-02: Unified report, regression, compare, lifecycle, HTML reports
 
-### Phase 4: Skills Gateway (v0.2.0)
-**Goal**: Platform teams can deploy a policy enforcement proxy between agents and MCP servers that controls which agents can invoke which skills at runtime
-**Depends on**: Phase 2 (registry as policy source)
-**Requirements**: GW-01 to GW-07
+### Phase 4: Registry Governance (v0.2.0)
+**Goal**: Platform teams can enforce publish policies, approval workflows, and namespace rules on the registry — ensuring no skill reaches production without meeting governance requirements
+**Depends on**: Phase 2 (registry server), Phase 3 (eval suite for grade-gated policies)
+**Requirements**: GOV-01 to GOV-10 (re-scoped from original GW + PUB + GOV requirements)
 **Success Criteria** (what must be TRUE):
-  1. Gateway proxies agent-to-MCP-server traffic and enforces per-agent skill permissions
-  2. Every skill invocation is logged with agent identity, skill name, input/output, and timestamp
-  3. Unauthorized skill invocations are blocked and logged (not silently dropped)
-  4. Gateway fetches allowed skills configuration from registry server
-  5. OpenTelemetry spans emitted for all proxied requests
-**Plans**: TBD
+  1. Publish policies enforce minimum eval grade per namespace (e.g., `prod/` requires grade B+)
+  2. Approval workflows: skills land in `pending` state, require N approvals before going live
+  3. Webhook notifications fire on skill lifecycle events (published, deleted, eval attached, approved)
+  4. `skillctl deprecate` marks a skill with a sunset date; registry warns on pull after sunset
+  5. Namespace rules: configurable per-namespace policies (who can publish, minimum grade, required tags)
+  6. `skillctl policy check` evaluates custom YAML-based rules against skill content
+  7. `skillctl audit` shows full event history with time-range filtering and JSON export
+
+**Scope (merged from original Phases 4 + 5, re-scoped):**
+- Publish gates: minimum eval grade, required tags, namespace restrictions
+- Approval workflows: pending state, `skillctl approve`, role-based authorization
+- Webhook notifications: registry POSTs events to subscriber URLs on lifecycle changes
+- Deprecation: `skillctl deprecate` with sunset date, warnings on pull
+- Namespace policies: YAML-based rules per namespace
+- Custom policy engine: simple YAML rule evaluation (not full OPA/Rego — keep it lightweight)
+- Audit enhancements: time-range filtering, JSON export, event replay
+
+**Descoped from original Phase 4 (Skills Gateway):**
+- MCP server proxy — out of scope (no MCP servers in this implementation)
+- Agent identity / per-agent permissions — cloud-layer candidate
+- OpenTelemetry spans — cloud-layer candidate
+- Rate limiting per agent — cloud-layer candidate
+
+**Descoped from original Phase 5:**
+- TypeScript SDK — deferred (can be a community contribution)
+- EventBus interface / Kafka/SQS — cloud-layer candidate
+- Channel management (pub/sub channels) — replaced by webhook notifications
+- Event replay (30 days) — deferred to cloud layer
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01: Publish policies and namespace rules (YAML-based policy engine, grade gates, tag requirements)
+- [ ] 04-02: Approval workflows (pending state, approve/reject CLI commands, role-based auth)
+- [ ] 04-03: Webhook notifications (subscriber registration, lifecycle event dispatch)
+- [ ] 04-04: Deprecation and audit enhancements (sunset dates, time-range filtering, JSON export)
 
-### Phase 5: Pub/Sub, SDK, and Governance (v0.2.0)
-**Goal**: Organizations can distribute skills via channels, integrate from TypeScript, and enforce approval workflows
-**Depends on**: Phase 2
-**Requirements**: PUB-01 to PUB-07, SDK-01 to SDK-03, GOV-01 to GOV-05
-**Success Criteria** (what must be TRUE):
-  1. Subscriber webhook receives `skill.published` event within 5 seconds of publish
-  2. `@skillctl/sdk` npm package connects to registry and subscribes to channels
-  3. Skills published without required approvals are rejected by registry
-  4. `skillctl policy check` evaluates custom Rego rules against skill content
-  5. `skillctl audit` shows full event history with time-range filtering
-**Plans**: TBD
-
-Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-
-### Phase 6: Skill Optimizer (v0.3.0)
+### Phase 5: Skill Optimizer (v0.3.0)
 **Goal**: Developers can run `skillctl optimize` to automatically improve a skill's eval score through iterative failure analysis and LLM-generated variants — overnight, unattended
 **Depends on**: Phase 3 (eval suite provides scoring infrastructure)
 **Requirements**: OPT-01 to OPT-12
@@ -119,9 +126,9 @@ Plans:
 - [x] 06-01: Optimization loop, failure analyzer, variant generator, promotion gate
 - [x] 06-02: Budget tracking, LLM client, provenance store
 
-### Phase 7: Optimization Governance (v0.3.0)
+### Phase 6: Optimization Governance (v0.3.0)
 **Goal**: Platform teams have full visibility and control over automated skill optimization — audit trails, cost tracking, and publish gates
-**Depends on**: Phase 6 (optimizer engine), Phase 2 (registry for audit/publish)
+**Depends on**: Phase 5 (optimizer engine), Phase 2 (registry for audit/publish)
 **Requirements**: OPG-01 to OPG-05
 **Success Criteria** (what must be TRUE):
   1. Every optimization run is recorded in the audit log with trigger, iteration count, score delta, cost, and promoted version
@@ -136,16 +143,15 @@ Plans:
 ## Progress
 
 **Execution Order:**
-v0.1.0: 1 -> 2 -> 3
-v0.2.0: 4, 5 (parallel, both depend on Phase 2)
-v0.3.0: 6 (depends on Phase 3) -> 7 (depends on Phase 6 + Phase 2)
+v0.1.0: 1 → 2 → 3
+v0.2.0: 4 (depends on Phase 2 + 3)
+v0.3.0: 5 (depends on Phase 3) → 6 (depends on Phase 5 + Phase 2)
 
 | Phase | Plans Complete | Status | Milestone | Completed |
 |-------|----------------|--------|-----------|-----------|
 | 1. CLI and Local Governance | 3/3 | Complete | v0.1.0 | 2026-03-23 |
 | 2. Registry Server | 2/2 | Complete | v0.1.0 | 2026-03-23 |
 | 3. Eval Suite | 2/2 | Complete | v0.1.0 | 2026-03-23 |
-| 4. Skills Gateway | 0/2 | Not started | v0.2.0 | - |
-| 5. Pub/Sub, SDK, Governance | 0/2 | Not started | v0.2.0 | - |
-| 6. Skill Optimizer | 2/2 | Complete | v0.3.0 | 2026-03-24 |
-| 7. Optimization Governance | 1/1 | Complete | v0.3.0 | 2026-03-24 |
+| 4. Registry Governance | 0/4 | Not started | v0.2.0 | - |
+| 5. Skill Optimizer | 2/2 | Complete | v0.3.0 | 2026-03-24 |
+| 6. Optimization Governance | 1/1 | Complete | v0.3.0 | 2026-03-24 |

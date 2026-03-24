@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 5 of 7 complete (Phases 1, 2, 3, 6, 7 done; Phases 4, 5 not started)
+Phase: 5 of 6 complete (Phases 1, 2, 3, 5, 6 done; Phase 4 not started)
 Status: v0.1.0 and v0.3.0 shipped; v0.2.0 not started
-Last activity: 2026-03-24 — Documentation update, cross-referencing README against implementation
+Last activity: 2026-03-24 — Re-scoped v0.2.0: merged Phases 4+5 into single Registry Governance phase, dropped MCP gateway
 
-Progress: [███████░░░] ~70% (5 of 7 phases complete)
+Progress: [████████░░] ~83% (5 of 6 phases complete)
 
 ## Performance Metrics
 
@@ -69,7 +69,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 4 (Skills Gateway) and Phase 5 (Pub/Sub, SDK, Governance) are not started — these form the v0.2.0 milestone.
+- Phase 4 (Registry Governance) is not started — this is the sole remaining v0.2.0 milestone. Covers publish policies, approval workflows, webhook notifications, and deprecation.
 
 ### Blockers/Concerns
 
@@ -78,5 +78,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Documentation update complete. Next work would be Phase 4 (Skills Gateway) or Phase 5 (Pub/Sub).
+Stopped at: Re-scoped v0.2.0. Next work is Phase 4 (Registry Governance): publish policies, approval workflows, webhooks, deprecation.
 Resume file: None

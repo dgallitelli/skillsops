@@ -560,7 +560,7 @@ skillctl serve --auth-disabled --port 8080
 | Milestone | Scope | Status |
 |-----------|-------|--------|
 | v0.1.0 | CLI + Local Governance → Registry Server → Eval Suite | Complete |
-| v0.2.0 | Skills Gateway → Pub/Sub + SDK + Governance | Not started |
+| v0.2.0 | Registry Governance → Publish policies, approvals, webhooks, deprecation | Not started |
 | v0.3.0 | Automated Skill Optimization | Complete |
 
 See [.planning/ROADMAP.md](.planning/ROADMAP.md) for detailed phase breakdowns.
