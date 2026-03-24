@@ -1,6 +1,6 @@
 <p align="center">
   <strong>skillctl</strong><br>
-  <em>What Terraform did for infrastructure, skillctl does for agent skills.</em>
+  <em>What kubectl does for Kubernetes, skillctl does for agent skills.</em>
 </p>
 
 <p align="center">
