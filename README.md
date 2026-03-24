@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="skillsctl_logo.svg" alt="skillctl logo" width="120" />
+  <img src="skillsctl_logo.svg" alt="skillctl logo" width="200" />
 </p>
 
 <p align="center">
