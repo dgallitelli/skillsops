@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="skillsctl_logo.svg" alt="skillctl logo" width="200" />
+  <img src="skillsctl_logo.svg" alt="skillctl logo" width="600" />
 </p>
 
 <p align="center">
@@ -10,10 +10,10 @@
 <p align="center">
   <a href="#quickstart">Quickstart</a> ·
   <a href="#cli-reference">CLI Reference</a> ·
+  <a href="#examples">Examples</a>  <br/>
   <a href="#registry-server">Registry Server</a> ·
   <a href="#eval-suite">Eval Suite</a> ·
-  <a href="#skill-optimizer">Skill Optimizer</a> ·
-  <a href="#examples">Examples</a>
+  <a href="#skill-optimizer">Skill Optimizer</a>
 </p>
 
 ---
