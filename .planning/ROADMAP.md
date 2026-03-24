@@ -12,13 +12,13 @@ skillctl delivers a governance-first CLI, registry, and evaluation platform for 
 - Phases 6-7: v0.3.0 milestone
 - Decimal phases (e.g. 2.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: CLI and Local Governance** - Single-developer tool: init, validate, scan, push/pull, diff, dependencies, local registry
-- [ ] **Phase 2: Registry Server** - Self-hostable team registry with auth, publish/search, and audit logging
-- [ ] **Phase 3: Eval Suite** - Eval engine with LLM-as-judge, certification grades, registry integration
+- [x] **Phase 1: CLI and Local Governance** - Single-developer tool: init, validate, scan, push/pull, diff, dependencies, local registry
+- [x] **Phase 2: Registry Server** - Self-hostable team registry with auth, publish/search, and audit logging
+- [x] **Phase 3: Eval Suite** - Eval engine with LLM-as-judge, certification grades, registry integration
 - [ ] **Phase 4: Skills Gateway** - Policy enforcement proxy between agents and MCP servers
 - [ ] **Phase 5: Pub/Sub, SDK, and Governance** - Channel distribution, TypeScript SDK, approval workflows, policy engine
-- [ ] **Phase 6: Skill Optimizer** - Automated improvement loop: eval → failure analysis → variant generation → promotion
-- [ ] **Phase 7: Optimization Governance** - Audit, provenance, cost controls, and registry integration for optimization runs
+- [x] **Phase 6: Skill Optimizer** - Automated improvement loop: eval → failure analysis → variant generation → promotion
+- [x] **Phase 7: Optimization Governance** - Audit, provenance, cost controls, and registry integration for optimization runs
 
 ## Phase Details
 
@@ -32,12 +32,12 @@ skillctl delivers a governance-first CLI, registry, and evaluation platform for 
   3. `skillctl diff` between two skill versions correctly flags breaking changes (removed parameters, narrowed types) with visible red highlighting
   4. `skillctl doctor` diagnoses and reports all known environment failure modes
   5. Three or more example skills in /examples pass both `skillctl validate` and `skillctl scan`
-**Plans**: TBD
+**Plans**: Complete
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [x] 01-01: CLI foundation (init, validate, push, pull, list, version, doctor)
+- [x] 01-02: Skill format, validation, security scanning
+- [x] 01-03: Diff, local store, examples
 
 ### Phase 2: Registry Server
 **Goal**: Teams can deploy a self-hosted registry in under 10 minutes and use it to publish, search, and audit skills remotely
@@ -49,11 +49,11 @@ Plans:
   3. `skillctl search` returns matching skills from the remote registry filtered by namespace, tag, or query string
   4. Every mutating operation (publish, delete) is recorded in the append-only audit log with actor, timestamp, and HMAC signature
   5. Token-based auth correctly scopes access: read-only tokens cannot publish, namespace-scoped tokens cannot write to other namespaces
-**Plans**: TBD
+**Plans**: Complete
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [x] 02-01: FastAPI server, API endpoints, auth, storage, audit log
+- [x] 02-02: Web UI, GitHub backend, device flow auth, Docker
 
 ### Phase 3: Eval Suite
 **Goal**: Developers can evaluate skill quality across safety, functional correctness, and trigger reliability — with A-F certification grades stored in the registry
@@ -65,11 +65,11 @@ Plans:
   3. `skillctl eval report` produces a unified score (40% audit, 40% functional, 20% trigger) with certification tier
   4. `skillctl eval regression` detects score drops between two skill versions and exits non-zero
   5. Eval reports are stored in the registry alongside skill metadata and retrievable via `skillctl show --eval`
-**Plans**: TBD
+**Plans**: Complete
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [x] 03-01: Audit, functional, trigger evaluation engines
+- [x] 03-02: Unified report, regression, compare, lifecycle, HTML reports
 
 ### Phase 4: Skills Gateway (v0.2.0)
 **Goal**: Platform teams can deploy a policy enforcement proxy between agents and MCP servers that controls which agents can invoke which skills at runtime
@@ -113,11 +113,11 @@ Plans:
   3. Plateau detection correctly halts optimization when 3 consecutive cycles produce no improvement
   4. Cost budget enforcement stops the run before exceeding the configured USD limit
   5. Every promoted variant has a full provenance chain: parent version → failure analysis → hypothesis → eval report → promotion decision
-**Plans**: TBD
+**Plans**: Complete
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [x] 06-01: Optimization loop, failure analyzer, variant generator, promotion gate
+- [x] 06-02: Budget tracking, LLM client, provenance store
 
 ### Phase 7: Optimization Governance (v0.3.0)
 **Goal**: Platform teams have full visibility and control over automated skill optimization — audit trails, cost tracking, and publish gates
@@ -128,10 +128,10 @@ Plans:
   2. Optimized skills carry `metadata.optimized_from` linking to source version and run ID
   3. `--dry-run` executes the full loop without promoting or publishing any variant
   4. Registry rejects optimized skills that haven't passed a full eval after optimization (eval-gated publish)
-**Plans**: TBD
+**Plans**: Complete
 
 Plans:
-- [ ] 07-01: TBD
+- [x] 07-01: Audit integration, provenance chain, dry-run, eval-gated publish
 
 ## Progress
 
@@ -142,10 +142,10 @@ v0.3.0: 6 (depends on Phase 3) -> 7 (depends on Phase 6 + Phase 2)
 
 | Phase | Plans Complete | Status | Milestone | Completed |
 |-------|----------------|--------|-----------|-----------|
-| 1. CLI and Local Governance | 0/3 | Not started | v0.1.0 | - |
-| 2. Registry Server | 0/2 | Not started | v0.1.0 | - |
-| 3. Eval Suite | 0/2 | Not started | v0.1.0 | - |
+| 1. CLI and Local Governance | 3/3 | Complete | v0.1.0 | 2026-03-23 |
+| 2. Registry Server | 2/2 | Complete | v0.1.0 | 2026-03-23 |
+| 3. Eval Suite | 2/2 | Complete | v0.1.0 | 2026-03-23 |
 | 4. Skills Gateway | 0/2 | Not started | v0.2.0 | - |
 | 5. Pub/Sub, SDK, Governance | 0/2 | Not started | v0.2.0 | - |
-| 6. Skill Optimizer | 0/2 | Not started | v0.3.0 | - |
-| 7. Optimization Governance | 0/1 | Not started | v0.3.0 | - |
+| 6. Skill Optimizer | 2/2 | Complete | v0.3.0 | 2026-03-24 |
+| 7. Optimization Governance | 1/1 | Complete | v0.3.0 | 2026-03-24 |

@@ -484,11 +484,13 @@ skillctl validate examples/minimal-skill      # auto-wraps with warning
 ```
 skillctl/                  # Governance CLI + registry server
 ├── cli.py                 # CLI entry point (argparse)
+├── diff.py                # Skill version diffing with breaking change detection
 ├── github_auth.py         # GitHub Device Flow (OAuth 2.0)
 ├── manifest.py            # skill.yaml parser + SKILL.md auto-wrapper
 ├── validator.py           # Schema validation, semver, capability checks
 ├── store.py               # Content-addressed local storage (SHA-256)
 ├── errors.py              # Structured errors (what/why/fix)
+├── version.py             # Version info
 ├── registry/              # Self-hostable registry server
 │   ├── server.py          # FastAPI app factory
 │   ├── api.py             # REST API endpoints (/api/v1/*)
@@ -497,26 +499,36 @@ skillctl/                  # Governance CLI + registry server
 │   ├── storage.py         # Content-addressed blob storage (filesystem)
 │   ├── github_backend.py  # GitHub repo-backed storage
 │   ├── audit.py           # HMAC-signed append-only audit log
+│   ├── config.py          # RegistryConfig dataclass
 │   └── web.py             # HTMX web UI (browse, publish, eval, optimize, settings)
 ├── optimize/              # Automated skill optimizer
+│   ├── cli.py             # Optimize subcommands (run, history, diff)
 │   ├── loop.py            # Main optimization loop
 │   ├── failure_analyzer.py
 │   ├── variant_generator.py
 │   ├── promotion_gate.py
 │   ├── budget.py          # Cost tracking and enforcement
+│   ├── llm_client.py      # LLM provider abstraction (Bedrock, Anthropic)
+│   ├── types.py           # OptimizeConfig and run types
+│   ├── eval_runner.py     # Eval integration for optimizer
 │   └── provenance.py      # Run history and artifact storage
 └── eval/                  # Integrated evaluation suite
     ├── cli.py             # Eval CLI (skillctl audit/functional/trigger/...)
+    ├── config.py          # .skilleval.yaml loader
     ├── audit/             # Security + structure scanning
     │   ├── security_scan.py   # 9 security check categories
     │   ├── structure_check.py # agentskills.io spec validation
     │   └── permission_analyzer.py
     ├── functional.py      # Functional quality evaluation
     ├── trigger.py         # Trigger reliability testing
+    ├── grading.py         # Score calculation and A-F grading
     ├── unified_report.py  # Combined scoring (audit + functional + trigger)
+    ├── html_report.py     # HTML report generation
     ├── regression.py      # Baseline comparison
     ├── compare.py         # Side-by-side skill comparison
-    └── lifecycle.py       # Version tracking
+    ├── lifecycle.py       # Version tracking
+    ├── explanations.py    # Educational context for findings
+    └── agent_runner.py    # Agent execution abstraction
 ```
 
 ## Development
@@ -547,8 +559,8 @@ skillctl serve --auth-disabled --port 8080
 
 | Milestone | Scope | Status |
 |-----------|-------|--------|
-| v0.1.0 | CLI + Local Governance → Registry Server → Eval Suite | In progress |
-| v0.2.0 | Skills Gateway → Pub/Sub + SDK + Governance | Planned |
+| v0.1.0 | CLI + Local Governance → Registry Server → Eval Suite | Complete |
+| v0.2.0 | Skills Gateway → Pub/Sub + SDK + Governance | Not started |
 | v0.3.0 | Automated Skill Optimization | Complete |
 
 See [.planning/ROADMAP.md](.planning/ROADMAP.md) for detailed phase breakdowns.
