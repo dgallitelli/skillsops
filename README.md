@@ -1,9 +1,8 @@
 <p align="center">
-  <img src="skillsctl_logo.svg" alt="skillctl logo" width="600" />
+  <img src="skillctl.svg" alt="skillctl logo" width="450" />
 </p>
 
 <p align="center">
-  <strong>skillctl</strong><br>
   <em>What kubectl does for Kubernetes, skillctl does for agent skills.</em>
 </p>
 
