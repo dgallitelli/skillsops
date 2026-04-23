@@ -226,29 +226,3 @@ async def get_current_token(
 
     return token_info
 
-def require_permission(required: str, namespace: str | None = None):
-    """Return a FastAPI dependency that checks a specific permission.
-
-    Usage::
-
-        @router.post("/skills")
-        async def publish(token: TokenInfo = Depends(require_permission("write", "my-org"))):
-            ...
-
-    Raises ``HTTPException(403)`` if the token lacks the required scope.
-    """
-
-    async def _checker(
-        request: Request,
-        token_info: TokenInfo = Depends(get_current_token),
-        auth_manager: AuthManager = Depends(get_auth_manager),
-    ) -> TokenInfo:
-        if not auth_manager.check_permission(token_info, required, namespace):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Insufficient permissions: requires {required}"
-                + (f" for namespace {namespace}" if namespace else ""),
-            )
-        return token_info
-
-    return _checker

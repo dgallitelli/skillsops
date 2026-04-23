@@ -76,10 +76,6 @@ class SchemaValidator:
             warnings=warnings,
         )
 
-    def validate_semver(self, version: str) -> Optional[ValidationIssue]:
-        """Public semver check."""
-        return self._validate_semver(version)
-
     def check_capabilities(
         self, manifest: SkillManifest, content: str
     ) -> list[ValidationIssue]:

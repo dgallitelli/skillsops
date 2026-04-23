@@ -65,6 +65,39 @@ class SkillManifest:
     spec: SkillSpec = field(default_factory=SkillSpec)
     governance: Optional[dict] = None
 
+    def to_dict(self) -> dict:
+        """Serialize to a dict suitable for JSON/YAML output."""
+        d: dict = {
+            "apiVersion": self.api_version,
+            "kind": self.kind,
+            "metadata": {
+                "name": self.metadata.name,
+                "version": self.metadata.version,
+                "description": self.metadata.description,
+                **({"authors": [{"name": a.name, **({"email": a.email} if a.email else {})} for a in self.metadata.authors]} if self.metadata.authors else {}),
+                **({"license": self.metadata.license} if self.metadata.license else {}),
+                **({"tags": self.metadata.tags} if self.metadata.tags else {}),
+            },
+            "spec": {
+                "content": {
+                    **({"path": self.spec.content.path} if self.spec.content.path else {}),
+                    **({"inline": self.spec.content.inline} if self.spec.content.inline else {}),
+                },
+                **({"parameters": [
+                    {"name": p.name, "type": p.type,
+                     **({"required": p.required} if p.required else {}),
+                     **({"default": p.default} if p.default else {}),
+                     **({"description": p.description} if p.description else {}),
+                     **({"values": p.values} if p.values else {})}
+                    for p in self.spec.parameters
+                ]} if self.spec.parameters else {}),
+                "capabilities": list(self.spec.capabilities),
+                **({"dependencies": [{"name": d.name, "version": d.version} for d in self.spec.dependencies]} if self.spec.dependencies else {}),
+            },
+            **({"governance": self.governance} if self.governance else {}),
+        }
+        return d
+
 
 @dataclass
 class Warning:

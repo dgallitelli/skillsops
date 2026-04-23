@@ -205,7 +205,7 @@ class ContentStore:
             data = json.dumps([e.__dict__ for e in index], indent=2)
             os.write(tmp_fd, data.encode())
             os.close(tmp_fd)
-            os.rename(tmp_path, str(self.index_path))
+            os.replace(tmp_path, str(self.index_path))
         except Exception:
             try:
                 os.close(tmp_fd)
@@ -227,33 +227,5 @@ class ContentStore:
 
     def _write_manifest(self, path: Path, manifest: SkillManifest):
         """Write manifest YAML alongside stored content."""
-        data = {
-            "apiVersion": manifest.api_version,
-            "kind": manifest.kind,
-            "metadata": {
-                "name": manifest.metadata.name,
-                "version": manifest.metadata.version,
-                "description": manifest.metadata.description,
-                **({"authors": [{"name": a.name, **({"email": a.email} if a.email else {})} for a in manifest.metadata.authors]} if manifest.metadata.authors else {}),
-                **({"license": manifest.metadata.license} if manifest.metadata.license else {}),
-                **({"tags": manifest.metadata.tags} if manifest.metadata.tags else {}),
-            },
-            "spec": {
-                "parameters": [
-                    {
-                        "name": p.name,
-                        "type": p.type,
-                        **({"required": p.required} if p.required else {}),
-                        **({"default": p.default} if p.default else {}),
-                        **({"description": p.description} if p.description else {}),
-                        **({"values": p.values} if p.values else {}),
-                    }
-                    for p in manifest.spec.parameters
-                ],
-                "capabilities": list(manifest.spec.capabilities),
-                **({"dependencies": [{"name": d.name, "version": d.version} for d in manifest.spec.dependencies]} if manifest.spec.dependencies else {}),
-            },
-            **({"governance": manifest.governance} if manifest.governance else {}),
-        }
         with open(path, "w") as f:
-            yaml.safe_dump(data, f)
+            yaml.safe_dump(manifest.to_dict(), f)

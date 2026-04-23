@@ -39,7 +39,7 @@ def _save_config(config: dict):
     config_path.chmod(0o600)
 
 
-def _get_registry_url(args) -> str:
+def _get_registry_url(args) -> str | None:
     """Resolve registry URL from args > env > config file."""
     url = getattr(args, "registry_url", None)
     if url:
@@ -80,9 +80,9 @@ def _get_registry_token(args) -> str | None:
 
 
 def _load_github_token() -> str | None:
-    """Load GitHub token from config file (set by 'skillctl login')."""
-    cfg = _load_config()
-    return cfg.get("github", {}).get("token")
+    """Load GitHub token from env > config file."""
+    from skillctl.github_auth import load_github_token
+    return load_github_token()
 
 
 from skillctl.utils import parse_ref as _parse_ref
@@ -1183,44 +1183,33 @@ def cmd_logout():
 # ---------------------------------------------------------------------------
 
 def _publish_to_registry(args, manifest, content: str, registry_url: str):
-    """Publish a skill to the remote registry using httpx."""
-    import httpx
+    """Publish a skill to the remote registry."""
+    import secrets as _secrets
 
     token = _get_registry_token(args)
+    manifest_dict = manifest.to_dict()
 
-    manifest_dict = {
-        "apiVersion": manifest.api_version,
-        "kind": manifest.kind,
-        "metadata": {
-            "name": manifest.metadata.name,
-            "version": manifest.metadata.version,
-            "description": manifest.metadata.description,
-            "tags": manifest.metadata.tags,
-            "authors": [
-                {"name": a.name, **({"email": a.email} if a.email else {})}
-                for a in manifest.metadata.authors
-            ],
-            **({"license": manifest.metadata.license} if manifest.metadata.license else {}),
-        },
-        "spec": {
-            "content": {
-                **({"path": manifest.spec.content.path} if manifest.spec.content.path else {}),
-                **({"inline": manifest.spec.content.inline} if manifest.spec.content.inline else {}),
-            },
-            "capabilities": manifest.spec.capabilities,
-        },
-    }
+    boundary = f"----skillctl-{_secrets.token_hex(16)}"
+    manifest_json = json.dumps(manifest_dict)
 
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    parts = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="manifest"\r\n'
+        f"Content-Type: application/json\r\n"
+        f"\r\n"
+        f"{manifest_json}\r\n"
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="content"; filename="SKILL.md"\r\n'
+        f"Content-Type: application/octet-stream\r\n"
+        f"\r\n"
+    )
+    body = parts.encode() + content.encode() + f"\r\n--{boundary}--\r\n".encode()
 
     url = f"{registry_url}/api/v1/skills"
-    resp = httpx.post(
-        url,
-        data={"manifest": json.dumps(manifest_dict)},
-        files={"content": ("SKILL.md", content.encode(), "application/octet-stream")},
-        headers=headers,
-        timeout=30.0,
-    )
-    resp.raise_for_status()
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        resp.read()

@@ -18,6 +18,20 @@ def parse_ref(ref: str) -> tuple[str, str]:
             fix="Use format: namespace/skill-name@1.0.0",
         )
     name, version = ref.rsplit("@", 1)
+    if not name:
+        raise SkillctlError(
+            code="E_BAD_REF",
+            what=f"Invalid reference: {ref} (missing name)",
+            why="A reference must have a name before the @ sign",
+            fix="Use format: namespace/skill-name@1.0.0",
+        )
+    if not version:
+        raise SkillctlError(
+            code="E_BAD_REF",
+            what=f"Invalid reference: {ref} (missing version)",
+            why="A reference must have a version after the @ sign",
+            fix="Use format: namespace/skill-name@1.0.0",
+        )
     return name, version
 
 
