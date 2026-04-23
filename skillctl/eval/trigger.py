@@ -403,8 +403,8 @@ def _build_trigger_report(
         "total_queries": total,
         "passed": total_pass,
         "failed": total - total_pass,
-        "trigger_precision": round(trigger_pass / len(should_trigger), 4) if should_trigger else 1.0,
-        "no_trigger_precision": round(no_trigger_pass / len(should_not_trigger), 4) if should_not_trigger else 1.0,
+        "trigger_recall": round(trigger_pass / len(should_trigger), 4) if should_trigger else 1.0,
+        "no_trigger_recall": round(no_trigger_pass / len(should_not_trigger), 4) if should_not_trigger else 1.0,
         "mean_total_tokens_per_run": mean_total_tokens_per_run,
     }
 
@@ -445,8 +445,8 @@ def _print_trigger_report(report: TriggerReport) -> None:
     print(f"  Queries:    {summary.get('total_queries', 0)}")
     print(f"  Passed:     {summary.get('passed', 0)}")
     print(f"  Failed:     {summary.get('failed', 0)}")
-    print(f"  Trigger precision:    {summary.get('trigger_precision', 0):.1%}")
-    print(f"  No-trigger precision: {summary.get('no_trigger_precision', 0):.1%}")
+    print(f"  Trigger recall:       {summary.get('trigger_recall', 0):.1%}")
+    print(f"  No-trigger recall:    {summary.get('no_trigger_recall', 0):.1%}")
     print(f"{'─' * w}")
 
     for qr in report.query_results:

@@ -68,8 +68,11 @@ def evaluate_skill(
 
     finally:
         # --- Guaranteed restoration of original SKILL.md ---
-        if content is not None and original_content is not None:
-            skill_md.write_text(original_content)
+        if content is not None:
+            if original_content is not None:
+                skill_md.write_text(original_content)
+            elif skill_md.is_file():
+                skill_md.unlink()
 
 
 # ---------------------------------------------------------------------------

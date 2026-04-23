@@ -33,6 +33,7 @@ def _resolve_hmac_key(config: RegistryConfig, data_dir: Path) -> bytes:
 
     key = secrets.token_bytes(32)
     key_path.write_bytes(key)
+    key_path.chmod(0o600)
     return key
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from skillctl.eval.errors import EvalError
 from skillctl.eval.schemas import AuditReport, Finding, calculate_score, calculate_grade
 from skillctl.eval.audit.structure_check import check_structure
-from skillctl.eval.audit.security_scan import scan_security, SAFE_DOMAINS
+from skillctl.eval.audit.security_scan import scan_security
 from skillctl.eval.audit.permission_analyzer import analyze_permissions
 from skillctl.eval.config import load_config, apply_config, AuditConfig
 from skillctl.eval.report import format_text_report, format_json_report
@@ -51,59 +51,50 @@ def run_audit(
     if ignore_codes:
         all_ignore.update(ignore_codes)
 
-    # Temporarily extend safe domains if provided
-    added_domains: set[str] = set()
-    for d in all_safe_domains:
-        if d not in SAFE_DOMAINS:
-            SAFE_DOMAINS.add(d)
-            added_domains.add(d)
+    all_findings: list[Finding] = []
+    frontmatter = None
 
-    try:
-        all_findings: list[Finding] = []
-        frontmatter = None
+    # 1. Structure check
+    structure_findings, frontmatter, body_start = check_structure(path)
+    all_findings.extend(structure_findings)
 
-        # 1. Structure check
-        structure_findings, frontmatter, body_start = check_structure(path)
-        all_findings.extend(structure_findings)
+    # 2. Security scan (pass safe domains as parameter instead of mutating global)
+    security_findings = scan_security(
+        path, include_all=include_all,
+        extra_safe_domains=all_safe_domains if all_safe_domains else None,
+    )
+    all_findings.extend(security_findings)
 
-        # 2. Security scan
-        security_findings = scan_security(path, include_all=include_all)
-        all_findings.extend(security_findings)
+    # 3. Permission analysis
+    permission_findings = analyze_permissions(path, frontmatter=frontmatter)
+    all_findings.extend(permission_findings)
 
-        # 3. Permission analysis
-        permission_findings = analyze_permissions(path, frontmatter=frontmatter)
-        all_findings.extend(permission_findings)
+    # Apply .skilleval.yaml config (ignore codes, severity overrides)
+    all_findings = apply_config(all_findings, config)
 
-        # Apply .skilleval.yaml config (ignore codes, severity overrides)
-        all_findings = apply_config(all_findings, config)
+    # Filter out CLI-provided ignored codes (on top of config)
+    if all_ignore:
+        all_findings = [f for f in all_findings if f.code not in all_ignore]
 
-        # Filter out CLI-provided ignored codes (on top of config)
-        if all_ignore:
-            all_findings = [f for f in all_findings if f.code not in all_ignore]
+    # Calculate score and grade
+    score = calculate_score(all_findings)
+    grade = calculate_grade(score)
 
-        # Calculate score and grade
-        score = calculate_score(all_findings)
-        grade = calculate_grade(score)
+    skill_name = frontmatter.get("name", path.name) if frontmatter else path.name
 
-        skill_name = frontmatter.get("name", path.name) if frontmatter else path.name
-
-        report = AuditReport(
-            skill_name=skill_name,
-            skill_path=str(path),
-            score=score,
-            grade=grade,
-            findings=all_findings,
-            metadata={
-                "structure_findings": sum(1 for f in all_findings if f.code.startswith("STR")),
-                "security_findings": sum(1 for f in all_findings if f.code.startswith("SEC")),
-                "permission_findings": sum(1 for f in all_findings if f.code.startswith("PERM")),
-            },
-        )
-        return report
-    finally:
-        # Restore safe domains
-        for d in added_domains:
-            SAFE_DOMAINS.discard(d)
+    report = AuditReport(
+        skill_name=skill_name,
+        skill_path=str(path),
+        score=score,
+        grade=grade,
+        findings=all_findings,
+        metadata={
+            "structure_findings": sum(1 for f in all_findings if f.code.startswith("STR")),
+            "security_findings": sum(1 for f in all_findings if f.code.startswith("SEC")),
+            "permission_findings": sum(1 for f in all_findings if f.code.startswith("PERM")),
+        },
+    )
+    return report
 
 
 def main(argv: list[str] | None = None) -> int:

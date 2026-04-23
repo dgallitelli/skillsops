@@ -36,6 +36,7 @@ def _save_config(config: dict):
     config_path = Path.home() / ".skillctl" / "config.yaml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(yaml.dump(config, default_flow_style=False))
+    config_path.chmod(0o600)
 
 
 def _get_registry_url(args) -> str:
@@ -54,13 +55,16 @@ def _get_registry_url(args) -> str:
 
 
 def _require_registry_url(args) -> str:
-    """Resolve registry URL, exit if not configured."""
+    """Resolve registry URL, raise SkillctlError if not configured."""
     url = _get_registry_url(args)
     if url:
         return url
-    print("Error: No registry URL configured.", file=sys.stderr)
-    print("  Fix: Run 'skillctl config set registry.url <url>' or set SKILLCTL_REGISTRY_URL", file=sys.stderr)
-    sys.exit(1)
+    raise SkillctlError(
+        code="E_NO_REGISTRY",
+        what="No registry URL configured",
+        why="This command requires a registry URL to communicate with the remote registry",
+        fix="Run 'skillctl config set registry.url <url>' or set SKILLCTL_REGISTRY_URL",
+    )
 
 
 def _get_registry_token(args) -> str | None:
@@ -470,6 +474,15 @@ def cmd_create_skill(args):
         f'Add skill instructions here.\n'
     )
 
+    for fname in ("skill.yaml", "SKILL.md"):
+        if Path(fname).exists():
+            raise SkillctlError(
+                code="E_FILE_EXISTS",
+                what=f"{fname} already exists in the current directory",
+                why="Creating a skill would overwrite your existing file",
+                fix=f"Remove {fname} first, or run this command in an empty directory",
+            )
+
     Path("skill.yaml").write_text(skill_yaml)
     Path("SKILL.md").write_text(skill_md)
     print(f"✓ Skill scaffolded: skill.yaml + SKILL.md")
@@ -771,7 +784,7 @@ def cmd_validate(args):
 
     if getattr(args, "json", False):
         output = {
-            "valid": result.valid and len(cap_warnings) == 0,
+            "valid": result.valid,
             "errors": [
                 {"code": e.code, "message": e.message, "path": e.path, "hint": e.hint}
                 for e in result.errors
@@ -853,8 +866,8 @@ def cmd_doctor(args):
             print(f"  ✗ Local store: {store_path} (not readable)")
             errors_count += 1
     else:
-        print(f"  ✗ Local store: {store_path} (not found)")
-        errors_count += 1
+        print(f"  ⚠ Local store: {store_path} (not found — no skills pushed yet)")
+        warnings_count += 1
 
     # 3. Store index is valid JSON
     index_path = Path.home() / ".skillctl" / "index.json"
@@ -1162,7 +1175,8 @@ def _publish_to_registry(args, manifest, content: str, registry_url: str):
     """Publish a skill to the remote registry."""
     token = _get_registry_token(args)
 
-    boundary = "----skillctl-publish-boundary"
+    import secrets as _secrets
+    boundary = f"----skillctl-{_secrets.token_hex(16)}"
     body = _build_multipart_body(boundary, manifest, content)
 
     url = f"{registry_url}/api/v1/skills"

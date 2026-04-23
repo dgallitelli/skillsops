@@ -85,8 +85,12 @@ class FilesystemBackend(StorageBackend):
 
     # -- helpers -------------------------------------------------------------
 
+    _HASH_RE = __import__("re").compile(r"[0-9a-f]{64}\Z")
+
     def _blob_path(self, content_hash: str) -> Path:
         """Return ``blobs/<first-two-chars>/<full-hash>``."""
+        if not self._HASH_RE.match(content_hash):
+            raise ValueError(f"Invalid content hash: {content_hash!r}")
         return self._blobs_dir / content_hash[:2] / content_hash
 
     @staticmethod
@@ -110,10 +114,11 @@ class FilesystemBackend(StorageBackend):
         try:
             os.write(fd, content)
             os.fsync(fd)
+        finally:
             os.close(fd)
-            os.rename(tmp_path, dest)
+        try:
+            os.replace(tmp_path, dest)
         except BaseException:
-            os.close(fd) if not os.get_inheritable(fd) else None  # pragma: no cover
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
             raise

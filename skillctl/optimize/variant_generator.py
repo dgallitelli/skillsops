@@ -43,6 +43,9 @@ def generate_variants(
     parent_hash = hashlib.sha256(skill_content.encode()).hexdigest()
     variants: list[Variant] = []
 
+    if not failure_analysis.weaknesses:
+        return []
+
     for i in range(num_variants):
         # Round-robin weakness assignment
         weakness = failure_analysis.weaknesses[i % len(failure_analysis.weaknesses)]

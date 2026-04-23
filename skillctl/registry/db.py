@@ -292,10 +292,8 @@ class MetadataDB:
     @staticmethod
     def _sanitize_fts_query(query: str) -> str:
         """Escape special FTS5 characters so arbitrary user input is safe."""
-        # Wrap each token in double quotes to treat it as a literal phrase
-        # This avoids FTS5 syntax errors from characters like +, -, *, etc.
         tokens = query.split()
-        return " ".join(f'"{t}"' for t in tokens) if tokens else '""'
+        return " ".join(f'"{t.replace(chr(34), chr(34)+chr(34))}"' for t in tokens) if tokens else '""'
 
     def _build_search(
         self,

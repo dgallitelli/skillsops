@@ -290,26 +290,27 @@ def _scan_file_for_secrets(file_path: Path, content: str) -> list[Finding]:
     return findings
 
 
-def _scan_file_for_urls(file_path: Path, content: str) -> list[Finding]:
+def _scan_file_for_urls(file_path: Path, content: str, extra_safe_domains: set[str] | None = None) -> list[Finding]:
     """Scan a file for external URLs."""
     findings = []
     seen_urls = set()
-    
+    all_safe = SAFE_DOMAINS | (extra_safe_domains or set())
+
     for line_num, line in enumerate(content.split("\n"), 1):
         for match in URL_PATTERN.finditer(line):
             url = match.group(0).rstrip(".,;:)]}'\"")
             if url in seen_urls:
                 continue
             seen_urls.add(url)
-            
+
             # Extract domain
             domain_match = re.match(r"https?://([^/:]+)", url)
             if not domain_match:
                 continue
             domain = domain_match.group(1).lower()
-            
+
             # Skip safe domains (exact match or proper subdomain)
-            if any(domain == safe or domain.endswith("." + safe) for safe in SAFE_DOMAINS):
+            if any(domain == safe or domain.endswith("." + safe) for safe in all_safe):
                 continue
             
             # Check if it's in a script (higher risk) vs documentation/comments (lower risk)
@@ -664,7 +665,7 @@ def _iter_scan_files(
     return files
 
 
-def scan_security(skill_path: str | Path, include_all: bool = False) -> list[Finding]:
+def scan_security(skill_path: str | Path, include_all: bool = False, extra_safe_domains: set[str] | None = None) -> list[Finding]:
     """Run all security scans on a skill directory.
     
     By default, scans only skill-standard directories (SKILL.md, scripts/,
@@ -696,7 +697,7 @@ def scan_security(skill_path: str | Path, include_all: bool = False) -> list[Fin
         
         # Run all scanners
         findings.extend(_scan_file_for_secrets(file_path, content))
-        findings.extend(_scan_file_for_urls(file_path, content))
+        findings.extend(_scan_file_for_urls(file_path, content, extra_safe_domains=extra_safe_domains))
         findings.extend(_scan_file_for_subprocess(file_path, content))
         findings.extend(_scan_file_for_installs(file_path, content))
         findings.extend(_scan_file_for_deserialization(file_path, content))

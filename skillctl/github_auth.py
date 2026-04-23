@@ -175,6 +175,7 @@ def save_github_token(token: str) -> None:
 
     cfg.setdefault("github", {})["token"] = token
     config_path.write_text(yaml.dump(cfg, default_flow_style=False))
+    config_path.chmod(0o600)
 
 
 def load_github_token() -> str | None:

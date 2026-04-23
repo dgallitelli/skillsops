@@ -119,6 +119,13 @@ class ManifestLoader:
         """Parse skill.yaml into SkillManifest."""
         with open(path) as f:
             raw = yaml.safe_load(f)
+        if not raw or not isinstance(raw, dict):
+            raise SkillctlError(
+                code="E_INVALID_YAML",
+                what=f"{path} is empty or not a YAML mapping",
+                why="skill.yaml must contain a YAML document with at least metadata and spec keys",
+                fix="Ensure the file is a valid YAML mapping, e.g. 'apiVersion: skillctl.io/v1'",
+            )
         return self._dict_to_manifest(raw)
 
     def _wrap_markdown(self, path: Path) -> tuple[SkillManifest, Warning]:
@@ -142,9 +149,17 @@ class ManifestLoader:
         spec_raw = raw.get("spec", {})
         content_raw = spec_raw.get("content", {})
 
-        authors = [Author(**a) for a in meta_raw.get("authors", [])]
-        params = [Parameter(**p) for p in spec_raw.get("parameters", [])]
-        deps = [Dependency(**d) for d in spec_raw.get("dependencies", [])]
+        try:
+            authors = [Author(**a) for a in meta_raw.get("authors", [])]
+            params = [Parameter(**p) for p in spec_raw.get("parameters", [])]
+            deps = [Dependency(**d) for d in spec_raw.get("dependencies", [])]
+        except TypeError as exc:
+            raise SkillctlError(
+                code="E_MANIFEST_FIELDS",
+                what=f"Unexpected fields in skill.yaml: {exc}",
+                why="Each section in skill.yaml must only contain recognized fields",
+                fix="Check the skill.yaml spec for allowed fields in authors, parameters, and dependencies",
+            ) from exc
         content = ContentRef(
             path=content_raw.get("path"),
             inline=content_raw.get("inline"),

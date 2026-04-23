@@ -68,12 +68,12 @@ def test_doctor_clean_environment(monkeypatch, tmp_path):
 # -- Doctor detects missing store directory --------------------------------
 
 def test_doctor_missing_store(monkeypatch, tmp_path):
-    """Doctor flags missing store directory as an error."""
+    """Doctor flags missing store directory as a warning (fresh install)."""
     # Empty home — no .skillctl directory at all
     output, exit_code = _run_doctor(monkeypatch, tmp_path)
 
     assert "not found" in output
-    assert exit_code == 1
+    assert exit_code == 0
 
 
 # -- Doctor detects invalid index ------------------------------------------

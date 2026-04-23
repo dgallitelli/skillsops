@@ -25,7 +25,7 @@ class LLMClient:
             import anthropic
 
             self.model = model or "claude-sonnet-4-6"
-            self.client = anthropic.Anthropic()
+            self.client = anthropic.AnthropicBedrock()
         else:
             raise SkillctlError(
                 code="E_BAD_PROVIDER",

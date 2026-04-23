@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-from skillctl.manifest import ContentRef, SkillManifest
+from skillctl.manifest import ContentRef, KNOWN_CAPABILITIES, SkillManifest
 
 SEMVER_PATTERN = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
@@ -66,6 +66,9 @@ class SchemaValidator:
         content_issue = self._validate_content_ref(manifest.spec.content)
         if content_issue:
             errors.append(content_issue)
+
+        cap_warnings = self._validate_capabilities(manifest.spec.capabilities)
+        warnings.extend(cap_warnings)
 
         return ValidationResult(
             valid=len(errors) == 0,
@@ -200,6 +203,21 @@ class SchemaValidator:
                     )
                 )
         return errors
+
+    def _validate_capabilities(self, capabilities: list) -> list[ValidationIssue]:
+        warnings: list[ValidationIssue] = []
+        for i, cap in enumerate(capabilities):
+            if cap not in KNOWN_CAPABILITIES:
+                warnings.append(
+                    ValidationIssue(
+                        code="VAL-CAP-UNKNOWN",
+                        message=f"Unknown capability '{cap}'",
+                        path=f"spec.capabilities[{i}]",
+                        hint=f"Known capabilities: {', '.join(sorted(KNOWN_CAPABILITIES))}",
+                        severity="warning",
+                    )
+                )
+        return warnings
 
     def _validate_content_ref(self, content: ContentRef) -> Optional[ValidationIssue]:
         if content.path and content.inline:

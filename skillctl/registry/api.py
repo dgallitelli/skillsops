@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -123,7 +124,7 @@ def _record_to_detail(r: SkillRecord, versions: list[str]) -> SkillDetail:
     )
 
 
-def _error_response(status: int, code: str, what: str, why: str, fix: str):
+def _error_response(status: int, code: str, what: str, why: str, fix: str) -> None:
     raise HTTPException(
         status_code=status,
         detail=ErrorResponse(code=code, what=what, why=why, fix=fix).model_dump(),
@@ -199,8 +200,14 @@ async def publish_skill(
                         "A skill with this name and version is already published",
                         "Bump the version in your manifest and retry")
 
-    # Store blob
-    content_bytes = await content.read()
+    # Store blob (enforce 50 MB upload limit)
+    max_size = 50 * 1024 * 1024
+    content_bytes = await content.read(max_size + 1)
+    if len(content_bytes) > max_size:
+        _error_response(413, "E_TOO_LARGE",
+                        f"Upload exceeds maximum size of {max_size // (1024*1024)} MB",
+                        "Skill content files should be small text files",
+                        "Reduce the size of your SKILL.md and related content")
 
     github_backend = getattr(request.app.state, "github_backend", None)
     if github_backend is not None:
@@ -235,7 +242,13 @@ async def publish_skill(
         license=parsed.metadata.license,
         manifest_json=json.dumps(manifest_dict),
     )
-    db.insert_skill(record)
+    try:
+        db.insert_skill(record)
+    except sqlite3.IntegrityError:
+        _error_response(409, "E_ALREADY_EXISTS",
+                        f"Skill {parsed.metadata.name}@{parsed.metadata.version} already exists",
+                        "A concurrent publish created this version first",
+                        "Bump the version in your manifest and retry")
 
     # Audit log
     audit.log(
@@ -259,8 +272,8 @@ async def list_skills(
     q: str | None = None,
     namespace: str | None = None,
     tag: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     token: TokenInfo = Depends(get_current_token),
 ):
     db: MetadataDB = request.app.state.db

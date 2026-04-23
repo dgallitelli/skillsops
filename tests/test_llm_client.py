@@ -16,6 +16,7 @@ from skillctl.optimize.types import LLMResponse
 # even when the real package isn't installed.
 _fake_anthropic = types.ModuleType("anthropic")
 _fake_anthropic.Anthropic = MagicMock  # type: ignore[attr-defined]
+_fake_anthropic.AnthropicBedrock = MagicMock  # type: ignore[attr-defined]
 
 
 @pytest.fixture(autouse=True)
@@ -43,14 +44,14 @@ class TestLLMClientInit:
 
     def test_anthropic_provider(self):
         mock_cls = MagicMock()
-        _fake_anthropic.Anthropic = mock_cls  # type: ignore[attr-defined]
+        _fake_anthropic.AnthropicBedrock = mock_cls  # type: ignore[attr-defined]
         client = LLMClient(provider="anthropic")
         assert client.provider == "anthropic"
         assert client.model == "claude-sonnet-4-6"
         mock_cls.assert_called_once()
 
     def test_anthropic_custom_model(self):
-        _fake_anthropic.Anthropic = MagicMock()  # type: ignore[attr-defined]
+        _fake_anthropic.AnthropicBedrock = MagicMock()  # type: ignore[attr-defined]
         client = LLMClient(provider="anthropic", model="custom-anthropic-model")
         assert client.model == "custom-anthropic-model"
 
@@ -95,7 +96,7 @@ class TestLLMClientCallAnthropic:
 
     def test_call_anthropic_returns_llm_response(self):
         mock_anthropic = MagicMock()
-        _fake_anthropic.Anthropic = MagicMock(return_value=mock_anthropic)  # type: ignore[attr-defined]
+        _fake_anthropic.AnthropicBedrock = MagicMock(return_value=mock_anthropic)  # type: ignore[attr-defined]
 
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="Hello from Anthropic")]
