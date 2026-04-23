@@ -52,10 +52,10 @@ class TestBedrockLLMClient:
         assert data["status"] == "ok"
         assert data["count"] == 42
 
-    def test_uses_opus_model(self):
+    def test_uses_bedrock_opus_model(self):
         client = _make_llm_client()
-        assert "opus" in client.model.lower()
-        assert "us.anthropic" in client.model
+        assert client.model.startswith("bedrock/")
+        assert "opus" in client.model
 
 
 # ===================================================================
@@ -154,13 +154,13 @@ class TestCostEstimation:
     def test_opus_model_has_pricing(self):
         from skillctl.eval.cost import estimate_cost
 
-        cost = estimate_cost(1000, 500, "us.anthropic.claude-opus-4-6-v1")
+        cost = estimate_cost(1000, 500, "bedrock/us.anthropic.claude-opus-4-6-v1")
         assert cost["total_cost"] > 0
-        assert cost["model"] == "us.anthropic.claude-opus-4-6-v1"
+        assert cost["model"] == "bedrock/us.anthropic.claude-opus-4-6-v1"
 
     def test_opus_pricing_matches_expected(self):
         from skillctl.eval.cost import MODEL_PRICING
 
-        pricing = MODEL_PRICING["us.anthropic.claude-opus-4-6-v1"]
+        pricing = MODEL_PRICING["bedrock/us.anthropic.claude-opus-4-6-v1"]
         assert pricing["input"] == 15.00
         assert pricing["output"] == 75.00

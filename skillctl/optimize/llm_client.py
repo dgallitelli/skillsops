@@ -1,4 +1,11 @@
-"""LLM client for skillctl — uses Amazon Bedrock via the Anthropic SDK."""
+"""LLM client for skillctl — provider-agnostic via LiteLLM.
+
+Supports any model backend: Amazon Bedrock, OpenAI, Anthropic, Google,
+Ollama, Azure, and 100+ others. See https://docs.litellm.ai/docs/providers
+for the full list and model name prefixes.
+
+Default: bedrock/us.anthropic.claude-opus-4-6-v1 (Claude Opus on Bedrock).
+"""
 
 from __future__ import annotations
 
@@ -7,20 +14,17 @@ import time
 from skillctl.errors import SkillctlError
 from skillctl.optimize.types import LLMResponse
 
-DEFAULT_MODEL = "us.anthropic.claude-opus-4-6-v1"
+DEFAULT_MODEL = "bedrock/us.anthropic.claude-opus-4-6-v1"
 
-_RETRY_DELAYS = [1, 4, 16]  # exponential backoff: 1s, 4s, 16s
+_RETRY_DELAYS = [1, 4, 16]
 _MAX_RETRIES = 3
 
 
 class LLMClient:
-    """LLM client that calls Claude via Amazon Bedrock (AnthropicBedrock SDK)."""
+    """Provider-agnostic LLM client via LiteLLM."""
 
-    def __init__(self, model: str | None = None, region: str = "us-east-1"):
-        import anthropic
-
+    def __init__(self, model: str | None = None):
         self.model = model or DEFAULT_MODEL
-        self.client = anthropic.AnthropicBedrock(aws_region=region)
 
     def call(self, system: str, prompt: str, max_tokens: int = 4096) -> LLMResponse:
         """Send a prompt and return structured response with usage stats.
@@ -38,14 +42,20 @@ class LLMClient:
         raise last_exc  # type: ignore[misc]
 
     def _call(self, system: str, prompt: str, max_tokens: int) -> LLMResponse:
-        response = self.client.messages.create(
+        import litellm
+
+        response = litellm.completion(
             model=self.model,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
             max_tokens=max_tokens,
         )
+        choice = response.choices[0]
+        usage = response.usage
         return LLMResponse(
-            content=response.content[0].text,
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
+            content=choice.message.content,
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
         )

@@ -49,7 +49,7 @@ skillctl serve --auth-disabled           # start registry server
 - Old commands (init, push, pull, list, publish, search) are kept as aliases
 - Tests go in `tests/test_<module>.py` — integration tests use real SQLite/filesystem, Bedrock tests use `@pytest.mark.integration`
 - Dependencies: core needs only pyyaml. Server/optimizer deps are optional groups.
-- LLM calls use Amazon Bedrock via `anthropic.AnthropicBedrock`. Default model: `us.anthropic.claude-opus-4-6-v1`.
+- LLM calls use LiteLLM (provider-agnostic). Default model: `bedrock/us.anthropic.claude-opus-4-6-v1`. Supports any LiteLLM provider (openai/, anthropic/, ollama/, etc.).
 
 ## Branches
 

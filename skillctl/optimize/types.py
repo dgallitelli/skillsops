@@ -19,8 +19,7 @@ class OptimizeConfig:
     max_iterations: int = 50
     plateau_limit: int = 3
     budget_usd: float = 10.0
-    model: str = "us.anthropic.claude-opus-4-6-v1"
-    aws_region: str = "us-east-1"
+    model: str = "bedrock/us.anthropic.claude-opus-4-6-v1"
     approve: bool = False
     dry_run: bool = False
     timeout: int = 120

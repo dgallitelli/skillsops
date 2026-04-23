@@ -38,7 +38,7 @@ git clone https://github.com/dgallitelli/skillctl.git
 cd skillctl
 pip install .                # core CLI
 pip install ".[server]"      # + registry server (FastAPI)
-pip install ".[optimize]"    # + optimizer (requires AWS creds)
+pip install ".[optimize]"    # + optimizer (LiteLLM — supports Bedrock, OpenAI, Ollama, etc.)
 ```
 
 ### Create your first skill
@@ -464,8 +464,7 @@ skillctl optimize ./my-skill --budget 5.0 --max-iterations 20
 | `--budget` | 10.0 | Maximum spend in USD |
 | `--timeout` | 120 | Evaluation timeout in seconds |
 | `--agent` | claude | Agent to use for evaluation |
-| `--model` | us.anthropic.claude-opus-4-6-v1 | Bedrock model ID |
-| `--region` | us-east-1 | AWS region for Bedrock |
+| `--model` | bedrock/us.anthropic.claude-opus-4-6-v1 | LiteLLM model ID (any provider) |
 | `--approve` | false | Auto-approve promotions without confirmation |
 | `--dry-run` | false | Run the loop without writing changes |
 

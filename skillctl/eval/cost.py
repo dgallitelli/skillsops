@@ -9,31 +9,18 @@ from __future__ import annotations
 # Pricing per 1M tokens (USD) — updated as of March 2025.
 # Users can override via --model flag or environment variable.
 MODEL_PRICING: dict[str, dict[str, float]] = {
-    # Anthropic Claude models (direct API)
-    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    # LiteLLM model IDs (provider/model format)
+    "bedrock/us.anthropic.claude-opus-4-6-v1": {"input": 15.00, "output": 75.00},
+    "bedrock/us.anthropic.claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0": {"input": 0.80, "output": 4.00},
+    "anthropic/claude-opus-4-6": {"input": 15.00, "output": 75.00},
+    "anthropic/claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "openai/gpt-4o": {"input": 2.50, "output": 10.00},
+    "openai/gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    # Bare model names (for backward compat and convenience)
     "claude-opus-4-6": {"input": 15.00, "output": 75.00},
-    "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
-    "claude-opus-4-20250514": {"input": 15.00, "output": 75.00},
-    "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
-    "claude-3-5-sonnet-20241022": {"input": 3.00, "output": 15.00},
-    "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.00},
-    "claude-3-opus-20240229": {"input": 15.00, "output": 75.00},
-    "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
-    # Amazon Bedrock model IDs (in-region and cross-region inference profiles)
-    "anthropic.claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
-    "us.anthropic.claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
-    "anthropic.claude-opus-4-6-v1": {"input": 15.00, "output": 75.00},
-    "us.anthropic.claude-opus-4-6-v1": {"input": 15.00, "output": 75.00},
-    "us.anthropic.claude-opus-4-6-v1:0": {"input": 15.00, "output": 75.00},
-    "anthropic.claude-sonnet-4-5-20250929-v1:0": {"input": 3.00, "output": 15.00},
-    "us.anthropic.claude-sonnet-4-5-20250929-v1:0": {"input": 3.00, "output": 15.00},
-    "anthropic.claude-sonnet-4-20250514-v1:0": {"input": 3.00, "output": 15.00},
-    "us.anthropic.claude-sonnet-4-20250514-v1:0": {"input": 3.00, "output": 15.00},
-    "anthropic.claude-opus-4-20250514-v1:0": {"input": 15.00, "output": 75.00},
-    "us.anthropic.claude-opus-4-20250514-v1:0": {"input": 15.00, "output": 75.00},
-    "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {"input": 3.00, "output": 15.00},
-    "us.anthropic.claude-3-5-haiku-20241022-v1:0": {"input": 0.80, "output": 4.00},
-    # Aliases for convenience
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "gpt-4o": {"input": 2.50, "output": 10.00},
     "sonnet": {"input": 3.00, "output": 15.00},
     "opus": {"input": 15.00, "output": 75.00},
     "haiku": {"input": 0.80, "output": 4.00},

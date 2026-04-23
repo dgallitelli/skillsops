@@ -23,8 +23,7 @@ server = [
     "python-multipart>=0.0.9",
 ]
 optimize = [
-    "boto3>=1.34",
-    "anthropic>=0.40",
+    "litellm>=1.60",
 ]
 dev = [
     "pytest>=7.0",

@@ -161,7 +161,7 @@ Run with `skillctl optimize ./my-skill`. Uses Claude Opus on Amazon Bedrock.
 | Module | Purpose |
 |--------|---------|
 | `loop.py` | Core optimization loop. Orchestrates analyze -> generate -> eval -> promote cycles. |
-| `llm_client.py` | `AnthropicBedrock` SDK client. Default model: `us.anthropic.claude-opus-4-6-v1`. Exponential backoff retries. |
+| `llm_client.py` | Provider-agnostic LLM client via LiteLLM. Default: `bedrock/us.anthropic.claude-opus-4-6-v1`. Supports any LiteLLM provider. Exponential backoff retries. |
 | `types.py` | `OptimizeConfig`, `Variant`, `CycleRecord`, `FailureAnalysis`, `PromotionDecision`, `ProvenanceEntry`. |
 | `variant_generator.py` | Prompts the LLM to rewrite SKILL.md targeting specific weaknesses. Round-robin weakness assignment. |
 | `failure_analyzer.py` | Prompts the LLM to identify root causes from eval results. |
@@ -251,6 +251,13 @@ skillctl serve                 Equivalent to: uvicorn skillctl.registry.server:c
 
 ## LLM Provider
 
-All LLM calls use **Amazon Bedrock** via the `anthropic.AnthropicBedrock` SDK. The default model is `us.anthropic.claude-opus-4-6-v1` (cross-region inference profile). Authentication uses the standard AWS credential chain.
+All LLM calls go through **LiteLLM**, a provider-agnostic completion library. The default model is `bedrock/us.anthropic.claude-opus-4-6-v1` (Claude Opus on Amazon Bedrock). Users can switch to any supported provider by passing a different `--model`:
 
-There is no direct Anthropic API path — Bedrock is the only supported provider.
+```bash
+skillctl optimize ./my-skill --model bedrock/us.anthropic.claude-opus-4-6-v1  # default
+skillctl optimize ./my-skill --model openai/gpt-4o
+skillctl optimize ./my-skill --model anthropic/claude-sonnet-4-6
+skillctl optimize ./my-skill --model ollama/llama3
+```
+
+Authentication is provider-specific (AWS credential chain for Bedrock, `OPENAI_API_KEY` for OpenAI, etc.). See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for the full list.

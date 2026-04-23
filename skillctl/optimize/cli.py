@@ -25,8 +25,9 @@ def _build_run_parser():
     p.add_argument("--max-iterations", type=int, default=50)
     p.add_argument("--plateau", type=int, default=3)
     p.add_argument("--budget", type=float, default=10.0)
-    p.add_argument("--model", default=None, help="Bedrock model ID (default: us.anthropic.claude-opus-4-6-v1)")
-    p.add_argument("--region", default="us-east-1")
+    p.add_argument("--model", default=None,
+                   help="LiteLLM model ID (default: bedrock/us.anthropic.claude-opus-4-6-v1). "
+                        "Examples: openai/gpt-4o, anthropic/claude-sonnet-4-6, ollama/llama3")
     p.add_argument("--approve", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--timeout", type=int, default=120)
@@ -55,8 +56,7 @@ def _handle_optimize_run(args):
         skill_path=args.path, num_variants=args.variants,
         threshold=args.threshold, max_iterations=args.max_iterations,
         plateau_limit=args.plateau, budget_usd=args.budget,
-        model=args.model or "us.anthropic.claude-opus-4-6-v1",
-        aws_region=args.region,
+        model=args.model or "bedrock/us.anthropic.claude-opus-4-6-v1",
         approve=args.approve, dry_run=args.dry_run,
         timeout=args.timeout, agent=args.agent,
     )
