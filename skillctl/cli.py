@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from skillctl.config import load_config as _load_skillctl_config, save_config as _save_skillctl_config, run_configure_wizard, CONFIG_PATH
 from skillctl.diff import diff_skills, format_diff
 from skillctl.errors import SkillctlError
 from skillctl.manifest import ManifestLoader
@@ -20,35 +21,33 @@ from skillctl.version import version_info
 
 
 # ---------------------------------------------------------------------------
-# Config helpers (~/.skillctl/config.yaml)
+# Config helpers — thin wrappers over skillctl.config
 # ---------------------------------------------------------------------------
 
 def _load_config() -> dict:
-    """Load CLI config from ~/.skillctl/config.yaml."""
-    config_path = Path.home() / ".skillctl" / "config.yaml"
-    if config_path.exists():
-        return yaml.safe_load(config_path.read_text()) or {}
+    """Load raw CLI config as a dict (backward compat for config set/get)."""
+    if CONFIG_PATH.exists():
+        return yaml.safe_load(CONFIG_PATH.read_text()) or {}
     return {}
 
 
 def _save_config(config: dict):
-    """Save CLI config to ~/.skillctl/config.yaml."""
-    config_path = Path.home() / ".skillctl" / "config.yaml"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(yaml.dump(config, default_flow_style=False))
-    config_path.chmod(0o600)
+    """Save raw CLI config dict (backward compat for config set/get)."""
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(yaml.dump(config, default_flow_style=False))
+    CONFIG_PATH.chmod(0o600)
 
 
 def _get_registry_url(args) -> str | None:
-    """Resolve registry URL from args > env > config file."""
+    """Resolve registry URL from args > env > typed config."""
     url = getattr(args, "registry_url", None)
     if url:
         return url.rstrip("/")
     url = os.environ.get("SKILLCTL_REGISTRY_URL")
     if url:
         return url.rstrip("/")
-    cfg = _load_config()
-    url = cfg.get("registry", {}).get("url")
+    cfg = _load_skillctl_config()
+    url = cfg.registry.local.url
     if url:
         return url.rstrip("/")
     return None
@@ -63,24 +62,24 @@ def _require_registry_url(args) -> str:
         code="E_NO_REGISTRY",
         what="No registry URL configured",
         why="This command requires a registry URL to communicate with the remote registry",
-        fix="Run 'skillctl config set registry.url <url>' or set SKILLCTL_REGISTRY_URL",
+        fix="Run 'skillctl configure' or 'skillctl config set registry.local.url <url>'",
     )
 
 
 def _get_registry_token(args) -> str | None:
-    """Resolve registry token from args > env > config file."""
+    """Resolve registry token from args > env > typed config."""
     token = getattr(args, "token", None)
     if token:
         return token
     token = os.environ.get("SKILLCTL_REGISTRY_TOKEN")
     if token:
         return token
-    cfg = _load_config()
-    return cfg.get("registry", {}).get("token")
+    cfg = _load_skillctl_config()
+    return cfg.registry.local.token
 
 
 def _load_github_token() -> str | None:
-    """Load GitHub token from env > config file."""
+    """Load GitHub token from env > config."""
     from skillctl.github_auth import load_github_token
     return load_github_token()
 
@@ -227,6 +226,9 @@ def main():
     # skillctl logout
     sub.add_parser("logout", help="Remove stored GitHub credentials")
 
+    # skillctl configure
+    sub.add_parser("configure", help="Interactive setup wizard for registry, optimizer, and auth")
+
     # -----------------------------------------------------------------------
     # BACKWARD-COMPATIBLE ALIASES
     # -----------------------------------------------------------------------
@@ -310,6 +312,8 @@ def main():
             cmd_login(args)
         elif args.command == "logout":
             cmd_logout()
+        elif args.command == "configure":
+            cmd_configure()
 
         # Backward-compatible aliases
         elif args.command == "init":
@@ -891,36 +895,45 @@ def cmd_doctor(args):
         print(f"  ⚠ Store index: not found (no skills pushed yet)")
         warnings_count += 1
 
-    # 4. Config file exists and is valid YAML
-    config_path = Path.home() / ".skillctl" / "config.yaml"
-    if config_path.exists():
+    # 4. Config file exists and is valid
+    if CONFIG_PATH.exists():
         try:
-            yaml.safe_load(config_path.read_text())
-            print(f"  ✓ Config file: {config_path}")
-        except yaml.YAMLError:
-            print(f"  ✗ Config file: invalid YAML")
+            cfg = _load_skillctl_config()
+            print(f"  ✓ Config file: {CONFIG_PATH}")
+            print(f"    Registry backend: {cfg.registry.backend}")
+            print(f"    Optimizer model: {cfg.optimize.model}")
+        except Exception:
+            print(f"  ✗ Config file: invalid")
             errors_count += 1
     else:
-        print(f"  ⚠ Config file: not found")
+        print(f"  ⚠ Config file: not found (run 'skillctl configure')")
         warnings_count += 1
 
-    # 5. Registry URL
-    cfg = _load_config()
-    registry_url = cfg.get("registry", {}).get("url") or os.environ.get("SKILLCTL_REGISTRY_URL")
-    if registry_url:
-        try:
-            req = urllib.request.Request(f"{registry_url.rstrip('/')}/api/v1/health", method="GET")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                print(f"  ✓ Registry URL: {registry_url} (healthy)")
-        except Exception:
-            print(f"  ⚠ Registry URL: {registry_url} (unreachable)")
+    # 5. Registry
+    typed_cfg = _load_skillctl_config()
+    if typed_cfg.registry.backend == "agent-registry":
+        rid = typed_cfg.registry.agent_registry.registry_id
+        if rid:
+            print(f"  ✓ Registry: agent-registry ({rid})")
+        else:
+            print(f"  ⚠ Registry: agent-registry (no registry_id configured)")
             warnings_count += 1
     else:
-        print(f"  ⚠ Registry URL: not configured")
-        warnings_count += 1
+        registry_url = typed_cfg.registry.local.url or os.environ.get("SKILLCTL_REGISTRY_URL")
+        if registry_url:
+            try:
+                req = urllib.request.Request(f"{registry_url.rstrip('/')}/api/v1/health", method="GET")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    print(f"  ✓ Registry: local ({registry_url}, healthy)")
+            except Exception:
+                print(f"  ⚠ Registry: local ({registry_url}, unreachable)")
+                warnings_count += 1
+        else:
+            print(f"  ⚠ Registry: not configured (run 'skillctl configure')")
+            warnings_count += 1
 
     # 6. GitHub token
-    gh_token = cfg.get("github", {}).get("token")
+    gh_token = typed_cfg.github.token
     if gh_token:
         try:
             req = urllib.request.Request("https://api.github.com/user", method="GET")
@@ -1073,6 +1086,13 @@ def cmd_token_create(args):
 # ---------------------------------------------------------------------------
 
 _SUPPORTED_CONFIG_KEYS = {"registry.url", "registry.token", "github.client_id", "github.token", "github.repo"}
+
+
+def cmd_configure():
+    """Interactive setup wizard."""
+    config = run_configure_wizard()
+    _save_skillctl_config(config)
+    print(f"\nConfiguration saved to {CONFIG_PATH}")
 
 
 def cmd_config(args):

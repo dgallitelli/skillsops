@@ -41,6 +41,14 @@ pip install ".[server]"      # + registry server (FastAPI)
 pip install ".[optimize]"    # + optimizer (LiteLLM — supports Bedrock, OpenAI, Ollama, etc.)
 ```
 
+### Configure
+
+```bash
+skillctl configure
+```
+
+Interactive setup for registry backend (local self-hosted or AWS Agent Registry), optimizer model (any LiteLLM-supported provider), and budget. Settings are stored in `~/.skillctl/config.yaml`.
+
 ### Create your first skill
 
 ```bash

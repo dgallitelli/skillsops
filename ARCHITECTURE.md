@@ -68,11 +68,12 @@ skill.yaml + SKILL.md  --->  Schema validation    --->  Local store (SHA-256)
 
 | Module | Purpose |
 |--------|---------|
-| `cli.py` | Entry point. kubectl-style command dispatch (apply, create, get, delete, diff, validate, eval, optimize, serve, doctor, login). |
+| `cli.py` | Entry point. kubectl-style command dispatch (apply, create, get, delete, diff, validate, eval, optimize, configure, serve, doctor, login). |
 | `manifest.py` | Parses `skill.yaml` into `SkillManifest` dataclass. Auto-wraps plain `SKILL.md` files. |
 | `validator.py` | Schema validation: apiVersion, semver, name format, parameter types, capability checking. |
 | `store.py` | Content-addressed local storage under `~/.skillctl/store/`. SHA-256 hashing, atomic writes, integrity verification on pull. |
 | `diff.py` | Structural diff between two stored skill versions. Detects breaking changes (removed params, capabilities). |
+| `config.py` | Centralized typed config: `SkillctlConfig` with registry (local/agent-registry), optimizer (model, budget), and GitHub settings. Interactive wizard via `run_configure_wizard`. |
 | `errors.py` | `SkillctlError(code, what, why, fix)` — all user-facing errors must use this format. `EvalError` subclasses it. |
 | `utils.py` | Shared utilities: `parse_ref` (name@version parsing), `read_skill_name_from_manifest`, `read_skill_name_from_frontmatter`. |
 | `github_auth.py` | GitHub OAuth device flow for `skillctl login`. |
@@ -241,12 +242,13 @@ skillctl serve                 Equivalent to: uvicorn skillctl.registry.server:c
 
 | Source | Purpose |
 |--------|---------|
-| `~/.skillctl/config.yaml` | CLI config: registry URL, GitHub token, client ID. Written with 0600 permissions. |
+| `~/.skillctl/config.yaml` | Typed config managed by `skillctl configure`. Registry backend (local/agent-registry), optimizer model + budget, GitHub auth. Written with 0600 permissions. |
 | `~/.skillctl/store/` | Local content-addressed skill store. |
 | `~/.skillctl/index.json` | Store index mapping name@version to content hashes. |
 | `~/.skillctl/optimize/` | Optimization run provenance logs. |
 | `.skilleval.yaml` | Per-skill eval config: ignore codes, severity overrides, safe domains. |
-| `SKILLCTL_REGISTRY_URL` | Environment variable override for registry URL. |
+| `SKILLCTL_REGISTRY_URL` | Environment variable override for local registry URL. |
+| `SKILLCTL_REGISTRY_TOKEN` | Environment variable override for local registry token. |
 | `SKILLCTL_GITHUB_TOKEN` | Environment variable override for GitHub token. |
 
 ## LLM Provider

@@ -20,11 +20,12 @@ pytest tests/ --ignore=tests/test_github_backend.py  # skip slow git tests
 pytest tests/test_api.py -x -v           # just API tests
 
 # Key commands
+skillctl configure                       # interactive setup wizard
 skillctl create skill my-org/my-skill    # scaffold
 skillctl validate                        # check manifest
 skillctl apply                           # validate + push + publish
 skillctl eval audit ./my-skill           # security scan
-skillctl optimize ./my-skill --dry-run   # optimizer (needs AWS creds)
+skillctl optimize ./my-skill --dry-run   # optimizer
 skillctl serve --auth-disabled           # start registry server
 ```
 
@@ -35,6 +36,7 @@ skillctl serve --auth-disabled           # start registry server
 - `skillctl/manifest.py` — skill.yaml parser + `SkillManifest.to_dict()`
 - `skillctl/validator.py` — schema validation
 - `skillctl/diff.py` — version comparison
+- `skillctl/config.py` — centralized typed config (`SkillctlConfig`, `load_config`, `save_config`, `run_configure_wizard`)
 - `skillctl/utils.py` — shared utilities (`parse_ref`, `read_skill_name_*`)
 - `skillctl/errors.py` — `SkillctlError(code, what, why, fix)` base exception
 - `skillctl/registry/` — FastAPI registry server (API, auth, storage, audit)

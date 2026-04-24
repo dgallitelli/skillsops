@@ -51,12 +51,18 @@ def handle_optimize(args, remaining=None):
 
 def _handle_optimize_run(args):
     """Run the optimization loop."""
+    from skillctl.config import load_config
     from skillctl.optimize.loop import run_optimization
+
+    skillctl_cfg = load_config()
+    model = args.model or skillctl_cfg.optimize.model
+    budget = args.budget if args.budget != 10.0 else skillctl_cfg.optimize.budget_usd
+
     config = OptimizeConfig(
         skill_path=args.path, num_variants=args.variants,
         threshold=args.threshold, max_iterations=args.max_iterations,
-        plateau_limit=args.plateau, budget_usd=args.budget,
-        model=args.model or "bedrock/us.anthropic.claude-opus-4-6-v1",
+        plateau_limit=args.plateau, budget_usd=budget,
+        model=model,
         approve=args.approve, dry_run=args.dry_run,
         timeout=args.timeout, agent=args.agent,
     )
