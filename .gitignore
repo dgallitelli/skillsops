@@ -44,3 +44,4 @@ firebase-debug.log
 *.jsonl
 hmac.key
 .codegraph/
+infra/
