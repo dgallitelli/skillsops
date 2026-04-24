@@ -315,14 +315,22 @@ class GitHubBackend(StorageBackend):
         """Run a git command in the clone directory."""
         env = os.environ.copy()
         env["GIT_TERMINAL_PROMPT"] = "0"
-        return subprocess.run(
-            ["git", *args],
-            cwd=str(self._clone_dir),
-            check=True,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
+        try:
+            return subprocess.run(
+                ["git", *args],
+                cwd=str(self._clone_dir),
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+        except subprocess.CalledProcessError as e:
+            if self._token and self._token in str(e.cmd):
+                sanitized_cmd = [a.replace(self._token, "***") for a in e.cmd]
+                raise subprocess.CalledProcessError(
+                    e.returncode, sanitized_cmd, e.output, e.stderr,
+                ) from None
+            raise
 
     def _push(self) -> None:
         """Push to remote, setting the upstream URL with token."""

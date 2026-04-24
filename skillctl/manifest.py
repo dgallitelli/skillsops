@@ -223,6 +223,14 @@ class ManifestLoader:
         if manifest.spec.content.inline:
             return manifest.spec.content.inline
         if manifest.spec.content.path:
-            content_path = Path(base_dir) / manifest.spec.content.path
+            base = Path(base_dir).resolve()
+            content_path = (base / manifest.spec.content.path).resolve()
+            if not str(content_path).startswith(str(base)):
+                raise SkillctlError(
+                    code="E_PATH_TRAVERSAL",
+                    what=f"Content path escapes skill directory: {manifest.spec.content.path}",
+                    why="spec.content.path must resolve to a file within the skill directory",
+                    fix="Use a relative path like ./SKILL.md that stays inside the skill directory",
+                )
             return content_path.read_text()
         return ""

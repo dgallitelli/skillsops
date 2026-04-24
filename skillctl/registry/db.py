@@ -320,9 +320,9 @@ class MetadataDB:
             params.append(namespace)
 
         if tag:
-            # tags stored as JSON array, e.g. '["security","code-review"]'
-            where_clauses.append('skills.tags LIKE ?')
-            params.append(f'%"{tag}"%')
+            escaped_tag = tag.replace("%", "\\%").replace("_", "\\_")
+            where_clauses.append("skills.tags LIKE ? ESCAPE '\\'")
+            params.append(f'%"{escaped_tag}"%')
 
         where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 

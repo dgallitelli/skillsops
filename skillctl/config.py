@@ -64,11 +64,18 @@ class SkillctlConfig:
 
 
 def load_config() -> SkillctlConfig:
-    """Load config from ~/.skillctl/config.yaml, returning defaults if missing."""
+    """Load config from ~/.skillctl/config.yaml, returning defaults if missing or corrupt."""
     if not CONFIG_PATH.exists():
         return SkillctlConfig()
 
-    raw = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+    try:
+        raw = yaml.safe_load(CONFIG_PATH.read_text())
+    except yaml.YAMLError:
+        return SkillctlConfig()
+
+    if not isinstance(raw, dict):
+        return SkillctlConfig()
+
     return _parse_config(raw)
 
 
@@ -81,11 +88,11 @@ def save_config(config: SkillctlConfig) -> None:
 
 def _parse_config(raw: dict) -> SkillctlConfig:
     """Parse a raw dict into a typed SkillctlConfig."""
-    reg_raw = raw.get("registry", {})
-    local_raw = reg_raw.get("local", {})
-    ar_raw = reg_raw.get("agent_registry", {})
-    opt_raw = raw.get("optimize", {})
-    gh_raw = raw.get("github", {})
+    reg_raw = raw.get("registry") or {}
+    local_raw = reg_raw.get("local") or {}
+    ar_raw = reg_raw.get("agent_registry") or {}
+    opt_raw = raw.get("optimize") or {}
+    gh_raw = raw.get("github") or {}
 
     # Backward compat: old config had registry.url and registry.token at top level
     if "url" in reg_raw and "local" not in reg_raw:

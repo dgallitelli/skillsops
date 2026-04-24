@@ -184,6 +184,30 @@ class TestLoadSave:
         save_config(SkillctlConfig())
         assert config_path.exists()
 
+    def test_load_corrupt_yaml_returns_defaults(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("{unclosed: [bracket")
+        monkeypatch.setattr("skillctl.config.CONFIG_PATH", config_path)
+
+        cfg = load_config()
+        assert cfg.registry.backend == "local"
+        assert cfg.optimize.model == "bedrock/us.anthropic.claude-opus-4-6-v1"
+
+    def test_load_non_dict_yaml_returns_defaults(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("just a string")
+        monkeypatch.setattr("skillctl.config.CONFIG_PATH", config_path)
+
+        cfg = load_config()
+        assert cfg.registry.backend == "local"
+
+    def test_parse_none_sections(self):
+        raw = {"registry": None, "optimize": None, "github": None}
+        cfg = _parse_config(raw)
+        assert cfg.registry.backend == "local"
+        assert cfg.optimize.model == "bedrock/us.anthropic.claude-opus-4-6-v1"
+        assert cfg.github.token is None
+
     def test_load_with_partial_config(self, tmp_path, monkeypatch):
         config_path = tmp_path / "config.yaml"
         config_path.write_text("optimize:\n  model: ollama/llama3\n")

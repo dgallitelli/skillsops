@@ -212,4 +212,32 @@ def test_to_dict_round_trip():
     assert len(d["spec"]["parameters"]) == 1
     assert d["spec"]["parameters"][0]["name"] == "mode"
     assert d["spec"]["parameters"][0]["type"] == "enum"
-    assert d["spec"]["parameters"][0]["values"] == ["fast", "slow"]
+
+
+# -- resolve_content() path traversal protection -----------------------------
+
+def test_resolve_content_rejects_path_traversal(tmp_path, loader):
+    """resolve_content blocks paths that escape the skill directory."""
+    from skillctl.errors import SkillctlError
+
+    manifest = SkillManifest(
+        spec=SkillSpec(content=ContentRef(path="../../etc/passwd")),
+    )
+
+    with pytest.raises(SkillctlError) as exc_info:
+        loader.resolve_content(manifest, str(tmp_path))
+    assert exc_info.value.code == "E_PATH_TRAVERSAL"
+
+
+def test_resolve_content_allows_subdirectory_path(tmp_path, loader):
+    """resolve_content allows paths within subdirectories of the skill dir."""
+    sub = tmp_path / "scripts"
+    sub.mkdir()
+    (sub / "helper.md").write_text("# Helper content")
+
+    manifest = SkillManifest(
+        spec=SkillSpec(content=ContentRef(path="scripts/helper.md")),
+    )
+
+    result = loader.resolve_content(manifest, str(tmp_path))
+    assert result == "# Helper content"

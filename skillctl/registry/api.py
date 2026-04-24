@@ -375,7 +375,14 @@ async def download_content(
                         "No skill with this name and version exists",
                         "Check the namespace, name, and version")
 
-    blob = await storage.get_blob(record.content_hash)
+    from skillctl.registry.storage import NotFoundError as BlobNotFound
+    try:
+        blob = await storage.get_blob(record.content_hash)
+    except BlobNotFound:
+        _error_response(404, "E_BLOB_MISSING",
+                        f"Content blob for '{full_name}@{version}' is missing from storage",
+                        "The blob may have been deleted or the storage is corrupted",
+                        "Re-publish the skill to restore its content")
 
     # Detect content type from magic bytes for proper download
     media_type = "application/octet-stream"
@@ -424,19 +431,27 @@ async def delete_skill(
                         "No skill with this name and version exists",
                         "Check the namespace, name, and version")
 
-    # Delete from storage and db
-    github_backend = getattr(request.app.state, "github_backend", None)
-    if github_backend is not None:
-        try:
-            github_backend.delete_skill(full_name, version)
-        except Exception:
-            pass
-    else:
-        try:
-            await storage.delete_blob(record.content_hash)
-        except Exception:
-            pass  # Blob may already be gone
+    # Delete from DB first (so index is consistent even if blob delete fails)
     db.delete_skill(full_name, version)
+
+    # Only delete blob if no other record references the same content hash
+    other_refs = db.conn.execute(
+        "SELECT COUNT(*) FROM skills WHERE content_hash = ?",
+        (record.content_hash,),
+    ).fetchone()[0]
+
+    if other_refs == 0:
+        github_backend = getattr(request.app.state, "github_backend", None)
+        if github_backend is not None:
+            try:
+                github_backend.delete_skill(full_name, version)
+            except Exception:
+                pass
+        else:
+            try:
+                await storage.delete_blob(record.content_hash)
+            except Exception:
+                pass
 
     # Audit log
     audit.log(
