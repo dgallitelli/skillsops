@@ -109,8 +109,6 @@ Author writes skill
     → Enterprise discovery     (self-hosted registry or AWS Agent Registry)
 ```
 
-For a detailed comparison with AWS Agent Registry, see [docs/comparison-aws-agent-registry.md](docs/comparison-aws-agent-registry.md).
-
 ---
 
 ## Documentation
@@ -120,7 +118,6 @@ For a detailed comparison with AWS Agent Registry, see [docs/comparison-aws-agen
 | [docs/REFERENCE.md](docs/REFERENCE.md) | Full CLI reference, skill format, registry server, eval suite, optimizer flags, API endpoints |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System overview, module map, data flow diagrams |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
-| [docs/comparison-aws-agent-registry.md](docs/comparison-aws-agent-registry.md) | Comparison and integration analysis with AWS Agent Registry |
 
 ## Development
 
