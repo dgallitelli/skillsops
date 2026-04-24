@@ -245,6 +245,14 @@ async def publish_skill(
     try:
         db.insert_skill(record)
     except sqlite3.IntegrityError:
+        # Clean up orphaned blob only if the winner has different content
+        if github_backend is None:
+            winner = db.get_skill(parsed.metadata.name, parsed.metadata.version)
+            if winner and winner.content_hash != content_hash:
+                try:
+                    await storage.delete_blob(content_hash)
+                except Exception:
+                    pass
         _error_response(409, "E_ALREADY_EXISTS",
                         f"Skill {parsed.metadata.name}@{parsed.metadata.version} already exists",
                         "A concurrent publish created this version first",

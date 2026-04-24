@@ -290,10 +290,15 @@ class MetadataDB:
         return self._build_search(q, namespace, tag, limit=0, offset=0, count_only=True)
 
     @staticmethod
-    def _sanitize_fts_query(query: str) -> str:
-        """Escape special FTS5 characters so arbitrary user input is safe."""
+    def _sanitize_fts_query(query: str) -> str | None:
+        """Escape special FTS5 characters so arbitrary user input is safe.
+
+        Returns None if the query has no searchable tokens.
+        """
         tokens = query.split()
-        return " ".join(f'"{t.replace(chr(34), chr(34)+chr(34))}"' for t in tokens) if tokens else '""'
+        if not tokens:
+            return None
+        return " ".join(f'"{t.replace(chr(34), chr(34)+chr(34))}"' for t in tokens)
 
     def _build_search(
         self,
@@ -307,11 +312,11 @@ class MetadataDB:
         params: list = []
         where_clauses: list[str] = []
 
-        if query:
-            # Use FTS5 MATCH — join skills to skills_fts
+        sanitized = self._sanitize_fts_query(query) if query else None
+        if sanitized:
             base = "FROM skills JOIN skills_fts ON skills.id = skills_fts.rowid"
             where_clauses.append("skills_fts MATCH ?")
-            params.append(self._sanitize_fts_query(query))
+            params.append(sanitized)
         else:
             base = "FROM skills"
 

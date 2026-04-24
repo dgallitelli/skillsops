@@ -167,20 +167,18 @@ class ContentStore:
                 fix="Check 'skillctl get skills' for available skills",
             )
 
+        # Remove index entry first (so a crash leaves no dangling reference)
+        index = [e for e in index if not (e.name == name and e.version == version)]
+        self._save_index(index)
+
+        # Then remove files (orphaned blobs are harmless; dangling index refs are not)
         prefix = entry.hash[:2]
         content_path = self.store_dir / prefix / entry.hash
         manifest_path = self.store_dir / prefix / f"{entry.hash}.manifest.yaml"
-
-        # Remove content file
         if content_path.exists():
             content_path.unlink()
-        # Remove manifest file
         if manifest_path.exists():
             manifest_path.unlink()
-
-        # Remove entry from index
-        index = [e for e in index if not (e.name == name and e.version == version)]
-        self._save_index(index)
 
     def list_versions(self, name: str) -> list[IndexEntry]:
         """List all versions of a skill by name."""

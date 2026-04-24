@@ -46,7 +46,9 @@ def _create_app(tmp_path: Path, auth_disabled: bool = True) -> FastAPI:
 @pytest.fixture
 def app(tmp_path):
     """App with auth disabled for most tests."""
-    return _create_app(tmp_path, auth_disabled=True)
+    a = _create_app(tmp_path, auth_disabled=True)
+    yield a
+    a.state.db.close()
 
 
 @pytest.fixture
@@ -57,7 +59,9 @@ def client(app):
 @pytest.fixture
 def auth_app(tmp_path):
     """App with auth enabled."""
-    return _create_app(tmp_path, auth_disabled=False)
+    a = _create_app(tmp_path, auth_disabled=False)
+    yield a
+    a.state.db.close()
 
 
 @pytest.fixture
