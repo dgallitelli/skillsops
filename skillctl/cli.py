@@ -62,7 +62,7 @@ def _require_registry_url(args) -> str:
         code="E_NO_REGISTRY",
         what="No registry URL configured",
         why="This command requires a registry URL to communicate with the remote registry",
-        fix="Run 'skillctl configure' or 'skillctl config set registry.local.url <url>'",
+        fix="Run 'skillctl configure' or 'skillctl config set registry.url <url>'",
     )
 
 
@@ -896,12 +896,12 @@ def cmd_doctor(args):
         warnings_count += 1
 
     # 4. Config file exists and is valid
+    typed_cfg = _load_skillctl_config()
     if CONFIG_PATH.exists():
         try:
-            cfg = _load_skillctl_config()
             print(f"  ✓ Config file: {CONFIG_PATH}")
-            print(f"    Registry backend: {cfg.registry.backend}")
-            print(f"    Optimizer model: {cfg.optimize.model}")
+            print(f"    Registry backend: {typed_cfg.registry.backend}")
+            print(f"    Optimizer model: {typed_cfg.optimize.model}")
         except Exception:
             print(f"  ✗ Config file: invalid")
             errors_count += 1
@@ -910,7 +910,6 @@ def cmd_doctor(args):
         warnings_count += 1
 
     # 5. Registry
-    typed_cfg = _load_skillctl_config()
     if typed_cfg.registry.backend == "agent-registry":
         rid = typed_cfg.registry.agent_registry.registry_id
         if rid:
@@ -964,18 +963,27 @@ def cmd_doctor(args):
         print(f"  ⚠ Git: not installed")
         warnings_count += 1
 
-    # 8. Required packages
-    missing = []
-    for pkg in ["fastapi", "uvicorn", "yaml"]:
+    # 8. Dependencies
+    try:
+        __import__("yaml")
+        print(f"  ✓ Core deps: pyyaml installed")
+    except ImportError:
+        print(f"  ✗ Core deps: pyyaml missing")
+        errors_count += 1
+
+    optional_available = []
+    optional_missing = []
+    for pkg, group in [("fastapi", "server"), ("uvicorn", "server"), ("litellm", "optimize")]:
         try:
             __import__(pkg)
+            optional_available.append(f"{pkg} [{group}]")
         except ImportError:
-            missing.append(pkg)
-    if missing:
-        print(f"  ✗ Dependencies: missing {', '.join(missing)}")
-        errors_count += 1
-    else:
-        print(f"  ✓ Dependencies: all importable")
+            optional_missing.append(f"{pkg} [{group}]")
+    if optional_available:
+        print(f"  ✓ Optional deps: {', '.join(optional_available)}")
+    if optional_missing:
+        print(f"  ⚠ Optional deps not installed: {', '.join(optional_missing)}")
+        warnings_count += 1
 
     # Summary
     print(f"\n{warnings_count} warnings, {errors_count} errors")
@@ -1085,7 +1093,38 @@ def cmd_token_create(args):
 # Config commands
 # ---------------------------------------------------------------------------
 
-_SUPPORTED_CONFIG_KEYS = {"registry.url", "registry.token", "github.client_id", "github.token", "github.repo"}
+_CONFIG_KEY_MAP = {
+    # New typed config keys
+    "registry.backend":                    lambda c: c.registry.backend,
+    "registry.local.url":                  lambda c: c.registry.local.url,
+    "registry.local.token":                lambda c: c.registry.local.token,
+    "registry.agent_registry.registry_id": lambda c: c.registry.agent_registry.registry_id,
+    "registry.agent_registry.region":      lambda c: c.registry.agent_registry.region,
+    "optimize.model":                      lambda c: c.optimize.model,
+    "optimize.budget_usd":                 lambda c: c.optimize.budget_usd,
+    "optimize.max_tokens":                 lambda c: c.optimize.max_tokens,
+    "github.token":                        lambda c: c.github.token,
+    "github.client_id":                    lambda c: c.github.client_id,
+    # Backward-compat aliases
+    "registry.url":                        lambda c: c.registry.local.url,
+    "registry.token":                      lambda c: c.registry.local.token,
+}
+
+_CONFIG_SETTER_MAP = {
+    "registry.backend":                    lambda c, v: setattr(c.registry, "backend", v),
+    "registry.local.url":                  lambda c, v: setattr(c.registry.local, "url", v),
+    "registry.local.token":                lambda c, v: setattr(c.registry.local, "token", v),
+    "registry.agent_registry.registry_id": lambda c, v: setattr(c.registry.agent_registry, "registry_id", v),
+    "registry.agent_registry.region":      lambda c, v: setattr(c.registry.agent_registry, "region", v),
+    "optimize.model":                      lambda c, v: setattr(c.optimize, "model", v),
+    "optimize.budget_usd":                 lambda c, v: setattr(c.optimize, "budget_usd", float(v)),
+    "optimize.max_tokens":                 lambda c, v: setattr(c.optimize, "max_tokens", int(v)),
+    "github.token":                        lambda c, v: setattr(c.github, "token", v),
+    "github.client_id":                    lambda c, v: setattr(c.github, "client_id", v),
+    # Backward-compat aliases
+    "registry.url":                        lambda c, v: setattr(c.registry.local, "url", v),
+    "registry.token":                      lambda c, v: setattr(c.registry.local, "token", v),
+}
 
 
 def cmd_configure():
@@ -1108,47 +1147,43 @@ def cmd_config(args):
 
 
 def cmd_config_set(args):
-    """Set a config value."""
+    """Set a config value via typed config."""
     key = args.key
     value = args.value
 
-    if key not in _SUPPORTED_CONFIG_KEYS:
+    setter = _CONFIG_SETTER_MAP.get(key)
+    if not setter:
         print(f"Error: Unknown config key '{key}'.", file=sys.stderr)
-        print(f"  Supported keys: {', '.join(sorted(_SUPPORTED_CONFIG_KEYS))}", file=sys.stderr)
+        print(f"  Supported keys: {', '.join(sorted(k for k in _CONFIG_KEY_MAP if '.' in k and not k.startswith('registry.url') and not k.startswith('registry.token')))}", file=sys.stderr)
         sys.exit(1)
 
-    config = _load_config()
-    parts = key.split(".")
-    d = config
-    for part in parts[:-1]:
-        if part not in d or not isinstance(d[part], dict):
-            d[part] = {}
-        d = d[part]
-    d[parts[-1]] = value
+    config = _load_skillctl_config()
+    try:
+        setter(config, value)
+    except (ValueError, TypeError) as e:
+        print(f"Error: Invalid value for '{key}': {e}", file=sys.stderr)
+        sys.exit(1)
 
-    _save_config(config)
+    _save_skillctl_config(config)
     print(f"✓ Set {key} = {value}")
 
 
 def cmd_config_get(args):
-    """Get a config value."""
+    """Get a config value from typed config."""
     key = args.key
 
-    if key not in _SUPPORTED_CONFIG_KEYS:
+    getter = _CONFIG_KEY_MAP.get(key)
+    if not getter:
         print(f"Error: Unknown config key '{key}'.", file=sys.stderr)
-        print(f"  Supported keys: {', '.join(sorted(_SUPPORTED_CONFIG_KEYS))}", file=sys.stderr)
+        print(f"  Supported keys: {', '.join(sorted(k for k in _CONFIG_KEY_MAP if '.' in k and not k.startswith('registry.url') and not k.startswith('registry.token')))}", file=sys.stderr)
         sys.exit(1)
 
-    config = _load_config()
-    parts = key.split(".")
-    d = config
-    for part in parts:
-        if isinstance(d, dict) and part in d:
-            d = d[part]
-        else:
-            print(f"{key}: (not set)")
-            return
-    print(f"{key}: {d}")
+    config = _load_skillctl_config()
+    value = getter(config)
+    if value is None:
+        print(f"{key}: (not set)")
+    else:
+        print(f"{key}: {value}")
 
 
 # ---------------------------------------------------------------------------
