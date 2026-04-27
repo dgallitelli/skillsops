@@ -54,7 +54,7 @@ def test_log_with_no_details_defaults_to_empty_dict(logger: AuditLogger):
 def test_verify_integrity_all_valid(logger: AuditLogger):
     logger.log("skill.published", "ci", "org/skill@1.0.0")
     logger.log("skill.deleted", "admin", "org/skill@1.0.0")
-    valid, invalid = logger.verify_integrity()
+    valid, invalid, _parse_errors = logger.verify_integrity()
     assert valid == 2
     assert invalid == 0
 
@@ -70,7 +70,7 @@ def test_tamper_detection(logger: AuditLogger):
     lines[0] = json.dumps(entry)
     logger.log_path.write_text("\n".join(lines) + "\n")
 
-    valid, invalid = logger.verify_integrity()
+    valid, invalid, _parse_errors = logger.verify_integrity()
     assert valid == 1
     assert invalid == 1
 
@@ -84,7 +84,7 @@ def test_tamper_signature_field(logger: AuditLogger):
     lines[0] = json.dumps(entry)
     logger.log_path.write_text("\n".join(lines) + "\n")
 
-    valid, invalid = logger.verify_integrity()
+    valid, invalid, _parse_errors = logger.verify_integrity()
     assert valid == 0
     assert invalid == 1
 
@@ -185,7 +185,7 @@ def test_read_empty_log(logger: AuditLogger):
 
 
 def test_verify_integrity_empty_log(logger: AuditLogger):
-    valid, invalid = logger.verify_integrity()
+    valid, invalid, _parse_errors = logger.verify_integrity()
     assert valid == 0
     assert invalid == 0
 
@@ -198,7 +198,7 @@ def test_read_empty_existing_file(logger: AuditLogger):
 
 def test_verify_integrity_empty_existing_file(logger: AuditLogger):
     logger.log_path.write_text("")
-    valid, invalid = logger.verify_integrity()
+    valid, invalid, _parse_errors = logger.verify_integrity()
     assert valid == 0
     assert invalid == 0
 

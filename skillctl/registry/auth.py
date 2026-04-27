@@ -225,6 +225,9 @@ async def get_current_token(
     raw_token = auth_header[len("Bearer ") :]
     token_info = auth_manager.verify_token(raw_token)
     if token_info is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token. Verify with 'skillctl token create' or check expiry.",
+        )
 
     return token_info

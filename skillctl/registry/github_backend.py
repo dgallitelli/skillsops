@@ -320,15 +320,19 @@ class GitHubBackend(StorageBackend):
                 env=env,
             )
         except subprocess.CalledProcessError as e:
-            if self._token and self._token in str(e.cmd):
+            sanitized_cmd = e.cmd
+            sanitized_out = e.output or ""
+            sanitized_err = e.stderr or ""
+            if self._token:
                 sanitized_cmd = [a.replace(self._token, "***") for a in e.cmd]
-                raise subprocess.CalledProcessError(
-                    e.returncode,
-                    sanitized_cmd,
-                    e.output,
-                    e.stderr,
-                ) from None
-            raise
+                sanitized_out = sanitized_out.replace(self._token, "***")
+                sanitized_err = sanitized_err.replace(self._token, "***")
+            raise subprocess.CalledProcessError(
+                e.returncode,
+                sanitized_cmd,
+                sanitized_out,
+                sanitized_err,
+            ) from None
 
     def _push(self) -> None:
         """Push to remote, setting the upstream URL with token."""

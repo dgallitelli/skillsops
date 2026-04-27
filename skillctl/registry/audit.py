@@ -101,23 +101,28 @@ class AuditLogger:
 
         return events
 
-    def verify_integrity(self) -> tuple[int, int]:
+    def verify_integrity(self) -> tuple[int, int, int]:
         """Verify HMAC signatures of all entries.
 
-        Returns ``(valid_count, invalid_count)``.
+        Returns ``(valid_count, invalid_count, parse_error_count)``.
         """
         if not self.log_path.exists():
-            return (0, 0)
+            return (0, 0, 0)
 
         valid = 0
         invalid = 0
+        parse_errors = 0
 
         with open(self.log_path) as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
-                entry = json.loads(line)
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    parse_errors += 1
+                    continue
                 payload = {
                     "timestamp": entry["timestamp"],
                     "action": entry["action"],
@@ -133,4 +138,4 @@ class AuditLogger:
                 else:
                     invalid += 1
 
-        return (valid, invalid)
+        return (valid, invalid, parse_errors)
