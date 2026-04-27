@@ -86,3 +86,19 @@ class TestPluginHint:
         env.pop("CLAUDECODE", None)
         r = _run(["--help"], env=env)
         assert "claude-code-hint" not in r.stderr
+
+
+class TestInstallCLI:
+    def test_install_help(self):
+        r = _run(["install", "--help"])
+        assert r.returncode == 0
+        assert "--target" in r.stdout
+
+    def test_uninstall_help(self):
+        r = _run(["uninstall", "--help"])
+        assert r.returncode == 0
+        assert "--target" in r.stdout
+
+    def test_get_installations(self):
+        r = _run(["get", "installations"])
+        assert r.returncode == 0

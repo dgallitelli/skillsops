@@ -155,6 +155,10 @@ def main():
     get_skill_p.add_argument("--registry-url", default=None, help="Registry URL (overrides config)")
     get_skill_p.add_argument("--token", default=None, help="Auth token (overrides config)")
 
+    get_installations_p = get_sub.add_parser("installations", help="List skills installed to IDEs")
+    get_installations_p.add_argument("--target", default=None, help="Filter by IDE target")
+    get_installations_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     # skillctl describe skill <ref>
     describe_p = sub.add_parser("describe", help="Show detailed information about a resource")
     describe_sub = describe_p.add_subparsers(dest="describe_resource")
@@ -292,6 +296,18 @@ def main():
     search_p.add_argument("--registry-url", default=None, help="Registry URL (overrides config)")
     search_p.add_argument("--token", default=None, help="Auth token (overrides config)")
 
+    # skillctl install <ref-or-path> --target <targets> [--global] [--force]
+    install_p = sub.add_parser("install", help="Install a skill to AI coding IDEs")
+    install_p.add_argument("ref", help="Skill ref (namespace/name@version) or path to skill directory")
+    install_p.add_argument("--target", required=True, help="Target IDEs (comma-separated or 'all')")
+    install_p.add_argument("--global", dest="global_scope", action="store_true", help="Install to user-level directory")
+    install_p.add_argument("--force", action="store_true", help="Overwrite modified files")
+
+    # skillctl uninstall <ref> --target <targets>
+    uninstall_p = sub.add_parser("uninstall", help="Remove a skill from AI coding IDEs")
+    uninstall_p.add_argument("ref", help="Skill ref (namespace/name@version)")
+    uninstall_p.add_argument("--target", required=True, help="Target IDEs (comma-separated or 'all')")
+
     # -----------------------------------------------------------------------
     # DISPATCH
     # -----------------------------------------------------------------------
@@ -312,6 +328,10 @@ def main():
             cmd_delete(args)
         elif args.command == "logs":
             cmd_logs(args)
+        elif args.command == "install":
+            cmd_install(args)
+        elif args.command == "uninstall":
+            cmd_uninstall(args)
 
         # Existing commands (unchanged)
         elif args.command == "validate":
@@ -532,9 +552,12 @@ def cmd_get(args):
             cmd_get_skills(args)
     elif args.get_resource == "skill":
         cmd_get_skill(args)
+    elif args.get_resource == "installations":
+        cmd_get_installations(args)
     else:
         print("Usage: skillctl get skills [--remote]", file=sys.stderr)
         print("       skillctl get skill <ref>", file=sys.stderr)
+        print("       skillctl get installations [--target <ide>]", file=sys.stderr)
         sys.exit(1)
 
 
@@ -785,6 +808,85 @@ def cmd_logs(args):
 
     # Stub — audit API endpoint not yet implemented
     print(f"Audit log viewing for '{args.name}' requires a registry connection (coming soon)")
+
+
+def cmd_install(args):
+    """Install a skill to AI coding IDEs."""
+    from skillctl.install import install_skill
+
+    ref = args.ref
+    targets = [t.strip() for t in args.target.split(",")]
+
+    # If ref looks like a path, apply first
+    if "/" in ref and "@" not in ref and Path(ref).exists():
+        print(f"Applying {ref} first...")
+        cmd_apply(
+            argparse.Namespace(
+                path=ref,
+                file=None,
+                dry_run=False,
+                local=True,
+                registry_url=None,
+                token=None,
+            )
+        )
+        loader = ManifestLoader()
+        manifest, _ = loader.load(ref)
+        ref = f"{manifest.metadata.name}@{manifest.metadata.version}"
+
+    results = install_skill(
+        ref=ref,
+        targets=targets,
+        global_scope=args.global_scope,
+        force=args.force,
+    )
+    for r in results:
+        status = "✓" if r.success else "✗"
+        print(f"  {status} {r.target}: {r.message}")
+
+
+def cmd_uninstall(args):
+    """Uninstall a skill from AI coding IDEs."""
+    from skillctl.install import uninstall_skill
+
+    targets = [t.strip() for t in args.target.split(",")]
+    results = uninstall_skill(ref=args.ref, targets=targets)
+    for r in results:
+        status = "✓" if r.success else "✗"
+        print(f"  {status} {r.target}: {r.message}")
+
+
+def cmd_get_installations(args):
+    """List skills installed to IDEs."""
+    from skillctl.install import list_installations
+
+    target = getattr(args, "target", None)
+    data = list_installations(target=target)
+
+    if getattr(args, "json", False):
+        serializable = {}
+        for ref, targets in data.items():
+            if isinstance(targets, dict):
+                serializable[ref] = {t: r.to_dict() if hasattr(r, "to_dict") else r for t, r in targets.items()}
+            else:
+                serializable[ref] = targets.to_dict() if hasattr(targets, "to_dict") else str(targets)
+        print(json.dumps(serializable, indent=2))
+        return
+
+    if not data:
+        print("No installations found.")
+        return
+
+    for ref, targets in data.items():
+        print(f"\n{ref}:")
+        if isinstance(targets, dict):
+            for t, record in targets.items():
+                path = record.path if hasattr(record, "path") else record.get("path", "")
+                scope = record.scope if hasattr(record, "scope") else record.get("scope", "")
+                print(f"  {t}: {path} ({scope})")
+        else:
+            path = targets.path if hasattr(targets, "path") else ""
+            print(f"  {path}")
 
 
 # ---------------------------------------------------------------------------
