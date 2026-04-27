@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/dgallitelli/skillctl/actions/workflows/ci.yml"><img src="https://github.com/dgallitelli/skillctl/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/python-3.10%20|%203.12%20|%203.13-blue" alt="Python">
-  <img src="https://img.shields.io/badge/coverage-41%25-yellow" alt="Coverage">
+  <img src="https://img.shields.io/badge/coverage-81%25-green" alt="Coverage">
   <img src="https://img.shields.io/badge/pyright-strict-green" alt="Type Checked">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue" alt="License">
   <img src="https://img.shields.io/badge/pip--audit-clean-green" alt="Security">

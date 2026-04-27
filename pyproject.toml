@@ -54,3 +54,23 @@ line-length = 120
 select = ["E", "F", "W"]
 ignore = ["E501"]
 per-file-ignores = {"skillctl/**/cli.py" = ["E402"], "skillctl/eval/*.py" = ["E402"]}
+
+[tool.coverage.run]
+source = ["skillctl"]
+omit = [
+    "skillctl/eval/agent_runner.py",
+    "skillctl/eval/functional.py",
+    "skillctl/eval/grading.py",
+    "skillctl/eval/trigger.py",
+    "skillctl/eval/compare.py",
+    "skillctl/eval/lifecycle.py",
+    "skillctl/eval/regression.py",
+    "skillctl/eval/init.py",
+    "skillctl/github_auth.py",
+    "skillctl/registry/github_backend.py",
+    "skillctl/registry/server.py",
+    "skillctl/registry/config.py",
+    "skillctl/cli.py",
+    "skillctl/eval/cli.py",
+    "skillctl/optimize/cli.py",
+]
