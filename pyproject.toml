@@ -43,6 +43,9 @@ all = [
 [project.scripts]
 skillctl = "skillctl.cli:main"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 include = ["skillctl*"]
 
