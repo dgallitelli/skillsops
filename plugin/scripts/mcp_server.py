@@ -635,6 +635,52 @@ def skillctl_optimize_history(skill_name: str | None = None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def skillctl_install(
+    ref: str,
+    targets: str,
+    global_scope: bool = False,
+    force: bool = False,
+) -> str:
+    """Install a governed skill to AI coding IDEs.
+
+    Distributes a skill from the local store to one or more IDE targets
+    (Claude Code, Cursor, Windsurf, Copilot, Kiro). Translates frontmatter
+    to each IDE's native format.
+
+    Args:
+        ref: Skill reference in "namespace/name@version" format.
+        targets: Comma-separated IDE names or "all" (claude, cursor, windsurf, copilot, kiro).
+        global_scope: Install to user-level directory instead of project-level.
+        force: Overwrite files modified since last install.
+    """
+    try:
+        from skillctl.install import install_skill
+
+        target_list = [t.strip() for t in targets.split(",")]
+        results = install_skill(
+            ref=ref,
+            targets=target_list,
+            global_scope=global_scope,
+            force=force,
+        )
+        return json.dumps(
+            {
+                "results": [
+                    {"target": r.target, "success": r.success, "path": r.path, "message": r.message} for r in results
+                ],
+            },
+            indent=2,
+        )
+    except Exception as e:
+        return _error_response(e)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 

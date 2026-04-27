@@ -274,7 +274,7 @@ plugin/
 | Component | Purpose |
 |-----------|---------|
 | **Skills** | Teach Claude the governance workflow, skill authoring patterns, and diagnostic reasoning. Claude auto-invokes them based on conversation context. |
-| **MCP server** | Exposes 13 tools (validate, apply, list, describe, delete, diff, create, eval audit/functional/trigger/report, optimize, optimize history). Calls skillctl as a library — no shell-out, structured JSON I/O. |
+| **MCP server** | Exposes 14 tools (validate, apply, list, describe, delete, diff, create, eval audit/functional/trigger/report, optimize, optimize history, install). Calls skillctl as a library — no shell-out, structured JSON I/O. |
 | **Plugin hint** | `skillctl` CLI emits a `<claude-code-hint>` on stderr when `CLAUDECODE=1`, prompting Claude Code users to install the plugin. |
 
 ### MCP Server Architecture
