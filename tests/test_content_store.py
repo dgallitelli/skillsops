@@ -332,3 +332,46 @@ def test_export_invalid_format_raises(store, tmp_path):
     with pytest.raises(SkillctlError) as exc_info:
         store.export_skills(output_path=output, format="rar")
     assert exc_info.value.code == "E_INVALID_FORMAT"
+
+
+# ---------------------------------------------------------------------------
+# verify_consistency tests
+# ---------------------------------------------------------------------------
+
+
+def test_verify_consistency_clean_store(store):
+    """A store with matching index and blobs is consistent."""
+    manifest = _make_manifest()
+    store.push(manifest, b"# Content", dry_run=False)
+    result = store.verify_consistency()
+    assert result["ok"] is True
+    assert result["dangling_refs"] == []
+    assert result["orphaned_blobs"] == []
+
+
+def test_verify_consistency_empty_store(store):
+    """An empty store is consistent."""
+    result = store.verify_consistency()
+    assert result["ok"] is True
+
+
+def test_verify_consistency_dangling_ref(store):
+    """Detect an index entry whose blob file was deleted."""
+    manifest = _make_manifest()
+    push_result = store.push(manifest, b"# Content", dry_run=False)
+    blob_path = store.store_dir / push_result.hash[:2] / push_result.hash
+    blob_path.unlink()
+    result = store.verify_consistency()
+    assert result["ok"] is False
+    assert len(result["dangling_refs"]) == 1
+    assert "test-org/test-skill" in result["dangling_refs"][0]
+
+
+def test_verify_consistency_orphaned_blob(store):
+    """Detect a blob file not referenced by the index."""
+    orphan_dir = store.store_dir / "ff"
+    orphan_dir.mkdir(parents=True, exist_ok=True)
+    (orphan_dir / ("ff" + "ab" * 31)).write_text("orphan")
+    result = store.verify_consistency()
+    assert result["ok"] is False
+    assert len(result["orphaned_blobs"]) >= 1

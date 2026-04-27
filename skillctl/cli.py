@@ -535,7 +535,6 @@ def cmd_create_skill(args):
         f"  name: {name}\n"
         f"  version: 0.1.0\n"
         f'  description: ""\n'
-        f'  category: ""\n'
         f"\n"
         f"spec:\n"
         f"  content:\n"
@@ -1149,7 +1148,7 @@ def cmd_doctor(args):
 
     optional_available = []
     optional_missing = []
-    for pkg, group in [("fastapi", "server"), ("uvicorn", "server"), ("litellm", "optimize")]:
+    for pkg, group in [("fastapi", "server"), ("uvicorn", "server"), ("litellm", "optimize"), ("mcp", "plugin")]:
         try:
             __import__(pkg)
             optional_available.append(f"{pkg} [{group}]")
@@ -1159,21 +1158,6 @@ def cmd_doctor(args):
         print(f"  ✓ Optional deps: {', '.join(optional_available)}")
     if optional_missing:
         print(f"  ⚠ Optional deps not installed: {', '.join(optional_missing)}")
-        warnings_count += 1
-
-    # 8b. Optional deps importability: fastapi, litellm, mcp
-    importable = []
-    not_importable = []
-    for pkg in ("fastapi", "litellm", "mcp"):
-        try:
-            __import__(pkg)
-            importable.append(pkg)
-        except ImportError:
-            not_importable.append(pkg)
-    if importable:
-        print(f"  ✓ Importable optional deps: {', '.join(importable)}")
-    if not_importable:
-        print(f"  ⚠ Not importable: {', '.join(not_importable)}")
         warnings_count += 1
 
     # 9. ~/.skillctl/ directory permissions

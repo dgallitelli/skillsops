@@ -37,7 +37,7 @@ skillctl validate ./my-skill          # schema, semver, capabilities
 skillctl eval audit ./my-skill        # security scan → A-F grade
 ```
 
-The security scanner checks for secrets, prompt injection, data exfiltration URLs, unsafe deserialization, encoded payloads, and more. Skills with critical findings are **blocked from publishing**.
+The security scanner checks for secrets, prompt injection, data exfiltration URLs, unsafe deserialization, encoded payloads, and more. Skills with critical findings are **blocked from publishing**. Customize audit behavior (min score, ignored codes, safe domains) with `.skilleval.yaml` — see [docs/REFERENCE.md](docs/REFERENCE.md).
 
 ### Evaluate with data, not gut feeling
 

@@ -2,11 +2,37 @@
 
 ## Unreleased
 
+### Added
+
+- **Claude Code plugin** (`plugin/`): 3 skills + 14 MCP tools exposing skillctl as a library
+- **Multi-IDE install**: `skillctl install/uninstall` distributes governed skills to Claude Code, Cursor, Windsurf, Copilot, and Kiro with native frontmatter translation
+- **`--dry-run` for install**: preview what would be installed without writing files
+- **Category taxonomy**: optional `metadata.category` field with 12 known categories and validation
+- **Export command**: `skillctl export` creates portable tar.gz/zip archives from the local store
+- **Store consistency check**: `verify_consistency()` detects dangling refs and orphaned blobs
+- **Expanded `doctor` checks**: directory permissions, optional dep importability, install target detection, store consistency
+- **CI pipeline**: GitHub Actions with lint (ruff), format, typecheck (pyright), tests (3.10/3.12/3.13), and security (pip-audit) — all blocking
+- **Plugin hint**: `skillctl` emits `<claude-code-hint>` on stderr when running inside Claude Code
+
 ### Fixed
 
+- GitHub token sanitized in all git subprocess output (stdout, stderr, cmd args)
+- Auth error messages now distinguish missing vs invalid/expired tokens
+- Audit log `verify_integrity()` tracks parse errors instead of silently ignoring corrupt lines
 - File locking (`fcntl.flock`) on `installations.json` prevents concurrent install commands from corrupting state
 - Atomic write failures in store and installation tracker now raise `SkillctlError` with actionable messages (`E_STORE_WRITE`, `E_STATE_WRITE`)
 - Empty skill content is rejected before installation (`E_EMPTY_CONTENT`)
+- Swallowed exceptions in config, install, utils, and CLI validation now warn on stderr
+- FTS search pagination clamped to safe bounds (limit 1-500, offset 0-100000)
+- Sensitive config keys (`token`, `secret`) warn about shell history exposure
+- 67 pyright type errors resolved across 11 files; typecheck is now blocking in CI
+- All ruff lint and format issues resolved across the codebase
+
+### Changed
+
+- `litellm` minimum bumped to 1.83.14 (fixes 11 CVEs in aiohttp and python-dotenv)
+- Coverage exclusions configured for integration-only files; badge reflects unit-testable code (81%)
+- `MANIFEST.in` and `include-package-data` added for correct PyPI distribution
 
 ## v0.1.0b1 (2026-04-23)
 
