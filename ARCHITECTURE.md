@@ -251,6 +251,58 @@ skillctl serve                 Equivalent to: uvicorn skillctl.registry.server:c
 | `SKILLCTL_REGISTRY_TOKEN` | Environment variable override for local registry token. |
 | `SKILLCTL_GITHUB_TOKEN` | Environment variable override for GitHub token. |
 
+## Claude Code Plugin (`plugin/`)
+
+The `plugin/` directory is a [Claude Code plugin](https://code.claude.com/docs/en/plugins) that exposes skillctl to agentic coding environments via MCP tools and skills.
+
+```
+plugin/
+├── .claude-plugin/
+│   └── plugin.json              Plugin manifest (name, version, description)
+├── skills/
+│   ├── skill-lifecycle/
+│   │   └── SKILL.md             Guides the full validate → eval → optimize → publish workflow
+│   ├── create-skill/
+│   │   └── SKILL.md             Scaffolds and authors new skills
+│   └── diagnose-skill/
+│       └── SKILL.md             Interprets eval results and fixes findings
+├── scripts/
+│   └── mcp_server.py            MCP stdio server wrapping skillctl as a Python library
+└── .mcp.json                    Wires the MCP server for Claude Code discovery
+```
+
+| Component | Purpose |
+|-----------|---------|
+| **Skills** | Teach Claude the governance workflow, skill authoring patterns, and diagnostic reasoning. Claude auto-invokes them based on conversation context. |
+| **MCP server** | Exposes 13 tools (validate, apply, list, describe, delete, diff, create, eval audit/functional/trigger/report, optimize, optimize history). Calls skillctl as a library — no shell-out, structured JSON I/O. |
+| **Plugin hint** | `skillctl` CLI emits a `<claude-code-hint>` on stderr when `CLAUDECODE=1`, prompting Claude Code users to install the plugin. |
+
+### MCP Server Architecture
+
+The MCP server (`plugin/scripts/mcp_server.py`) imports skillctl modules directly:
+
+```
+MCP stdio transport
+    |
+    v
+FastMCP (mcp SDK)
+    |
+    v
+Tool handlers
+    |
+    +----> ManifestLoader, SchemaValidator     (validate, apply)
+    +----> ContentStore                         (list, describe, delete, apply)
+    +----> diff_skills                          (diff)
+    +----> run_audit                            (eval audit)
+    +----> run_functional_eval                  (eval functional)
+    +----> run_trigger_eval                     (eval trigger)
+    +----> run_unified_report                   (eval report)
+    +----> run_optimization                     (optimize)
+    +----> ProvenanceStore                      (optimize history)
+```
+
+All tools return structured JSON. Errors use the standard `SkillctlError(code, what, why, fix)` format.
+
 ## LLM Provider
 
 All LLM calls go through **LiteLLM**, a provider-agnostic completion library. The default model is `bedrock/us.anthropic.claude-opus-4-6-v1` (Claude Opus on Amazon Bedrock). Users can switch to any supported provider by passing a different `--model`:

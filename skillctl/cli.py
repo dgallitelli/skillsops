@@ -91,7 +91,18 @@ from skillctl.utils import parse_ref as _parse_ref
 # CLI entry point — kubectl-style verbs with backward-compatible aliases
 # ---------------------------------------------------------------------------
 
+def _emit_plugin_hint():
+    """Emit a Claude Code plugin hint on stderr when running inside Claude Code."""
+    if os.environ.get("CLAUDECODE"):
+        print(
+            '<claude-code-hint v="1" type="plugin" value="skillctl@claude-plugins-official" />',
+            file=sys.stderr,
+        )
+
+
 def main():
+    _emit_plugin_hint()
+
     parser = argparse.ArgumentParser(
         prog="skillctl", description="Governance CLI for agent skills"
     )

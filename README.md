@@ -68,6 +68,7 @@ git clone https://github.com/dgallitelli/skillctl.git
 cd skillctl
 pip install .                         # core CLI (Python 3.10+)
 pip install ".[optimize]"             # + optimizer (LiteLLM)
+pip install ".[plugin]"              # + MCP server for Claude Code plugin
 
 # Configure
 skillctl configure                    # registry backend, LLM model, budget
@@ -80,6 +81,28 @@ skillctl apply
 ```
 
 See [docs/REFERENCE.md](docs/REFERENCE.md) for the full CLI reference, registry server setup, eval suite details, optimizer flags, skill format spec, and API endpoints.
+
+### Claude Code plugin
+
+skillctl ships a [Claude Code plugin](https://code.claude.com/docs/en/plugins) in the `plugin/` directory. It gives Claude direct access to skillctl operations via MCP tools and teaches it the skill governance workflow via skills.
+
+```bash
+# Test locally
+claude --plugin-dir ./plugin
+
+# Skills available:
+#   /skillctl:skill-lifecycle   — full validate → eval → optimize → publish workflow
+#   /skillctl:create-skill      — scaffold and author new skills
+#   /skillctl:diagnose-skill    — interpret eval results and fix findings
+
+# 13 MCP tools exposed:
+#   skillctl_validate, skillctl_apply, skillctl_list, skillctl_describe,
+#   skillctl_delete, skillctl_diff, skillctl_create, skillctl_eval_audit,
+#   skillctl_eval_functional, skillctl_eval_trigger, skillctl_eval_report,
+#   skillctl_optimize, skillctl_optimize_history
+```
+
+When running inside Claude Code, `skillctl` emits a plugin hint on stderr so Claude Code can prompt users to install the plugin automatically.
 
 ---
 
@@ -96,6 +119,7 @@ See [docs/REFERENCE.md](docs/REFERENCE.md) for the full CLI reference, registry 
 | **AWS Agent Registry** | Native integration via `bedrock-agentcore-control` API |
 | **Provider-agnostic LLM** | Any model via LiteLLM (Bedrock, OpenAI, Anthropic, Ollama, ...) |
 | **Runtime-agnostic** | Works with Claude, GPT, Gemini, or any SKILL.md-based agent |
+| **Claude Code plugin** | MCP tools + skills for governance inside agentic IDEs |
 
 ## How it fits in
 

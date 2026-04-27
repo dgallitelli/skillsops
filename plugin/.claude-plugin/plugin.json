@@ -1,0 +1,11 @@
+{
+  "name": "skillctl",
+  "description": "Governance toolkit for agent skills — validate, evaluate, optimize, and publish skills from Claude Code",
+  "version": "0.1.0",
+  "author": {
+    "name": "skillctl contributors"
+  },
+  "repository": "https://github.com/skillctl/skillctl",
+  "license": "MPL-2.0",
+  "keywords": ["skills", "governance", "evaluation", "security", "optimization"]
+}

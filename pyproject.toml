@@ -25,6 +25,9 @@ server = [
 optimize = [
     "litellm>=1.60",
 ]
+plugin = [
+    "mcp>=1.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-anyio>=0.0.0",
@@ -34,7 +37,7 @@ dev = [
     "uvicorn[standard]>=0.29",
 ]
 all = [
-    "skillctl[server,optimize]",
+    "skillctl[server,optimize,plugin]",
 ]
 
 [project.scripts]

@@ -37,6 +37,11 @@ skillctl serve --auth-disabled           # start registry server
 
 ## Project structure
 
+- `plugin/` — Claude Code plugin (skills + MCP server)
+  - `plugin/.claude-plugin/plugin.json` — plugin manifest
+  - `plugin/skills/` — skill-lifecycle, create-skill, diagnose-skill
+  - `plugin/scripts/mcp_server.py` — MCP stdio server wrapping skillctl as a library
+  - `plugin/.mcp.json` — MCP server wiring for Claude Code
 - `skillctl/cli.py` — CLI entry point, all command handlers
 - `skillctl/config.py` — centralized typed config (`SkillctlConfig`, `load_config`, `save_config`, `run_configure_wizard`)
 - `skillctl/store.py` — local content-addressed storage
@@ -56,7 +61,7 @@ skillctl serve --auth-disabled           # start registry server
 - CLI commands follow kubectl verbs: apply, create, get, describe, delete, diff, logs
 - Old commands (init, push, pull, list, publish, search) are kept as aliases
 - Tests go in `tests/test_<module>.py` — integration tests use real SQLite/filesystem, Bedrock tests use `@pytest.mark.integration`
-- Dependencies: core needs only pyyaml. Server/optimizer deps are optional groups.
+- Dependencies: core needs only pyyaml. Server/optimizer/plugin deps are optional groups.
 - LLM calls use LiteLLM (provider-agnostic). Default model: `bedrock/us.anthropic.claude-opus-4-6-v1`.
 - Config is centralized in `skillctl/config.py` with typed dataclasses. Use `load_config()`/`save_config()`, not raw YAML.
 
