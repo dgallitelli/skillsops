@@ -382,6 +382,7 @@ def install_skill(
     force: bool = False,
     store: ContentStore | None = None,
     tracker_path: Path = DEFAULT_STATE_PATH,
+    dry_run: bool = False,
 ) -> list[InstallResult]:
     """Install a skill from the store to one or more IDE targets."""
     if store is None:
@@ -436,6 +437,17 @@ def install_skill(
         formatted = cfg.format_fn(skill_basename, frontmatter, body)
         content_hash = hashlib.sha256(formatted.encode()).hexdigest()
 
+        if dry_run:
+            results.append(
+                InstallResult(
+                    target=target_name,
+                    success=True,
+                    path=str(target_path),
+                    message=f"[dry-run] Would install to {target_path}",
+                )
+            )
+            continue
+
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(formatted)
 
@@ -455,7 +467,10 @@ def install_skill(
             )
         )
 
-    tracker.save()
+    if not dry_run:
+        tracker.save()
+    else:
+        tracker._release_lock()
     return results
 
 

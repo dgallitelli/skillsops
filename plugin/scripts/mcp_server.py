@@ -645,6 +645,7 @@ def skillctl_install(
     targets: str,
     global_scope: bool = False,
     force: bool = False,
+    dry_run: bool = False,
 ) -> str:
     """Install a governed skill to AI coding IDEs.
 
@@ -657,6 +658,7 @@ def skillctl_install(
         targets: Comma-separated IDE names or "all" (claude, cursor, windsurf, copilot, kiro).
         global_scope: Install to user-level directory instead of project-level.
         force: Overwrite files modified since last install.
+        dry_run: If True, preview what would be installed without writing files.
     """
     try:
         from skillctl.install import install_skill
@@ -667,6 +669,7 @@ def skillctl_install(
             targets=target_list,
             global_scope=global_scope,
             force=force,
+            dry_run=dry_run,
         )
         return json.dumps(
             {

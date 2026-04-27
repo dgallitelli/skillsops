@@ -25,6 +25,7 @@ metadata:
   tags:
     - security
     - code-review
+  category: code-review  # optional — see Known Categories below
 
 spec:
   content:
@@ -48,6 +49,25 @@ governance:
   channels:
     - my-org/engineering
 ```
+
+### Known Categories
+
+The optional `metadata.category` field classifies a skill into a taxonomy. Custom values are allowed but produce a validation warning.
+
+| Category | Description |
+|----------|-------------|
+| `code-review` | Code review and PR analysis |
+| `data` | Data processing and pipelines |
+| `deployment` | Deployment and release automation |
+| `design` | Design systems and UI patterns |
+| `dev-tools` | Developer tooling and productivity |
+| `documentation` | Documentation generation and maintenance |
+| `frameworks` | Framework-specific guidance |
+| `general` | General-purpose skills |
+| `infrastructure` | Infrastructure and IaC |
+| `observability` | Logging, monitoring, and alerting |
+| `security` | Security scanning and hardening |
+| `testing` | Testing strategies and automation |
 
 ### Backward compatibility
 
@@ -150,6 +170,7 @@ Backward-compatible aliases: `registry.url` maps to `registry.local.url`, `regis
 | `--target <targets>` | **Required.** Comma-separated IDE names or `all`. Valid: `claude`, `cursor`, `windsurf`, `copilot`, `kiro` |
 | `--global` | Install to user-level directory instead of project-level |
 | `--force` | Overwrite files modified since last install |
+| `--dry-run` | Preview what would be installed without writing files |
 
 ### `get installations` flags
 

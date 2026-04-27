@@ -296,6 +296,17 @@ def main():
     search_p.add_argument("--registry-url", default=None, help="Registry URL (overrides config)")
     search_p.add_argument("--token", default=None, help="Auth token (overrides config)")
 
+    # skillctl export [--output <path>] [--format tar.gz|zip] [--namespace <ns>] [--tag <tag>]
+    export_p = sub.add_parser("export", help="Export skills from local store to a portable archive")
+    export_p.add_argument(
+        "--output", "-o", default=None, help="Output file path (default: skillctl-export-{timestamp}.tar.gz)"
+    )
+    export_p.add_argument(
+        "--format", default="tar.gz", choices=["tar.gz", "zip"], help="Archive format (default: tar.gz)"
+    )
+    export_p.add_argument("--namespace", default=None, help="Filter by namespace")
+    export_p.add_argument("--tag", default=None, help="Filter by tag")
+
     # skillctl install <ref-or-path> --target <targets> [--global] [--force]
     install_p = sub.add_parser("install", help="Install a skill to AI coding IDEs")
     install_p.add_argument("ref", help="Skill ref (namespace/name@version) or path to skill directory")
@@ -309,6 +320,9 @@ def main():
         help="Install to user-level directory (claude, windsurf, kiro only)",
     )
     install_p.add_argument("--force", action="store_true", help="Overwrite modified files")
+    install_p.add_argument(
+        "--dry-run", action="store_true", help="Preview what would be installed without writing files"
+    )
 
     # skillctl uninstall <ref> --target <targets>
     uninstall_p = sub.add_parser("uninstall", help="Remove a skill from AI coding IDEs")
@@ -337,6 +351,8 @@ def main():
             cmd_delete(args)
         elif args.command == "logs":
             cmd_logs(args)
+        elif args.command == "export":
+            cmd_export(args)
         elif args.command == "install":
             cmd_install(args)
         elif args.command == "uninstall":
@@ -807,6 +823,35 @@ def cmd_delete_skill(args):
     print(f"✓ Deleted {ref}")
 
 
+def cmd_export(args):
+    """Export skills from the local store to a portable archive."""
+    from datetime import datetime, timezone
+
+    store = ContentStore()
+    fmt = getattr(args, "format", "tar.gz")
+    output = getattr(args, "output", None)
+
+    if not output:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        ext = "tar.gz" if fmt == "tar.gz" else "zip"
+        output = f"skillctl-export-{timestamp}.{ext}"
+
+    output_path = Path(output)
+    namespace = getattr(args, "namespace", None)
+    tag = getattr(args, "tag", None)
+
+    result = store.export_skills(
+        output_path=output_path,
+        format=fmt,
+        namespace=namespace,
+        tag=tag,
+    )
+
+    print(f"✓ Exported {result['skill_count']} skill(s) to {result['path']}")
+    print(f"  Format: {result['format']}")
+    print(f"  Size: {result['total_size']} bytes")
+
+
 def cmd_logs(args):
     """Show audit trail for a skill."""
     registry_url = _get_registry_url(args)
@@ -848,6 +893,7 @@ def cmd_install(args):
         targets=targets,
         global_scope=args.global_scope,
         force=args.force,
+        dry_run=args.dry_run,
     )
     for r in results:
         status = "✓" if r.success else "✗"

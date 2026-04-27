@@ -440,3 +440,28 @@ class TestUninstallSkill:
             tracker_path=tmp_path / "installations.json",
         )
         assert not results[0].success
+
+
+class TestInstallDryRun:
+    def test_install_dry_run(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".claude").mkdir()
+        ref, store = _create_stored_skill(tmp_path)
+        tracker_path = tmp_path / "installations.json"
+        results = install_skill(
+            ref=ref,
+            targets=["claude"],
+            global_scope=False,
+            force=False,
+            store=store,
+            tracker_path=tracker_path,
+            dry_run=True,
+        )
+        assert results[0].success
+        assert "dry-run" in results[0].message.lower()
+        # File should NOT exist
+        installed_path = tmp_path / ".claude" / "skills" / "install-test" / "SKILL.md"
+        assert not installed_path.exists()
+        # Tracker should NOT have an entry
+        tracker = InstallationTracker(state_path=tracker_path)
+        assert tracker.list_all() == {}
