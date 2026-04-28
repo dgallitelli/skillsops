@@ -19,35 +19,88 @@
 
 ## The problem
 
-As teams adopt AI agents, skills proliferate — code review skills, deployment skills, data analysis skills, each written by different people with different quality bars. Without governance, you get:
+Agent skills are spreading fast — code review skills, deployment skills, IaC security skills — but there's no quality gate between "someone wrote a SKILL.md" and "it's running in production." Teams end up with:
 
-- **No visibility** — nobody knows what skills exist or who owns them
-- **No quality gate** — skills with hardcoded secrets or prompt injection patterns reach production
-- **No evaluation** — "does this skill actually help?" is answered by gut feeling, not data
-- **No versioning** — breaking changes ship without warning
+- Skills with **hardcoded secrets** or **prompt injection patterns** that nobody catches
+- No way to answer **"does this skill actually help?"** with data
+- The **same skill copy-pasted** across Claude Code, Cursor, Windsurf, and Kiro
+- **Breaking changes** that ship without warning or versioning
+
+**skillctl** is the governance layer. One CLI to validate, evaluate, optimize, publish, and distribute agent skills across any IDE and any runtime.
+
+---
+
+## Get started in 60 seconds
+
+```bash
+pip install skillctl
+
+# Create your first skill
+skillctl create skill my-org/code-reviewer
+# Edit SKILL.md with your instructions, then:
+
+skillctl validate                         # schema + semver check
+skillctl eval audit .                     # security scan → A-F grade
+skillctl apply                            # push to governed store
+skillctl install my-org/code-reviewer@0.1.0 --target all   # deploy to every IDE
+```
+
+That's the full lifecycle: **create → validate → audit → publish → distribute.**
+
+---
+
+## Already have skills? Start here
+
+If you already have skills in Claude Code, Cursor, or any IDE — no `skill.yaml` needed:
+
+```bash
+# Validate and audit an existing Claude Code skill
+skillctl validate ~/.claude/skills/my-skill/SKILL.md
+skillctl eval audit ~/.claude/skills/my-skill/
+
+# Install it to other IDEs
+skillctl install ~/.claude/skills/my-skill/ --target cursor,windsurf,kiro
+
+# Or install from a URL
+skillctl install --from-url https://raw.githubusercontent.com/.../SKILL.md --target all
+```
+
+Add a `skillctl:` block to your SKILL.md frontmatter for full governance metadata — IDEs ignore it, skillctl reads it:
+
+```yaml
+---
+name: code-reviewer
+description: Reviews code for security issues
+allowed-tools: Read Grep
+skillctl:
+  namespace: my-org
+  version: 1.2.0
+  category: security
+  tags: [security, code-review]
+---
+```
+
+---
 
 ## What skillctl does
 
-**skillctl** is an open-source governance platform for agent skills. One CLI to validate, evaluate, publish, and optimize skills across any agent runtime.
-
-### Validate before it ships
+### Validate and scan
 
 ```bash
 skillctl validate ./my-skill          # schema, semver, capabilities
 skillctl eval audit ./my-skill        # security scan → A-F grade
 ```
 
-The security scanner checks for secrets, prompt injection, data exfiltration URLs, unsafe deserialization, encoded payloads, and more. Skills with critical findings are **blocked from publishing**. Customize audit behavior (min score, ignored codes, safe domains) with `.skilleval.yaml` — see [docs/REFERENCE.md](docs/REFERENCE.md).
+The security scanner checks 9 threat categories (~50 pattern detectors): hardcoded secrets, prompt injection, data exfiltration URLs, unsafe deserialization, encoded payloads, and more. Skills with critical findings are **blocked from publishing**. Customize with `.skilleval.yaml` — run `skillctl eval init ./my-skill` to generate one.
 
-### Evaluate with data, not gut feeling
+### Evaluate with data
 
 ```bash
+skillctl eval init ./my-skill         # generate eval scaffolds + .skilleval.yaml
 skillctl eval functional ./my-skill   # runs agent with/without skill, measures difference
-skillctl eval trigger ./my-skill      # does the skill fire when it should?
+skillctl eval trigger ./my-skill      # does the skill activate when it should?
 skillctl eval report ./my-skill       # unified score: 40% audit + 40% functional + 20% trigger
 ```
-
-Every eval produces a grade (A-F) and a score (0-100). Regression detection catches quality drops between versions.
 
 ### Optimize automatically
 
@@ -55,73 +108,41 @@ Every eval produces a grade (A-F) and a score (0-100). Regression detection catc
 skillctl optimize ./my-skill --budget 5.0
 ```
 
-The optimizer runs an iterative loop: evaluate → identify weaknesses via LLM → generate improved variants → re-evaluate → promote the best. Works with any LLM provider via [LiteLLM](https://docs.litellm.ai/docs/providers) (Bedrock, OpenAI, Ollama, etc.).
+Iterative loop: evaluate → identify weaknesses via LLM → generate variants → re-evaluate → promote the best. Works with any LLM via [LiteLLM](https://docs.litellm.ai/docs/providers).
 
 ### Publish with governance
 
 ```bash
-skillctl apply ./my-skill             # validate + security scan + push to registry
+skillctl apply ./my-skill             # validate + security scan + push to store
 ```
 
-`apply` is the governance gate. It validates the manifest, runs a security scan, pushes to a content-addressed local store, and optionally publishes to a remote registry — self-hosted or [AWS Agent Registry](https://aws.amazon.com/blogs/machine-learning/the-future-of-managing-agents-at-scale-aws-agent-registry-now-in-preview/).
-
-Every mutation is versioned, diffable, and auditable.
-
----
-
-## Quickstart
+Every mutation is versioned, diffable, and auditable:
 
 ```bash
-# Install
-git clone https://github.com/dgallitelli/skillctl.git
-cd skillctl
-pip install .                         # core CLI (Python 3.10+)
-pip install ".[optimize]"             # + optimizer (LiteLLM)
-pip install ".[plugin]"              # + MCP server for Claude Code plugin
-
-# Configure
-skillctl configure                    # registry backend, LLM model, budget
-
-# Create and govern a skill
-skillctl create skill my-org/my-skill
-skillctl validate
-skillctl eval audit .
-skillctl apply
-
-# Install to your IDEs
-skillctl install my-org/my-skill@0.1.0 --target all      # all detected IDEs
-skillctl install my-org/my-skill@0.1.0 --target cursor    # specific IDE
-skillctl get installations                                 # list what's installed
-skillctl uninstall my-org/my-skill@0.1.0 --target all     # remove from all
-
-# Works with existing IDE skills — no skill.yaml needed
-skillctl validate ~/.claude/skills/my-skill/SKILL.md
-skillctl eval audit ~/.claude/skills/my-skill/
+skillctl bump --minor                 # 1.0.0 → 1.1.0
+skillctl diff my-org/code-reviewer@1.0.0 my-org/code-reviewer@1.1.0
+skillctl get skills                   # list everything in the store
+skillctl describe skill my-org/code-reviewer@1.1.0
 ```
 
-See [docs/REFERENCE.md](docs/REFERENCE.md) for the full CLI reference, registry server setup, eval suite details, optimizer flags, skill format spec, and API endpoints.
-
-### Claude Code plugin
-
-skillctl ships a [Claude Code plugin](https://code.claude.com/docs/en/plugins) in the `plugin/` directory. It gives Claude direct access to skillctl operations via MCP tools and teaches it the skill governance workflow via skills.
+### Install to every IDE
 
 ```bash
-# Test locally
-claude --plugin-dir ./plugin
-
-# Skills available:
-#   /skillctl:skill-lifecycle   — full validate → eval → optimize → publish workflow
-#   /skillctl:create-skill      — scaffold and author new skills
-#   /skillctl:diagnose-skill    — interpret eval results and fix findings
-
-# 13 MCP tools exposed:
-#   skillctl_validate, skillctl_apply, skillctl_list, skillctl_describe,
-#   skillctl_delete, skillctl_diff, skillctl_create, skillctl_eval_audit,
-#   skillctl_eval_functional, skillctl_eval_trigger, skillctl_eval_report,
-#   skillctl_optimize, skillctl_optimize_history
+skillctl install my-org/code-reviewer@1.1.0 --target all      # auto-detect IDEs
+skillctl install my-org/code-reviewer@1.1.0 --target cursor    # specific IDE
+skillctl install my-org/code-reviewer@1.1.0 --target kiro --global  # user-level
+skillctl get installations                                     # what's installed where
+skillctl uninstall my-org/code-reviewer@1.1.0 --target all     # clean up
 ```
 
-When running inside Claude Code, `skillctl` emits a plugin hint on stderr so Claude Code can prompt users to install the plugin automatically.
+Supported targets: **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, **Kiro**. Frontmatter is automatically translated to each IDE's native format.
+
+### Export, import, share
+
+```bash
+skillctl export --namespace my-org    # tar.gz archive of your skills
+skillctl import skills-backup.tar.gz  # restore on another machine
+```
 
 ---
 
@@ -133,13 +154,15 @@ When running inside Claude Code, `skillctl` emits a plugin hint on stderr so Cla
 | **Functional evaluation** | With/without-skill baseline comparison via LLM-as-judge |
 | **Trigger evaluation** | Activation recall and specificity measurement |
 | **Automated optimization** | LLM-driven iterative improvement loop with budget control |
+| **Multi-IDE install** | Install governed skills to Claude Code, Cursor, Windsurf, Copilot, Kiro |
+| **SKILL.md first-class** | Works with bare SKILL.md files — no skill.yaml required for local ops |
+| **Category taxonomy** | 12 built-in categories with validation |
 | **Content-addressed storage** | SHA-256 hashing, integrity verification, structural diffing |
+| **Version management** | `skillctl bump`, `skillctl diff`, breaking change detection |
 | **Self-hosted registry** | FastAPI + SQLite + FTS5 search, HMAC-signed audit logs |
 | **AWS Agent Registry** | Native integration via `bedrock-agentcore-control` API |
-| **Provider-agnostic LLM** | Any model via LiteLLM (Bedrock, OpenAI, Anthropic, Ollama, ...) |
-| **Runtime-agnostic** | Works with Claude, GPT, Gemini, or any SKILL.md-based agent |
-| **Claude Code plugin** | MCP tools + skills for governance inside agentic IDEs |
-| **Multi-IDE install** | Install governed skills to Claude Code, Cursor, Windsurf, Copilot, Kiro |
+| **Claude Code plugin** | 14 MCP tools + 3 skills for governance inside agentic IDEs |
+| **Export/import** | Portable skill archives for sharing and backup |
 
 ## How it fits in
 
@@ -149,8 +172,43 @@ Author writes skill
     → skillctl eval audit      (security scan, A-F grade)
     → skillctl eval functional (behavioral testing)
     → skillctl optimize        (automated improvement)
-    → skillctl apply           (push to store + publish to registry)
+    → skillctl apply           (push to governed store)
+    → skillctl install         (distribute to IDEs)
     → Enterprise discovery     (self-hosted registry or AWS Agent Registry)
+```
+
+---
+
+## Claude Code plugin
+
+skillctl ships a [Claude Code plugin](https://code.claude.com/docs/en/plugins) in the `plugin/` directory. It gives Claude direct access to all skillctl operations via MCP tools.
+
+```bash
+claude --plugin-dir ./plugin
+
+# 14 MCP tools: validate, apply, list, describe, delete, diff, create,
+#   eval_audit, eval_functional, eval_trigger, eval_report,
+#   optimize, optimize_history, install
+#
+# 3 skills: /skillctl:skill-lifecycle, /skillctl:create-skill, /skillctl:diagnose-skill
+```
+
+---
+
+## Installation
+
+```bash
+pip install skillctl                  # core CLI (Python 3.10+)
+pip install "skillctl[optimize]"      # + optimizer (LiteLLM)
+pip install "skillctl[plugin]"        # + MCP server for Claude Code plugin
+pip install "skillctl[server]"        # + registry server (FastAPI)
+pip install "skillctl[all]"           # everything
+```
+
+Verify your setup:
+
+```bash
+skillctl doctor                       # checks Python, deps, store, registry, IDE targets
 ```
 
 ---
@@ -167,8 +225,8 @@ Author writes skill
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,optimize]"
-pytest -m "not integration"           # 310 unit tests
+pip install -e ".[dev,optimize,plugin]"
+pytest -m "not integration"           # 528 unit tests
 pytest -m integration                 # 10 real Bedrock tests (needs AWS creds)
 ```
 
