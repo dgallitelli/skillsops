@@ -504,9 +504,6 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
         )
 
     # --- Check 9: Standard directories ---
-    known_dirs = {"scripts", "references", "assets", "evals", "agents"}
-    actual_dirs = {d.name for d in skill_path.iterdir() if d.is_dir() and not d.name.startswith(".")}
-    actual_dirs - known_dirs
     # Not a finding, just metadata — unusual dirs aren't necessarily wrong
 
     # --- Check 10: Token budget check — skills over ~4,000 tokens may degrade agent performance ---

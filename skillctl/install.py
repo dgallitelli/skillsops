@@ -507,13 +507,28 @@ def uninstall_skill(
 
 def download_skill(url: str, target_dir: Path) -> Path:
     """Download a SKILL.md from a URL to a local directory. Returns the path."""
+    import re
     import urllib.request
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https", "http"):
+        raise SkillctlError(
+            code="E_INVALID_URL",
+            what=f"Unsupported URL scheme: {parsed.scheme}",
+            why="Only https:// and http:// URLs are supported for security",
+            fix="Use an https:// URL",
+        )
 
     content = urllib.request.urlopen(url, timeout=30).read().decode("utf-8")
     skill_name = "downloaded-skill"
     frontmatter, body = _parse_frontmatter(content)
     if frontmatter.get("name"):
         skill_name = frontmatter["name"]
+    # Sanitize: only allow alphanumeric, hyphens
+    skill_name = re.sub(r"[^a-z0-9-]", "-", skill_name.lower())
+    if not skill_name or skill_name == "-":
+        skill_name = "downloaded-skill"
     skill_dir = target_dir / skill_name
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(content)

@@ -3,6 +3,8 @@
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from skillctl.errors import SkillctlError
 from skillctl.install import (
     TARGETS,
@@ -443,21 +445,47 @@ class TestUninstallSkill:
 
 
 class TestDownloadSkill:
-    def test_download_skill_from_file_url(self, tmp_path):
+    def test_download_skill_rejects_file_url(self, tmp_path):
         source = tmp_path / "source.md"
         source.write_text("---\nname: test-dl\ndescription: test\n---\n\nBody")
         from skillctl.install import download_skill
 
-        result = download_skill(f"file://{source}", tmp_path / "dest")
+        with pytest.raises(SkillctlError) as exc_info:
+            download_skill(f"file://{source}", tmp_path / "dest")
+        assert exc_info.value.code == "E_INVALID_URL"
+
+    def test_download_skill_rejects_ftp_url(self, tmp_path):
+        from skillctl.install import download_skill
+
+        with pytest.raises(SkillctlError) as exc_info:
+            download_skill("ftp://example.com/skill.md", tmp_path / "dest")
+        assert exc_info.value.code == "E_INVALID_URL"
+
+    def test_download_skill_with_http_mock(self, tmp_path, monkeypatch):
+        from unittest.mock import MagicMock, patch
+
+        from skillctl.install import download_skill
+
+        content = "---\nname: test-dl\ndescription: test\n---\n\nBody"
+        mock_response = MagicMock()
+        mock_response.read.return_value = content.encode("utf-8")
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = download_skill("https://example.com/skill.md", tmp_path / "dest")
         assert (result / "SKILL.md").exists()
         assert result.name == "test-dl"
 
-    def test_download_skill_fallback_name(self, tmp_path):
-        source = tmp_path / "source.md"
-        source.write_text("---\ndescription: test\n---\n\nBody")
+    def test_download_skill_fallback_name(self, tmp_path, monkeypatch):
+        from unittest.mock import MagicMock, patch
+
         from skillctl.install import download_skill
 
-        result = download_skill(f"file://{source}", tmp_path / "dest")
+        content = "---\ndescription: test\n---\n\nBody"
+        mock_response = MagicMock()
+        mock_response.read.return_value = content.encode("utf-8")
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = download_skill("https://example.com/skill.md", tmp_path / "dest")
         assert (result / "SKILL.md").exists()
         assert result.name == "downloaded-skill"
 

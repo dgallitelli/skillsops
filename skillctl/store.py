@@ -375,9 +375,25 @@ class ContentStore:
             try:
                 if fmt == "tar.gz":
                     with tarfile.open(str(archive_path), "r:gz") as tar:
-                        tar.extractall(path=tmp, filter="data")
+                        for member in tar.getmembers():
+                            if member.name.startswith("/") or ".." in member.name:
+                                raise SkillctlError(
+                                    code="E_INVALID_ARCHIVE",
+                                    what=f"Unsafe path in archive: {member.name}",
+                                    why="Archive contains absolute or traversal paths",
+                                    fix="Use a trusted archive created by 'skillctl export'",
+                                )
+                        tar.extractall(path=tmp)
                 else:
                     with zipfile.ZipFile(str(archive_path), "r") as zf:
+                        for info in zf.infolist():
+                            if info.filename.startswith("/") or ".." in info.filename:
+                                raise SkillctlError(
+                                    code="E_INVALID_ARCHIVE",
+                                    what=f"Unsafe path in archive: {info.filename}",
+                                    why="Archive contains absolute or traversal paths",
+                                    fix="Use a trusted archive created by 'skillctl export'",
+                                )
                         zf.extractall(path=tmp)
             except (tarfile.TarError, zipfile.BadZipFile) as e:
                 raise SkillctlError(

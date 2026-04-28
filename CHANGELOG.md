@@ -21,6 +21,11 @@
 
 ### Fixed
 
+- **Security**: `import_skills()` now validates tar and zip archive member paths before extraction, rejecting absolute paths and `..` traversal
+- **Security**: `download_skill()` now rejects non-HTTP(S) URL schemes (e.g., `file://`, `ftp://`) to prevent SSRF
+- **Security**: `download_skill()` sanitizes frontmatter-derived skill names used as directory paths
+- **Compat**: `import_skills()` no longer uses `tarfile.extractall(filter="data")` which requires Python 3.12+; works on 3.10+
+- Removed dead code (unused set expression) in `structure_check.py`
 - GitHub token sanitized in all git subprocess output (stdout, stderr, cmd args)
 - Auth error messages now distinguish missing vs invalid/expired tokens
 - Audit log `verify_integrity()` tracks parse errors instead of silently ignoring corrupt lines
