@@ -13,6 +13,10 @@
 - **Expanded `doctor` checks**: directory permissions, optional dep importability, install target detection, store consistency
 - **CI pipeline**: GitHub Actions with lint (ruff), format, typecheck (pyright), tests (3.10/3.12/3.13), and security (pip-audit) — all blocking
 - **Plugin hint**: `skillctl` emits `<claude-code-hint>` on stderr when running inside Claude Code
+- **`bump` command**: `skillctl bump` auto-increments the version in skill.yaml (supports `--major`, `--minor`, `--patch`)
+- **`logs` command**: `skillctl logs <name>` now fetches audit events from the registry API instead of showing a stub message
+- **`eval --help`**: running `skillctl eval` with no subcommand now correctly prints the eval parser help
+- **Quickstart hint**: main CLI `--help` now shows a quickstart example in the epilog
 
 ### Fixed
 

@@ -133,6 +133,8 @@ All commands follow kubectl-style verb patterns: `skillctl <verb> [resource] [ar
 | `skillctl validate [path]` | Validate manifest structure, semver, capabilities |
 | `skillctl diff <ref-a> <ref-b>` | Compare two skill versions with breaking change detection |
 | `skillctl export` | Export skills from local store to a portable archive (tar.gz or zip) |
+| `skillctl import <archive>` | Import skills from a tar.gz or zip archive (reverse of export) |
+| `skillctl bump [path]` | Bump skill version in skill.yaml (`--major`, `--minor`, `--patch`) |
 | `skillctl doctor` | Diagnose environment issues |
 | `skillctl version` | Print version info |
 

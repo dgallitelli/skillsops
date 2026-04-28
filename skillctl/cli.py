@@ -112,7 +112,11 @@ def _emit_plugin_hint():
 def main():
     _emit_plugin_hint()
 
-    parser = argparse.ArgumentParser(prog="skillctl", description="Governance CLI for agent skills")
+    parser = argparse.ArgumentParser(
+        prog="skillctl",
+        description="Governance CLI for agent skills",
+        epilog="Quick start: skillctl create skill my-org/my-skill && skillctl validate && skillctl eval audit .",
+    )
     sub = parser.add_subparsers(dest="command")
 
     # -----------------------------------------------------------------------
@@ -202,7 +206,14 @@ def main():
     sub.add_parser("doctor", help="Diagnose environment issues")
 
     # skillctl eval <subcommand>
-    sub.add_parser("eval", help="Evaluate skills (audit, functional, trigger, report, ...)")
+    sub.add_parser("eval", help="Evaluate skills (subcommands: audit, functional, trigger, report, init, compare)")
+
+    # skillctl bump
+    bump_p = sub.add_parser("bump", help="Bump skill version (in skill.yaml)")
+    bump_p.add_argument("path", nargs="?", default=".", help="Path to skill directory")
+    bump_p.add_argument("--major", action="store_true", help="Bump major version")
+    bump_p.add_argument("--minor", action="store_true", help="Bump minor version")
+    bump_p.add_argument("--patch", action="store_true", help="Bump patch version (default)")
 
     # skillctl optimize (and subcommands: history, diff)
     register_optimize_commands(sub)
@@ -307,6 +318,10 @@ def main():
     export_p.add_argument("--namespace", default=None, help="Filter by namespace")
     export_p.add_argument("--tag", default=None, help="Filter by tag")
 
+    # skillctl import <archive>
+    import_p = sub.add_parser("import", help="Import skills from an archive (reverse of export)")
+    import_p.add_argument("archive", help="Path to archive file (tar.gz or zip)")
+
     # skillctl install <ref-or-path> --target <targets> [--global] [--force]
     install_p = sub.add_parser("install", help="Install a skill to AI coding IDEs")
     install_p.add_argument(
@@ -356,6 +371,8 @@ def main():
             cmd_logs(args)
         elif args.command == "export":
             cmd_export(args)
+        elif args.command == "import":
+            cmd_import(args)
         elif args.command == "install":
             cmd_install(args)
         elif args.command == "uninstall":
@@ -372,6 +389,8 @@ def main():
             cmd_doctor(args)
         elif args.command == "eval":
             cmd_eval_passthrough(remaining)
+        elif args.command == "bump":
+            cmd_bump(args)
         elif args.command == "optimize":
             handle_optimize(args, remaining)
         elif args.command == "serve":
@@ -653,7 +672,12 @@ def cmd_get_skills_remote(args):
         print(f"Error ({e.code}): {body_text}", file=sys.stderr)
         sys.exit(1)
     except urllib.error.URLError as e:
-        print(f"Error: Could not connect to {registry_url}: {e.reason}", file=sys.stderr)
+        print(f"Error: Could not connect to registry: {e.reason}", file=sys.stderr)
+        print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Registry request failed: {e}", file=sys.stderr)
+        print("  Fix: Check registry URL and auth with 'skillctl doctor'", file=sys.stderr)
         sys.exit(1)
 
     skills = data.get("skills", [])
@@ -698,7 +722,12 @@ def cmd_get_skill(args):
             print(f"Error ({e.code}): {e.read().decode()}", file=sys.stderr)
             sys.exit(1)
         except urllib.error.URLError as e:
-            print(f"Error: Could not connect to {registry_url}: {e.reason}", file=sys.stderr)
+            print(f"Error: Could not connect to registry: {e.reason}", file=sys.stderr)
+            print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error: Registry request failed: {e}", file=sys.stderr)
+            print("  Fix: Check registry URL and auth with 'skillctl doctor'", file=sys.stderr)
             sys.exit(1)
 
         output_dir = Path(getattr(args, "output", "."))
@@ -864,16 +893,106 @@ def cmd_export(args):
     print(f"  Size: {result['total_size']} bytes")
 
 
+def cmd_import(args):
+    """Import skills from an archive."""
+    archive_path = Path(args.archive)
+    if not archive_path.exists():
+        raise SkillctlError(
+            code="E_NOT_FOUND",
+            what=f"Archive not found: {archive_path}",
+            why="The archive file must exist",
+            fix="Check the path and try again",
+        )
+    store = ContentStore()
+    result = store.import_skills(archive_path)
+    print(f"✓ Imported {result['imported_count']} skill(s)")
+    if result["skipped_count"]:
+        print(f"  Skipped {result['skipped_count']} (already in store)")
+    if result["errors"]:
+        for err in result["errors"]:
+            print(f"  ✗ {err}", file=sys.stderr)
+
+
+def cmd_bump(args):
+    """Bump skill version in skill.yaml."""
+    path = Path(args.path)
+    yaml_path = path / "skill.yaml" if path.is_dir() else path
+
+    if not yaml_path.exists():
+        raise SkillctlError(
+            code="E_NO_MANIFEST",
+            what=f"No skill.yaml found at {yaml_path}",
+            why="Version bump requires a skill.yaml file",
+            fix="Run this command in a skill directory with skill.yaml",
+        )
+
+    content = yaml_path.read_text()
+    import re
+
+    match = re.search(r'version:\s*["\']?(\d+)\.(\d+)\.(\d+)["\']?', content)
+    if not match:
+        raise SkillctlError(
+            code="E_NO_VERSION",
+            what="Could not find version field in skill.yaml",
+            why="Version must be in semver format (MAJOR.MINOR.PATCH)",
+            fix="Add 'version: 1.0.0' to metadata section",
+        )
+
+    major, minor, patch = int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+    if args.major:
+        major += 1
+        minor = 0
+        patch = 0
+    elif args.minor:
+        minor += 1
+        patch = 0
+    else:
+        patch += 1
+
+    old_version = f"{match.group(1)}.{match.group(2)}.{match.group(3)}"
+    new_version = f"{major}.{minor}.{patch}"
+    new_content = content.replace(match.group(0), match.group(0).replace(old_version, new_version))
+    yaml_path.write_text(new_content)
+    print(f"✓ Version bumped: {old_version} → {new_version}")
+
+
 def cmd_logs(args):
-    """Show audit trail for a skill."""
-    registry_url = _get_registry_url(args)
-    if not registry_url:
-        print("Audit logs require a registry connection.", file=sys.stderr)
-        print("  Fix: Run 'skillctl config set registry.url <url>'", file=sys.stderr)
+    """Show audit trail for a skill from the registry."""
+    registry_url = _require_registry_url(args)
+    token = _get_registry_token(args)
+
+    url = f"{registry_url}/api/v1/audit?action=skill.published&limit=50"
+
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            events = json.loads(resp.read())
+    except Exception as e:
+        print(f"Error fetching logs: {e}", file=sys.stderr)
+        print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
         sys.exit(1)
 
-    # Stub — audit API endpoint not yet implemented
-    print(f"Audit log viewing for '{args.name}' requires a registry connection (coming soon)")
+    if not events:
+        print(f"No audit events found for '{args.name}'.")
+        return
+
+    # Filter by skill name
+    skill_events = [e for e in events if args.name in e.get("resource", "")]
+    if not skill_events:
+        print(f"No audit events found for '{args.name}'.")
+        return
+
+    for event in skill_events:
+        ts = event.get("timestamp", "")[:19]
+        action = event.get("action", "")
+        actor = event.get("actor", "")
+        resource = event.get("resource", "")
+        print(f"  {ts}  {action:20s}  {actor:15s}  {resource}")
 
 
 def cmd_install(args):
@@ -911,8 +1030,9 @@ def cmd_install(args):
             why="The install command needs a skill to install",
             fix="Provide a skill ref (namespace/name@version), a path, or --from-url <url>",
         )
-    elif "/" in ref and "@" not in ref and Path(ref).exists():
-        # If ref looks like a path, apply first
+    elif "@" not in ref and Path(ref).expanduser().exists():
+        # If ref looks like a local path (no @version), apply first
+        ref = str(Path(ref).expanduser())
         print(f"Applying {ref} first...")
         cmd_apply(
             argparse.Namespace(
@@ -1255,6 +1375,9 @@ def cmd_eval_passthrough(remaining_args: list[str]):
     from skillctl.eval.errors import EvalError
 
     parser = build_parser()
+    if not remaining_args:
+        parser.print_help()
+        sys.exit(0)
     args = parser.parse_args(remaining_args)
     if not getattr(args, "command", None):
         parser.print_help()
@@ -1346,7 +1469,12 @@ def cmd_token_create(args):
             print(f"Error ({e.code}): {body_text}", file=sys.stderr)
         sys.exit(1)
     except urllib.error.URLError as e:
-        print(f"Error: Could not connect to {registry_url}: {e.reason}", file=sys.stderr)
+        print(f"Error: Could not connect to registry: {e.reason}", file=sys.stderr)
+        print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Registry request failed: {e}", file=sys.stderr)
+        print("  Fix: Check registry URL and auth with 'skillctl doctor'", file=sys.stderr)
         sys.exit(1)
 
 
@@ -1549,5 +1677,11 @@ def _publish_to_registry(args, manifest, content: str, registry_url: str):
     if token:
         req.add_header("Authorization", f"Bearer {token}")
 
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        resp.read()
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            resp.read()
+    except urllib.error.HTTPError as e:
+        body_text = e.read().decode()
+        raise Exception(f"Registry returned {e.code}: {body_text}")
+    except urllib.error.URLError as e:
+        raise Exception(f"Could not connect to registry: {e.reason}. Fix: Check registry URL with 'skillctl doctor'")
