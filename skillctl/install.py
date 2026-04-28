@@ -13,9 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-import yaml
-
 from skillctl.errors import SkillctlError
+from skillctl.manifest import _parse_frontmatter
 from skillctl.store import ContentStore
 from skillctl.utils import parse_ref
 
@@ -361,20 +360,6 @@ def _resolve_targets(targets: list[str], global_scope: bool) -> list[str]:
     return sorted(set(resolved))
 
 
-def _parse_skill_frontmatter(content: str) -> tuple[dict, str]:
-    """Split SKILL.md content into frontmatter dict and body."""
-    if content.startswith("---"):
-        try:
-            end = content.index("---", 3)
-            fm_text = content[3:end].strip()
-            body = content[end + 3 :].strip()
-            fm = yaml.safe_load(fm_text) or {}
-            return fm, body
-        except (ValueError, yaml.YAMLError) as e:
-            print(f"Warning: Failed to parse skill frontmatter: {e}", file=sys.stderr)
-    return {}, content.strip()
-
-
 def install_skill(
     ref: str,
     targets: list[str],
@@ -400,7 +385,7 @@ def install_skill(
             fix="Check the skill's SKILL.md or inline content in skill.yaml",
         )
 
-    frontmatter, body = _parse_skill_frontmatter(skill_content)
+    frontmatter, body = _parse_frontmatter(skill_content)
 
     resolved = _resolve_targets(targets, global_scope)
     tracker = InstallationTracker(state_path=tracker_path)
