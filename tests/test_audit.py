@@ -1,4 +1,4 @@
-"""Unit tests for AuditLogger — Task 5.2."""
+"""Unit tests for AuditLogger — Task 5.2, and structure_check token budget (STR-021)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import pytest
 
 from skillctl.registry.audit import AuditLogger
+from skillctl.eval.audit.structure_check import check_structure
 
 
 HMAC_KEY = b"test-secret-key-for-audit"
@@ -232,3 +233,47 @@ def _write_event(
     with open(logger.log_path, "a") as f:
         f.write(json.dumps(event) + "\n")
         f.flush()
+
+
+# -- STR-021: Token budget warning -------------------------------------------
+
+
+def _make_skill_md(body_word_count: int) -> str:
+    """Build a SKILL.md with valid frontmatter and a body of approximately *body_word_count* words."""
+    frontmatter = (
+        "---\n"
+        "name: test-skill\n"
+        "description: A test skill that does useful things for testing purposes\n"
+        "---\n"
+    )
+    body = " ".join(["word"] * body_word_count)
+    return frontmatter + "\n" + body + "\n"
+
+
+def test_str021_not_emitted_for_short_body(tmp_path):
+    """A short SKILL.md body should NOT produce STR-021."""
+    skill_dir = tmp_path / "test-skill"
+    skill_dir.mkdir()
+    # 100 words * 1.3 = 130 tokens — well under 4,000
+    (skill_dir / "SKILL.md").write_text(_make_skill_md(100))
+
+    findings, _fm, _body_start = check_structure(skill_dir)
+    codes = [f.code for f in findings]
+    assert "STR-021" not in codes
+
+
+def test_str021_emitted_for_long_body(tmp_path):
+    """A SKILL.md body exceeding ~4,000 estimated tokens should produce STR-021."""
+    skill_dir = tmp_path / "test-skill"
+    skill_dir.mkdir()
+    # 4000 words * 1.3 = 5,200 tokens — over the 4,000 threshold
+    (skill_dir / "SKILL.md").write_text(_make_skill_md(4000))
+
+    findings, _fm, _body_start = check_structure(skill_dir)
+    codes = [f.code for f in findings]
+    assert "STR-021" in codes
+
+    str021 = [f for f in findings if f.code == "STR-021"][0]
+    assert str021.severity.value == "INFO"
+    assert "tokens" in str021.title
+    assert "references/" in str021.fix

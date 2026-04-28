@@ -509,7 +509,28 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
     actual_dirs - known_dirs
     # Not a finding, just metadata — unusual dirs aren't necessarily wrong
 
-    # --- Check 10: Scripts have no extension or are executable ---
+    # --- Check 10: Token budget check — skills over ~4,000 tokens may degrade agent performance ---
+    if body_text:
+        word_count = len(body_text.split())
+        estimated_tokens = int(word_count * 1.3)
+        if estimated_tokens > 4000:
+            findings.append(
+                Finding(
+                    code="STR-021",
+                    severity=Severity.INFO,
+                    category=Category.STRUCTURE,
+                    title=f"Skill body is ~{estimated_tokens} tokens (recommended: <4,000)",
+                    detail=(
+                        f"The SKILL.md body has ~{word_count} words (~{estimated_tokens} tokens). "
+                        "Long skills consume more context and may confuse the agent. "
+                        "Consider splitting into a shorter SKILL.md with references/ for detailed content."
+                    ),
+                    file_path=str(skill_path / "SKILL.md"),
+                    fix="Move detailed checklists or specifications to a references/ directory",
+                )
+            )
+
+    # --- Check 11: Scripts have no extension or are executable ---
     scripts_dir = skill_path / "scripts"
     if scripts_dir.is_dir():
         for script_file in scripts_dir.rglob("*"):

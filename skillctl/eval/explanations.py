@@ -42,6 +42,11 @@ RULE_EXPLANATIONS: dict[str, str] = {
         "MCP servers are external services that an agent connects to. A malicious MCP server can "
         "intercept all agent communications, inject instructions, or exfiltrate data."
     ),
+    "STR-021": (
+        "Skills over ~4,000 tokens consume a large portion of the agent's context window. "
+        "Oversized instructions can reduce accuracy, increase latency, and crowd out the user's "
+        "actual task. Split long content into a concise SKILL.md and a references/ directory."
+    ),
 }
 
 # Prefix-based explanations for code families
