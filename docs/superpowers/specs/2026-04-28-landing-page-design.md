@@ -1,7 +1,7 @@
 # Landing Page Design
 
 **Date:** 2026-04-28
-**Goal:** Single-page landing site for skillsops at dgallitelli.github.io/skillctl/
+**Goal:** Single-page landing site for skillsops at dgallitelli.github.io/skillsops/
 
 ## Architecture
 

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dgallitelli/skillctl/actions/workflows/ci.yml"><img src="https://github.com/dgallitelli/skillctl/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/dgallitelli/skillsops/actions/workflows/ci.yml"><img src="https://github.com/dgallitelli/skillsops/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/python-3.10%20|%203.12%20|%203.13-blue" alt="Python">
   <img src="https://img.shields.io/badge/coverage-81%25-green" alt="Coverage">
   <img src="https://img.shields.io/badge/pyright-strict-green" alt="Type Checked">
