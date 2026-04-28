@@ -375,9 +375,7 @@ class TestWrapMarkdownWithFrontmatter:
 
     def test_frontmatter_with_string_authors(self, tmp_path):
         md = tmp_path / "SKILL.md"
-        md.write_text(
-            "---\nname: test\ndescription: test\nskillctl:\n  authors:\n    - Bob\n---\n\nBody"
-        )
+        md.write_text("---\nname: test\ndescription: test\nskillctl:\n  authors:\n    - Bob\n---\n\nBody")
         loader = ManifestLoader()
         manifest, warnings = loader.load(str(md))
         assert len(manifest.metadata.authors) == 1

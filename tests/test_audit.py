@@ -240,12 +240,7 @@ def _write_event(
 
 def _make_skill_md(body_word_count: int) -> str:
     """Build a SKILL.md with valid frontmatter and a body of approximately *body_word_count* words."""
-    frontmatter = (
-        "---\n"
-        "name: test-skill\n"
-        "description: A test skill that does useful things for testing purposes\n"
-        "---\n"
-    )
+    frontmatter = "---\nname: test-skill\ndescription: A test skill that does useful things for testing purposes\n---\n"
     body = " ".join(["word"] * body_word_count)
     return frontmatter + "\n" + body + "\n"
 
