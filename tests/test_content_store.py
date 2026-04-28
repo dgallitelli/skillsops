@@ -375,3 +375,94 @@ def test_verify_consistency_orphaned_blob(store):
     result = store.verify_consistency()
     assert result["ok"] is False
     assert len(result["orphaned_blobs"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# import_skills tests
+# ---------------------------------------------------------------------------
+
+
+def test_import_round_trip_tar(tmp_path):
+    """Export one skill, import into a fresh store, verify it's there."""
+    store_a = ContentStore(root=tmp_path / "store_a")
+    manifest = _make_manifest(name="org/round-trip", version="1.0.0")
+    content = b"# Round Trip Skill\nTest content.\n"
+    store_a.push(manifest, content)
+
+    archive = tmp_path / "export.tar.gz"
+    store_a.export_skills(output_path=archive, format="tar.gz")
+
+    store_b = ContentStore(root=tmp_path / "store_b")
+    result = store_b.import_skills(archive)
+
+    assert result["imported_count"] == 1
+    assert result["skipped_count"] == 0
+    assert result["errors"] == []
+
+    pulled_content, entry = store_b.pull("org/round-trip", "1.0.0")
+    assert pulled_content == content
+    assert entry["name"] == "org/round-trip"
+
+
+def test_import_round_trip_zip(tmp_path):
+    """Export one skill as zip, import into a fresh store, verify it's there."""
+    store_a = ContentStore(root=tmp_path / "store_a")
+    manifest = _make_manifest(name="org/zip-import", version="2.0.0")
+    content = b"# Zip Import Skill\nTest content.\n"
+    store_a.push(manifest, content)
+
+    archive = tmp_path / "export.zip"
+    store_a.export_skills(output_path=archive, format="zip")
+
+    store_b = ContentStore(root=tmp_path / "store_b")
+    result = store_b.import_skills(archive)
+
+    assert result["imported_count"] == 1
+    assert result["skipped_count"] == 0
+    assert result["errors"] == []
+
+    pulled_content, _ = store_b.pull("org/zip-import", "2.0.0")
+    assert pulled_content == content
+
+
+def test_import_skips_existing(tmp_path):
+    """Import skips skills that already exist in the target store."""
+    store_a = ContentStore(root=tmp_path / "store_a")
+    manifest = _make_manifest(name="org/existing", version="1.0.0")
+    content = b"# Existing Skill\n"
+    store_a.push(manifest, content)
+
+    archive = tmp_path / "export.tar.gz"
+    store_a.export_skills(output_path=archive, format="tar.gz")
+
+    # Import into store that already has this skill
+    store_b = ContentStore(root=tmp_path / "store_b")
+    store_b.push(manifest, content)
+
+    result = store_b.import_skills(archive)
+
+    assert result["imported_count"] == 0
+    assert result["skipped_count"] == 1
+    assert result["errors"] == []
+
+
+def test_import_invalid_archive_raises(tmp_path):
+    """Import with an invalid archive raises SkillctlError."""
+    bad_file = tmp_path / "bad.tar.gz"
+    bad_file.write_bytes(b"not a real archive")
+
+    store = ContentStore(root=tmp_path / "store")
+    with pytest.raises(SkillctlError) as exc_info:
+        store.import_skills(bad_file)
+    assert exc_info.value.code == "E_INVALID_ARCHIVE"
+
+
+def test_import_unsupported_extension_raises(tmp_path):
+    """Import with an unsupported file extension raises SkillctlError."""
+    bad_file = tmp_path / "archive.rar"
+    bad_file.write_bytes(b"something")
+
+    store = ContentStore(root=tmp_path / "store")
+    with pytest.raises(SkillctlError) as exc_info:
+        store.import_skills(bad_file)
+    assert exc_info.value.code == "E_INVALID_FORMAT"

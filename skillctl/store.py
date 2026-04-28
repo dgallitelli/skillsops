@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 from skillctl.errors import SkillctlError
-from skillctl.manifest import SkillManifest
+from skillctl.manifest import ManifestLoader, SkillManifest
 
 DEFAULT_STORE_ROOT = Path.home() / ".skillctl"
 
@@ -342,6 +342,107 @@ class ContentStore:
             "dangling_refs": dangling_refs,
             "orphaned_blobs": orphaned_blobs,
             "ok": len(dangling_refs) == 0 and len(orphaned_blobs) == 0,
+        }
+
+    def import_skills(self, archive_path: Path) -> dict:
+        """Import skills from a tar.gz or zip archive into the local store.
+
+        Returns dict with: imported_count, skipped_count, errors
+        """
+        archive_path = Path(archive_path)
+        name_lower = archive_path.name.lower()
+
+        if name_lower.endswith(".tar.gz") or name_lower.endswith(".tgz"):
+            fmt = "tar.gz"
+        elif name_lower.endswith(".zip"):
+            fmt = "zip"
+        else:
+            raise SkillctlError(
+                code="E_INVALID_FORMAT",
+                what=f"Unsupported archive format: {archive_path.name}",
+                why="Only tar.gz and zip archives are supported for import",
+                fix="Provide a .tar.gz or .zip archive created by 'skillctl export'",
+            )
+
+        imported_count = 0
+        skipped_count = 0
+        errors: list[str] = []
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+
+            # Extract archive
+            try:
+                if fmt == "tar.gz":
+                    with tarfile.open(str(archive_path), "r:gz") as tar:
+                        tar.extractall(path=tmp, filter="data")
+                else:
+                    with zipfile.ZipFile(str(archive_path), "r") as zf:
+                        zf.extractall(path=tmp)
+            except (tarfile.TarError, zipfile.BadZipFile) as e:
+                raise SkillctlError(
+                    code="E_INVALID_ARCHIVE",
+                    what=f"Failed to extract archive: {e}",
+                    why="The archive file is corrupted or in an unexpected format",
+                    fix="Re-export with 'skillctl export' and try again",
+                ) from e
+
+            # Read index.json
+            index_path = tmp / "index.json"
+            if not index_path.exists():
+                raise SkillctlError(
+                    code="E_INVALID_ARCHIVE",
+                    what="Archive missing index.json",
+                    why="A valid skillctl archive must contain an index.json file",
+                    fix="Re-export with 'skillctl export' and try again",
+                )
+
+            try:
+                index_data = json.loads(index_path.read_text())
+            except (json.JSONDecodeError, OSError) as e:
+                raise SkillctlError(
+                    code="E_INVALID_ARCHIVE",
+                    what=f"Failed to read index.json: {e}",
+                    why="index.json must be valid JSON",
+                    fix="Re-export with 'skillctl export' and try again",
+                ) from e
+
+            loader = ManifestLoader()
+
+            for entry in index_data:
+                skill_name = entry.get("name", "")
+                skill_version = entry.get("version", "")
+                skill_dir = tmp / "skills" / f"{skill_name}@{skill_version}"
+
+                yaml_path = skill_dir / "skill.yaml"
+                md_path = skill_dir / "SKILL.md"
+
+                if not yaml_path.exists():
+                    errors.append(f"{skill_name}@{skill_version}: skill.yaml not found in archive")
+                    continue
+
+                if not md_path.exists():
+                    errors.append(f"{skill_name}@{skill_version}: SKILL.md not found in archive")
+                    continue
+
+                try:
+                    manifest, _ = loader.load(str(skill_dir))
+                    content = md_path.read_bytes()
+
+                    self.push(manifest, content)
+                    imported_count += 1
+                except SkillctlError as e:
+                    if e.code == "E_ALREADY_EXISTS":
+                        skipped_count += 1
+                    else:
+                        errors.append(f"{skill_name}@{skill_version}: {e.what}")
+                except Exception as e:
+                    errors.append(f"{skill_name}@{skill_version}: {e}")
+
+        return {
+            "imported_count": imported_count,
+            "skipped_count": skipped_count,
+            "errors": errors,
         }
 
     def _write_manifest(self, path: Path, manifest: SkillManifest):
