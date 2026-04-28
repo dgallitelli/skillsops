@@ -129,6 +129,23 @@ class Warning:
     hint: str
 
 
+def _parse_frontmatter(content: str) -> tuple[dict, str]:
+    """Split markdown content into frontmatter dict and body.
+
+    Returns ({}, original_content) if no valid frontmatter found.
+    """
+    if not content.startswith("---"):
+        return {}, content
+    try:
+        end = content.index("---", 3)
+        fm_text = content[3:end].strip()
+        body = content[end + 3 :].strip()
+        fm = yaml.safe_load(fm_text) or {}
+        return fm, body
+    except (ValueError, yaml.YAMLError):
+        return {}, content
+
+
 class ManifestLoader:
     """Loads skill.yaml or auto-wraps plain SKILL.md files."""
 
@@ -147,8 +164,8 @@ class ManifestLoader:
             if yaml_path.exists():
                 return self._load_yaml(yaml_path), warnings
             elif md_path.exists():
-                manifest, warn = self._wrap_markdown(md_path)
-                warnings.append(warn)
+                manifest, md_warnings = self._wrap_markdown(md_path)
+                warnings.extend(md_warnings)
                 return manifest, warnings
             else:
                 raise SkillctlError(
@@ -160,8 +177,8 @@ class ManifestLoader:
         elif p.suffix in (".yaml", ".yml"):
             return self._load_yaml(p), warnings
         elif p.suffix == ".md":
-            manifest, warn = self._wrap_markdown(p)
-            warnings.append(warn)
+            manifest, md_warnings = self._wrap_markdown(p)
+            warnings.extend(md_warnings)
             return manifest, warnings
         else:
             raise SkillctlError(
@@ -184,20 +201,63 @@ class ManifestLoader:
             )
         return self._dict_to_manifest(raw)
 
-    def _wrap_markdown(self, path: Path) -> tuple[SkillManifest, Warning]:
-        """Auto-wrap a plain SKILL.md in a minimal manifest."""
+    def _wrap_markdown(self, path: Path) -> tuple[SkillManifest, list[Warning]]:
+        """Build a manifest from a SKILL.md file, parsing frontmatter if present."""
         content = path.read_text()
-        name = path.parent.name or path.stem
+        warnings: list[Warning] = []
+        frontmatter, body = _parse_frontmatter(content)
+
+        if not frontmatter:
+            name = path.parent.name or path.stem
+            manifest = SkillManifest(
+                metadata=SkillMetadata(name=name, version="0.0.0"),
+                spec=SkillSpec(content=ContentRef(inline=content)),
+            )
+            warnings.append(
+                Warning(
+                    code="W_AUTO_WRAPPED",
+                    message=f"Auto-wrapped {path.name} in minimal manifest (no frontmatter found)",
+                    hint="Add YAML frontmatter with name and description",
+                )
+            )
+            return manifest, warnings
+
+        governance = frontmatter.get("skillctl", {})
+
+        base_name = frontmatter.get("name") or path.parent.name or path.stem
+        namespace = governance.get("namespace")
+        qualified_name = f"{namespace}/{base_name}" if namespace else base_name
+
+        version = governance.get("version", "0.1.0")
+        description = frontmatter.get("description", "")
+        category = governance.get("category")
+        tags = governance.get("tags", [])
+        capabilities = governance.get("capabilities", [])
+
         manifest = SkillManifest(
-            metadata=SkillMetadata(name=name, version="0.0.0"),
-            spec=SkillSpec(content=ContentRef(inline=content)),
+            metadata=SkillMetadata(
+                name=qualified_name,
+                version=version,
+                description=description,
+                tags=tags,
+                category=category,
+            ),
+            spec=SkillSpec(
+                content=ContentRef(inline=body),
+                capabilities=capabilities,
+            ),
         )
-        warning = Warning(
-            code="W_AUTO_WRAPPED",
-            message=f"Auto-wrapped {path.name} in minimal manifest",
-            hint="Run 'skillctl init' to generate a proper skill.yaml",
-        )
-        return manifest, warning
+
+        if not description:
+            warnings.append(
+                Warning(
+                    code="W_NO_DESCRIPTION",
+                    message="SKILL.md frontmatter has no description",
+                    hint="Add a description field for better governance and IDE discovery",
+                )
+            )
+
+        return manifest, warnings
 
     def _dict_to_manifest(self, raw: dict) -> SkillManifest:
         """Convert parsed YAML dict to SkillManifest dataclass."""

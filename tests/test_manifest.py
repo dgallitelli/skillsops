@@ -14,6 +14,7 @@ from skillctl.manifest import (
     SkillManifest,
     SkillMetadata,
     SkillSpec,
+    _parse_frontmatter,
 )
 
 
@@ -280,3 +281,92 @@ def test_category_absent_round_trip(tmp_path, loader):
     assert manifest.metadata.category is None
     d = manifest.to_dict()
     assert "category" not in d["metadata"]
+
+
+# -- _parse_frontmatter() unit tests ------------------------------------------
+
+
+class TestParseFrontmatter:
+    def test_with_frontmatter(self):
+        content = "---\nname: my-skill\ndescription: Does stuff\n---\n\n# Body"
+        fm, body = _parse_frontmatter(content)
+        assert fm["name"] == "my-skill"
+        assert fm["description"] == "Does stuff"
+        assert body == "# Body"
+
+    def test_no_frontmatter(self):
+        content = "# Just markdown\n\nNo frontmatter here."
+        fm, body = _parse_frontmatter(content)
+        assert fm == {}
+        assert body == content
+
+    def test_invalid_yaml(self):
+        content = "---\n: broken: yaml:\n---\n\nbody"
+        fm, body = _parse_frontmatter(content)
+        assert fm == {}
+        assert body == content
+
+    def test_skillctl_block(self):
+        content = "---\nname: my-skill\nskillctl:\n  namespace: my-org\n  version: 2.0.0\n  category: security\n  tags: [a, b]\n  capabilities: [read_file]\n---\n\n# Body"
+        fm, body = _parse_frontmatter(content)
+        assert fm["skillctl"]["namespace"] == "my-org"
+        assert fm["skillctl"]["version"] == "2.0.0"
+        assert fm["skillctl"]["category"] == "security"
+        assert body == "# Body"
+
+
+# -- _wrap_markdown() with frontmatter ----------------------------------------
+
+
+class TestWrapMarkdownWithFrontmatter:
+    def test_full_frontmatter_with_skillctl_block(self, tmp_path):
+        md = tmp_path / "SKILL.md"
+        md.write_text(
+            "---\nname: code-reviewer\ndescription: Reviews code\nskillctl:\n  namespace: my-org\n  version: 1.2.0\n  category: security\n  tags: [sec]\n  capabilities: [read_file]\n---\n\n# Instructions"
+        )
+        loader = ManifestLoader()
+        manifest, warnings = loader.load(str(md))
+        assert manifest.metadata.name == "my-org/code-reviewer"
+        assert manifest.metadata.version == "1.2.0"
+        assert manifest.metadata.description == "Reviews code"
+        assert manifest.metadata.category == "security"
+        assert manifest.metadata.tags == ["sec"]
+        assert manifest.spec.capabilities == ["read_file"]
+        assert "# Instructions" in manifest.spec.content.inline
+        assert "---" not in manifest.spec.content.inline
+        assert len(warnings) == 0
+
+    def test_frontmatter_without_skillctl_block(self, tmp_path):
+        md = tmp_path / "SKILL.md"
+        md.write_text("---\nname: simple-skill\ndescription: A simple skill\n---\n\nDo the thing.")
+        loader = ManifestLoader()
+        manifest, warnings = loader.load(str(md))
+        assert manifest.metadata.name == "simple-skill"
+        assert manifest.metadata.version == "0.1.0"
+        assert manifest.metadata.description == "A simple skill"
+        assert len(warnings) == 0
+
+    def test_frontmatter_no_description_warns(self, tmp_path):
+        md = tmp_path / "SKILL.md"
+        md.write_text("---\nname: no-desc\n---\n\nBody here.")
+        loader = ManifestLoader()
+        manifest, warnings = loader.load(str(md))
+        assert manifest.metadata.name == "no-desc"
+        assert any(w.code == "W_NO_DESCRIPTION" for w in warnings)
+
+    def test_no_frontmatter_legacy_behavior(self, tmp_path):
+        md = tmp_path / "SKILL.md"
+        md.write_text("# Just instructions\n\nNo frontmatter.")
+        loader = ManifestLoader()
+        manifest, warnings = loader.load(str(md))
+        assert manifest.metadata.version == "0.0.0"
+        assert any(w.code == "W_AUTO_WRAPPED" for w in warnings)
+
+    def test_name_from_directory_when_not_in_frontmatter(self, tmp_path):
+        skill_dir = tmp_path / "my-cool-skill"
+        skill_dir.mkdir()
+        md = skill_dir / "SKILL.md"
+        md.write_text("---\ndescription: Has desc but no name\n---\n\nBody.")
+        loader = ManifestLoader()
+        manifest, warnings = loader.load(str(skill_dir))
+        assert manifest.metadata.name == "my-cool-skill"
