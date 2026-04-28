@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "skillctl"
+name = "skillsops"
 version = "0.1.0b1"
-description = "Governance CLI for agent skills — validate, push, pull, and manage skill manifests"
+description = "SkillsOps — governance CLI for agent skills. Validate, evaluate, optimize, publish, and distribute skills across any IDE."
 readme = "README.md"
 license = {text = "MPL-2.0"}
 requires-python = ">=3.10"

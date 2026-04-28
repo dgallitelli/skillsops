@@ -424,7 +424,7 @@ skillctl eval audit examples/basic-skill
 | Development | `[dev]` | pytest, hypothesis, httpx |
 
 ```bash
-pip install skillctl              # core only
-pip install "skillctl[optimize]"  # + optimizer
-pip install "skillctl[all]"       # everything
+pip install skillsops              # core only
+pip install "skillsops[optimize]"  # + optimizer
+pip install "skillsops[all]"       # everything
 ```

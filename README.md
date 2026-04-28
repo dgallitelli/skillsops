@@ -33,7 +33,7 @@ Agent skills are spreading fast — code review skills, deployment skills, IaC s
 ## Get started in 60 seconds
 
 ```bash
-pip install skillctl
+pip install skillsops
 
 # Create your first skill
 skillctl create skill my-org/code-reviewer
@@ -198,11 +198,11 @@ claude --plugin-dir ./plugin
 ## Installation
 
 ```bash
-pip install skillctl                  # core CLI (Python 3.10+)
-pip install "skillctl[optimize]"      # + optimizer (LiteLLM)
-pip install "skillctl[plugin]"        # + MCP server for Claude Code plugin
-pip install "skillctl[server]"        # + registry server (FastAPI)
-pip install "skillctl[all]"           # everything
+pip install skillsops                  # core CLI (Python 3.10+)
+pip install "skillsops[optimize]"      # + optimizer (LiteLLM)
+pip install "skillsops[plugin]"        # + MCP server for Claude Code plugin
+pip install "skillsops[server]"        # + registry server (FastAPI)
+pip install "skillsops[all]"           # everything
 ```
 
 Verify your setup:
