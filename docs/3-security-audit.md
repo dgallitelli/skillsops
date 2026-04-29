@@ -74,7 +74,7 @@ Detects subprocess execution in script files (.py, .sh, .js, .ts, .bash).
 
 | Pattern | Risk |
 |---------|------|
-| `subprocess.run/call/Popen/check_output` | Can execute arbitrary commands |
+| `subprocess.run/call/Popen/check_output/check_call` | Can execute arbitrary commands |
 | `os.system()` | Shell execution |
 | `os.popen()` | Shell execution |
 | `shell=True` | Enables shell injection |
@@ -187,19 +187,20 @@ The scanner checks a 3-line window around base64 operations for eval/exec calls.
 ### Per-Skill Configuration (`.skilleval.yaml`)
 
 ```yaml
-# Ignore specific finding codes entirely
-ignore:
-  - SEC-002
-  - STR-016
+audit:
+  # Ignore specific finding codes entirely
+  ignore:
+    - SEC-002
+    - STR-016
 
-# Override severity (downgrade or upgrade)
-severity_overrides:
-  SEC-003: info        # Subprocess is expected in this skill
-  PERM-005: warning    # Treat absolute paths as warnings
+  # Override severity (downgrade or upgrade)
+  severity_overrides:
+    SEC-003: info        # Subprocess is expected in this skill
+    PERM-005: warning    # Treat absolute paths as warnings
 
-# Add domains to the safe list
-safe_domains:
-  - trusted-api.company.com
+  # Add domains to the safe list
+  safe_domains:
+    - trusted-api.company.com
 ```
 
 ### Understanding Severity Levels

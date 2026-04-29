@@ -97,7 +97,7 @@ Every variant runs through the same unified evaluation suite (audit + functional
 The best-scoring variant is promoted only if:
 
 1. It has a valid (non-None) score
-2. Its score exceeds `current_score + threshold` (default 5%)
+2. Its score meets or exceeds `current_score + threshold` (default 5%)
 3. The user approves (when `--approve` is set)
 
 If promoted, the variant becomes the new baseline for the next cycle and SKILL.md is updated on disk (unless `--dry-run`). If not promoted, the plateau counter increments.
@@ -109,12 +109,12 @@ The loop exits on whichever condition is met first:
 | Condition | Default | Description |
 |-----------|---------|-------------|
 | **Plateau** | 3 cycles | Consecutive non-improving cycles |
-| **Budget** | configurable | Cumulative token cost exceeds USD limit |
+| **Budget** | $10.00 | Cumulative token cost exceeds USD limit |
 | **Iteration cap** | 50 | Maximum number of cycles |
 
 ## Budget Tracking
 
-Every LLM call (failure analysis + variant generation) is tracked with provider-specific pricing. The budget tracker maintains per-cycle and cumulative totals. When the budget is exhausted mid-cycle, the loop breaks after the current phase completes.
+LLM calls for failure analysis and variant generation are tracked with provider-specific pricing. Evaluation LLM calls (within the eval suite) are not counted against the optimization budget. The budget tracker maintains per-cycle and cumulative totals. When the budget is exhausted mid-cycle, the loop breaks after the current phase completes.
 
 ## Provenance
 
@@ -148,7 +148,7 @@ skillctl optimize . --budget 5.0 --approve
 skillctl optimize . --dry-run
 
 # Tune parameters
-skillctl optimize . --max-iterations 20 --variants 5 --threshold 0.03
+skillctl optimize . --max-iterations 20 --variants 5 --threshold 0.03 --plateau 5
 
 # Review results
 skillctl optimize history

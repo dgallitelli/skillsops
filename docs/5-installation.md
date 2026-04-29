@@ -32,6 +32,7 @@ allowed-tools: Read Grep Bash(git:*)
 |-----------------|-------------|-------|
 | `description` | `description` | Direct mapping |
 | `paths` | `globs` | Renamed; converted to array |
+| `paths` (without `disable-model-invocation`) | `alwaysApply: false` | Default when paths set but disable not set |
 | `disable-model-invocation` | `alwaysApply: false` | Inverted boolean |
 | (no paths, no disable) | `alwaysApply: true` | Default when neither is set |
 

@@ -66,7 +66,7 @@ See [3-security-audit.md](3-security-audit.md) for the full threat pattern catal
 |------|----------------|
 | STR-001–003 | Directory exists, SKILL.md exists, SKILL.md readable |
 | STR-004 | Valid YAML frontmatter |
-| STR-005–008 | `name` field: required, ≤64 chars, lowercase+hyphens, matches directory, no reserved words |
+| STR-005–008 | `name` field: required, ≤64 chars, lowercase+hyphens, matches directory |
 | STR-009–011 | `description` field: required, ≤1024 chars, ≥20 chars |
 | STR-012–013 | Optional fields: compatibility ≤500 chars, metadata is a mapping |
 | STR-014–015 | Progressive disclosure: SKILL.md ≤500 lines, body ≤5000 tokens |
@@ -106,16 +106,17 @@ score = 100 - (25 × critical_count) - (10 × warning_count) - (2 × info_count)
 Place a `.skilleval.yaml` in the skill directory to customize audit behavior:
 
 ```yaml
-ignore:
-  - SEC-002          # Suppress specific finding codes
-  - STR-016
+audit:
+  ignore:
+    - SEC-002          # Suppress specific finding codes
+    - STR-016
 
-severity_overrides:
-  SEC-003: info      # Downgrade subprocess findings to INFO
+  severity_overrides:
+    SEC-003: info      # Downgrade subprocess findings to INFO
 
-safe_domains:
-  - internal.company.com
-  - registry.npmjs.org
+  safe_domains:
+    - internal.company.com
+    - registry.npmjs.org
 ```
 
 ## Functional Evaluation
@@ -193,7 +194,7 @@ Tests whether the skill activates at the right time — and stays silent when it
 ]
 ```
 
-Each query runs 3 times (configurable via `--runs-per-query`). Trigger detection uses a two-tier signal model:
+Each query runs 3 times (configurable via `--runs`). Trigger detection uses a two-tier signal model:
 
 - **Strong signal (tool-based)**: Agent read SKILL.md, invoked the Skill tool, or executed skill scripts via Bash.
 - **Weak signal (text-based)**: Agent mentioned the skill name or scripts in its text output.
@@ -230,11 +231,11 @@ skillctl eval trigger ./my-skill         # Activation testing (requires agent)
 
 # Unified report
 skillctl eval report ./my-skill          # Runs all applicable phases
-skillctl eval report ./my-skill --json   # JSON output
-skillctl eval report ./my-skill --html   # HTML report
+skillctl eval report ./my-skill --format json   # JSON output
+skillctl eval report ./my-skill --format html   # HTML report
 
 # Options
-skillctl eval functional . --runs-per-eval 3    # Multiple runs for stability
+skillctl eval functional . --runs 3              # Multiple runs for stability
 skillctl eval functional . --dry-run             # Validate test cases only
 skillctl eval audit . --include-all              # Scan entire directory tree
 skillctl eval report . --skip-audit              # Skip audit phase
