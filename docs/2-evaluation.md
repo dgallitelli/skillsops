@@ -46,7 +46,7 @@ Runs without any LLM calls — pure static analysis.
 
 ### Security Scan (`SEC-001` through `SEC-009`)
 
-See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for the full threat pattern catalog.
+See [3-security-audit.md](3-security-audit.md) for the full threat pattern catalog.
 
 | Code | Category | Severity | What It Detects |
 |------|----------|----------|-----------------|

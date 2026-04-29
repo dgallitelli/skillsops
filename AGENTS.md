@@ -6,8 +6,8 @@ skillctl is a Python CLI + self-hostable registry server for governing agent ski
 
 **Key documentation:**
 - `README.md` — value proposition, quickstart, feature overview
-- `docs/REFERENCE.md` — full CLI reference, skill format, registry server, eval suite, API endpoints, optimizer flags
-- `docs/ARCHITECTURE.md` — system overview, module map, data flow diagrams
+- `docs/0-architecture.md` — system overview, module map, data flow diagrams
+- `docs/1-skill-format.md` — full CLI reference, skill format, registry server, eval suite, API endpoints, optimizer flags
 - `CHANGELOG.md` — version history
 
 ## Quick reference

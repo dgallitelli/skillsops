@@ -217,8 +217,8 @@ skillctl doctor                       # checks Python, deps, store, registry, ID
 
 | Document | Purpose |
 |----------|---------|
-| [docs/REFERENCE.md](docs/REFERENCE.md) | Full CLI reference, skill format, registry server, eval suite, optimizer flags, API endpoints |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System overview, module map, data flow diagrams |
+| [docs/0-architecture.md](docs/0-architecture.md) | System overview, module map, data flow diagrams |
+| [docs/1-skill-format.md](docs/1-skill-format.md) | Full CLI reference, skill format, registry server, eval suite, optimizer flags, API endpoints |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
 
 ## Development
