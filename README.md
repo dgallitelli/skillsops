@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <em>What kubectl does for Kubernetes, skillctl does for agent skills.</em>
+  <em>What kubectl does for Kubernetes, SkillsOps does for agent skills.</em>
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@ Agent skills are spreading fast — code review skills, deployment skills, IaC s
 - The **same skill copy-pasted** across Claude Code, Cursor, Windsurf, and Kiro
 - **Breaking changes** that ship without warning or versioning
 
-**skillctl** is the governance layer. One CLI to validate, evaluate, optimize, publish, and distribute agent skills across any IDE and any runtime.
+**SkillsOps** is the governance layer. One CLI to validate, evaluate, optimize, publish, and distribute agent skills across any IDE and any runtime.
 
 ---
 
