@@ -1,4 +1,4 @@
-# skillctl Reference
+# SkillsOps Reference
 
 Complete CLI reference, skill format specification, registry server setup, eval suite details, optimizer configuration, and API endpoints.
 

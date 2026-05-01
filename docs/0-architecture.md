@@ -1,6 +1,6 @@
 # Architecture
 
-skillctl is a governance platform for agent skills. It validates, evaluates, publishes, audits, and enforces policy on skills across any agent runtime. The system has four layers: a CLI, a local store, a registry server, and an automated optimizer.
+SkillsOps is a governance platform for agent skills. It validates, evaluates, publishes, audits, and enforces policy on skills across any agent runtime. The system has four layers: a CLI, a local store, a registry server, and an automated optimizer.
 
 ## System Overview
 

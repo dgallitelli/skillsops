@@ -82,7 +82,7 @@ skillctl:
 
 ---
 
-## What skillctl does
+## What SkillsOps does
 
 ### Validate and scan
 
@@ -181,7 +181,7 @@ Author writes skill
 
 ## Claude Code plugin
 
-skillctl ships a [Claude Code plugin](https://code.claude.com/docs/en/plugins) in the `plugin/` directory. It gives Claude direct access to all skillctl operations via MCP tools.
+SkillsOps ships a [Claude Code plugin](https://code.claude.com/docs/en/plugins) in the `plugin/` directory. It gives Claude direct access to all skillctl operations via MCP tools.
 
 ```bash
 claude --plugin-dir ./plugin
@@ -226,7 +226,7 @@ skillctl doctor                       # checks Python, deps, store, registry, ID
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,optimize,plugin]"
-pytest -m "not integration"           # 530+ unit tests
+pytest -m "not integration"           # 545 unit tests
 pytest -m integration                 # 10 real Bedrock tests (needs AWS creds)
 ```
 

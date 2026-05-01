@@ -1,8 +1,8 @@
-# AGENTS.md — Development Guide for skillctl
+# AGENTS.md — Development Guide for SkillsOps
 
 ## What this project is
 
-skillctl is a Python CLI + self-hostable registry server for governing agent skills. It validates, evaluates, publishes, audits, and optimizes skills across any agent runtime. Think kubectl for skills.
+SkillsOps is a Python CLI + self-hostable registry server for governing agent skills. It validates, evaluates, publishes, audits, and optimizes skills across any agent runtime. Think kubectl for skills.
 
 **Key documentation:**
 - `README.md` — value proposition, quickstart, feature overview
@@ -20,7 +20,7 @@ pip install -e ".[dev,optimize]" # + LiteLLM for optimizer
 pip install -e ".[dev,server]"   # + fastapi/uvicorn for registry
 
 # Run tests
-pytest -m "not integration"              # unit tests (310)
+pytest -m "not integration"              # unit tests (545)
 pytest -m integration                    # real Bedrock tests (10, needs AWS creds)
 pytest tests/ --ignore=tests/test_github_backend.py  # skip slow git tests
 

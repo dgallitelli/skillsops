@@ -37,7 +37,7 @@ dev = [
     "uvicorn[standard]>=0.29",
 ]
 all = [
-    "skillctl[server,optimize,plugin]",
+    "skillsops[server,optimize,plugin]",
 ]
 
 [project.scripts]

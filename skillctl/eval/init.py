@@ -131,7 +131,7 @@ def generate_eval_scaffold(skill_path: str) -> int:
     else:
         skilleval_content = (
             f"# Evaluation configuration for {skill_name}\n"
-            f"# See docs/REFERENCE.md for full options\n"
+            f"# See docs/1-skill-format.md for full options\n"
             f"\n"
             f"min_score: 70\n"
             f"\n"

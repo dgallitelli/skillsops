@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP stdio server exposing skillctl operations as tools.
+"""MCP stdio server exposing SkillsOps operations as tools.
 
 Wraps skillctl as a Python library — no shell-out, structured errors,
 full access to validators, store, eval, and optimizer.

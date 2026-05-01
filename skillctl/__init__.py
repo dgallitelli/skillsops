@@ -1,1 +1,1 @@
-# skillctl — Governance CLI for agent skills
+# SkillsOps — Governance CLI for agent skills

@@ -1,4 +1,4 @@
-"""skillctl CLI — governance commands for agent skills."""
+"""SkillsOps CLI — governance commands for agent skills."""
 
 import argparse
 import json
