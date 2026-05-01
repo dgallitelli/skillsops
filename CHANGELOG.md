@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.0b2 (2026-05-01)
+
 ### Added
 
 - **Claude Code plugin** (`plugin/`): 3 skills + 14 MCP tools exposing skillctl as a library
@@ -48,9 +50,14 @@
 
 ### Changed
 
+- **Branding**: all user-facing prose now says "SkillsOps" (CLI command `skillctl` unchanged)
 - `litellm` minimum bumped to 1.83.14 (fixes 11 CVEs in aiohttp and python-dotenv)
 - Coverage exclusions configured for integration-only files; badge reflects unit-testable code (81%)
 - `MANIFEST.in` and `include-package-data` added for correct PyPI distribution
+- Broken `docs/REFERENCE.md` links updated to `docs/1-skill-format.md` (website footer and eval scaffold)
+- Fixed `[all]` optional-dependency group referencing wrong package name (`skillctl` → `skillsops`)
+- Landing page deployed at `site/index.html` with GitHub Pages
+- Documentation reorganized into numbered lifecycle sequence (`docs/0-architecture.md` through `docs/5-installation.md`)
 
 ## v0.1.0b1 (2026-04-23)
 
