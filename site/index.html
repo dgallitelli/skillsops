@@ -9,234 +9,487 @@
   <meta property="og:description" content="One CLI to validate, evaluate, optimize, and distribute agent skills across Claude Code, Cursor, Windsurf, Copilot, and Kiro.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            brand: { DEFAULT: '#6cb4ee', dark: '#3b82f6', glow: '#93c5fd' },
-            surface: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
-          }
+            brand: { DEFAULT: '#60a5fa', dark: '#3b82f6', light: '#93c5fd' },
+            accent: { DEFAULT: '#818cf8', dark: '#6366f1' },
+            surface: {
+              950: '#030711',
+              900: '#0a101e',
+              800: '#111a2e',
+              700: '#1a2540',
+              600: '#243352'
+            },
+          },
+          fontFamily: {
+            display: ['"Syne"', 'sans-serif'],
+            body: ['"DM Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
         }
       }
     }
   </script>
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-    body { font-family: 'Inter', system-ui, sans-serif; }
-    code, .font-mono { font-family: 'JetBrains Mono', monospace; }
-    .glow { box-shadow: 0 0 40px rgba(108, 180, 238, 0.15); }
-    .pipeline-line { background: linear-gradient(90deg, #6cb4ee 0%, #3b82f6 50%, #8b5cf6 100%); }
-    .copy-btn:active { transform: scale(0.95); }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-in { animation: fadeIn 0.6s ease-out forwards; }
+    html { scroll-padding-top: 80px; }
+    body { font-family: 'DM Sans', sans-serif; }
+    .font-display, h1, h2, h3 { font-family: 'Syne', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    .bg-grid {
+      background-image:
+        linear-gradient(to right, rgba(96, 165, 250, 0.025) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(96, 165, 250, 0.025) 1px, transparent 1px);
+      background-size: 64px 64px;
+    }
+
+    .text-gradient {
+      background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .glass {
+      background: rgba(17, 26, 46, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(96, 165, 250, 0.08);
+    }
+    .glass-strong {
+      background: rgba(17, 26, 46, 0.8);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(96, 165, 250, 0.12);
+    }
+
+    .glow { box-shadow: 0 0 60px rgba(96, 165, 250, 0.1), 0 0 120px rgba(129, 140, 248, 0.05); }
+    .glow-lg { box-shadow: 0 0 80px rgba(96, 165, 250, 0.15), 0 0 160px rgba(129, 140, 248, 0.08); }
+
+    @keyframes orb-1 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(40px, -60px) scale(1.05); }
+      66% { transform: translate(-30px, 30px) scale(0.95); }
+    }
+    @keyframes orb-2 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(-50px, 40px) scale(0.92); }
+      66% { transform: translate(35px, -45px) scale(1.08); }
+    }
+    @keyframes orb-3 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(25px, 55px) scale(1.1); }
+      66% { transform: translate(-45px, -25px) scale(0.9); }
+    }
+    .orb-1 { animation: orb-1 18s ease-in-out infinite; }
+    .orb-2 { animation: orb-2 22s ease-in-out infinite; }
+    .orb-3 { animation: orb-3 20s ease-in-out infinite; }
+
+    @keyframes flow {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .pipeline-flow {
+      background: linear-gradient(90deg,
+        rgba(96, 165, 250, 0.1) 0%,
+        rgba(96, 165, 250, 0.5) 20%,
+        rgba(129, 140, 248, 0.7) 50%,
+        rgba(96, 165, 250, 0.5) 80%,
+        rgba(96, 165, 250, 0.1) 100%
+      );
+      background-size: 200% 100%;
+      animation: flow 4s linear infinite;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .stagger-1 { transition-delay: 0.05s; }
+    .stagger-2 { transition-delay: 0.1s; }
+    .stagger-3 { transition-delay: 0.15s; }
+    .stagger-4 { transition-delay: 0.2s; }
+    .stagger-5 { transition-delay: 0.25s; }
+    .stagger-6 { transition-delay: 0.3s; }
+    .stagger-7 { transition-delay: 0.35s; }
+
+    .nav-float {
+      background: transparent;
+      border-bottom: 1px solid transparent;
+      transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+    }
+    .nav-float.scrolled {
+      background: rgba(3, 7, 17, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom-color: rgba(96, 165, 250, 0.08);
+    }
+
+    .card-hover { transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
+    .card-hover:hover {
+      border-color: rgba(96, 165, 250, 0.2);
+      box-shadow: 0 0 40px rgba(96, 165, 250, 0.06);
+      transform: translateY(-2px);
+    }
+
+    .copy-btn { transition: transform 0.15s; }
+    .copy-btn:active { transform: scale(0.9); }
+
+    .pipeline-node { transition: transform 0.3s, box-shadow 0.3s; }
+    .pipeline-node:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(96, 165, 250, 0.2);
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(96, 165, 250, 0); }
+    }
+    .pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
   </style>
 </head>
-<body class="bg-surface-900 text-gray-300 antialiased">
+
+<body class="bg-surface-950 text-gray-400 font-body antialiased overflow-x-hidden">
+
+  <!-- Navigation -->
+  <nav id="nav" class="nav-float fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2 text-white font-display font-bold text-lg">
+        <span class="text-xl">⚡</span>
+        Skills<span class="text-brand">Ops</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8">
+        <a href="https://github.com/dgallitelli/skillsops/blob/main/docs/1-skill-format.md" class="text-sm text-gray-400 hover:text-white transition-colors">Docs</a>
+        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="text-sm text-gray-400 hover:text-white transition-colors">Blog</a>
+        <a href="https://github.com/dgallitelli/skillsops" class="text-sm text-gray-400 hover:text-white transition-colors">GitHub</a>
+      </div>
+      <a href="#quickstart" class="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand/10 text-brand text-sm font-medium hover:bg-brand/20 border border-brand/20 transition-all">
+        Get started
+      </a>
+    </div>
+  </nav>
 
   <!-- Hero -->
-  <section class="relative overflow-hidden">
-    <div class="absolute inset-0 bg-gradient-to-b from-brand/5 to-transparent"></div>
-    <div class="relative max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
-      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-800 border border-surface-700 text-sm text-gray-400 mb-8">
-        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <div class="absolute inset-0 bg-grid"></div>
+    <div class="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-brand/15 rounded-full blur-[160px] orb-1"></div>
+    <div class="absolute top-[5%] right-[15%] w-[400px] h-[400px] bg-accent/12 rounded-full blur-[140px] orb-2"></div>
+    <div class="absolute bottom-[10%] left-[40%] w-[350px] h-[350px] bg-purple-500/10 rounded-full blur-[130px] orb-3"></div>
+    <div class="absolute inset-0" style="background: radial-gradient(ellipse at center, transparent 40%, #030711 100%)"></div>
+    <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-surface-950 to-transparent"></div>
+
+    <div class="relative max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
+      <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full glass text-sm text-gray-400 mb-10 reveal">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+        </span>
         v0.1.0b2 — Second beta
       </div>
 
-      <h1 class="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-4">
-        Skills<span class="text-brand">Ops</span>
+      <h1 class="font-display text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-tight mb-6 reveal stagger-1">
+        <span class="text-white">Skills</span><span class="text-gradient">Ops</span>
       </h1>
 
-      <p class="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto mb-4">
+      <p class="text-xl md:text-2xl text-gray-300 font-display font-semibold mb-4 reveal stagger-2">
         Governance for agent skills
       </p>
 
-      <p class="text-base md:text-lg text-gray-500 max-w-xl mx-auto mb-10">
+      <p class="text-base md:text-lg text-gray-500 max-w-lg mx-auto mb-12 reveal stagger-3">
         Validate, evaluate, optimize, and distribute skills across
         Claude Code, Cursor, Windsurf, Copilot, and Kiro.
       </p>
 
-      <!-- Install CTA -->
-      <div class="inline-flex items-center gap-3 bg-surface-800 border border-surface-700 rounded-xl px-6 py-4 glow mb-8">
-        <span class="text-gray-500 text-sm">$</span>
-        <code class="text-brand text-lg" id="install-cmd">pip install skillsops</code>
-        <button onclick="copyInstall()" class="copy-btn text-gray-500 hover:text-white transition-colors" title="Copy to clipboard">
-          <svg id="copy-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          <svg id="check-icon" class="w-5 h-5 hidden text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+      <div class="inline-flex items-center gap-4 glass-strong rounded-2xl px-7 py-5 glow-lg mb-10 reveal stagger-4">
+        <span class="text-gray-600 text-sm font-mono">$</span>
+        <code class="text-brand text-lg font-mono font-medium" id="install-cmd">pip install skillsops</code>
+        <button onclick="copyInstall()" class="copy-btn ml-1 text-gray-500 hover:text-white transition-colors" title="Copy to clipboard">
+          <svg id="copy-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          <svg id="check-icon" class="w-5 h-5 hidden text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
         </button>
       </div>
 
-      <div class="flex flex-wrap justify-center gap-4">
-        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-brand/10 text-brand hover:bg-brand/20 border border-brand/20 transition-all font-medium">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+      <div class="flex flex-wrap justify-center gap-4 reveal stagger-5">
+        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand/20 to-accent/20 text-white hover:from-brand/30 hover:to-accent/30 border border-brand/20 transition-all font-medium text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
           Read the blog
         </a>
-        <a href="https://github.com/dgallitelli/skillsops" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-surface-800 text-gray-300 hover:text-white border border-surface-700 hover:border-surface-700 transition-all font-medium">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
+        <a href="https://github.com/dgallitelli/skillsops" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl glass text-gray-300 hover:text-white transition-all font-medium text-sm card-hover">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
           Star on GitHub
         </a>
       </div>
     </div>
   </section>
 
+  <!-- IDE Support Bar -->
+  <section class="relative border-y border-white/[0.04] py-10">
+    <div class="max-w-5xl mx-auto px-6">
+      <p class="text-center text-xs uppercase tracking-widest text-gray-600 mb-6 font-medium">Works with your IDE</p>
+      <div class="flex flex-wrap justify-center items-center gap-6 md:gap-12">
+        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Claude Code</span>
+        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Cursor</span>
+        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Windsurf</span>
+        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">GitHub Copilot</span>
+        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Kiro</span>
+      </div>
+    </div>
+  </section>
+
   <!-- Problem -->
-  <section class="max-w-5xl mx-auto px-6 py-16">
-    <h2 class="text-sm font-semibold text-brand uppercase tracking-wider mb-8 text-center">The problem</h2>
-    <div class="grid md:grid-cols-3 gap-6">
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6">
-        <div class="text-2xl mb-3">🔓</div>
-        <h3 class="text-white font-semibold mb-2">No quality gate</h3>
-        <p class="text-gray-400 text-sm">Skills with hardcoded secrets, prompt injection, or data exfiltration patterns reach production unchecked.</p>
+  <section class="max-w-5xl mx-auto px-6 py-24">
+    <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">The problem</p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-14 reveal stagger-1">
+      Skills are ungoverned
+    </h2>
+
+    <div class="grid md:grid-cols-3 gap-5">
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-2">
+        <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold text-lg mb-2">No quality gate</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Skills with hardcoded secrets, prompt injection, or data exfiltration patterns reach production unchecked.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6">
-        <div class="text-2xl mb-3">📊</div>
-        <h3 class="text-white font-semibold mb-2">No evaluation data</h3>
-        <p class="text-gray-400 text-sm">"Does this skill actually help?" is answered by gut feeling, not measurement. No baselines, no regression detection.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold text-lg mb-2">No evaluation data</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">"Does this skill actually help?" is answered by gut feeling, not measurement. No baselines, no regression detection.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6">
-        <div class="text-2xl mb-3">📋</div>
-        <h3 class="text-white font-semibold mb-2">Copy-pasted across IDEs</h3>
-        <p class="text-gray-400 text-sm">The same skill maintained in 5 places — Claude Code, Cursor, Windsurf, Copilot, Kiro. Changes drift. Versions diverge.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-4">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold text-lg mb-2">Copy-pasted across IDEs</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">The same skill maintained in 5 places — Claude Code, Cursor, Windsurf, Copilot, Kiro. Changes drift. Versions diverge.</p>
       </div>
     </div>
   </section>
 
   <!-- Lifecycle -->
-  <section class="max-w-5xl mx-auto px-6 py-16">
-    <h2 class="text-sm font-semibold text-brand uppercase tracking-wider mb-8 text-center">The lifecycle</h2>
-    <div class="relative">
-      <!-- Pipeline line -->
-      <div class="hidden md:block absolute top-1/2 left-8 right-8 h-0.5 pipeline-line rounded-full -translate-y-1/2 opacity-30"></div>
-      <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">✏️</span>
+  <section class="py-24 overflow-hidden">
+    <div class="max-w-5xl mx-auto px-6">
+      <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">The lifecycle</p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-16 reveal stagger-1">
+        One pipeline, every stage
+      </h2>
+
+      <div class="relative reveal stagger-2">
+        <div class="hidden md:block absolute top-7 left-[7%] right-[7%] h-[2px] rounded-full pipeline-flow"></div>
+
+        <div class="grid grid-cols-2 md:grid-cols-7 gap-y-10 gap-x-4 md:gap-3">
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
+              <span class="text-xl">✏️</span>
+            </div>
+            <span class="text-sm font-display font-bold text-white mt-3">create</span>
+            <span class="text-xs text-gray-500 mt-0.5">scaffold</span>
           </div>
-          <div class="text-xs text-white font-medium">create</div>
-          <div class="text-xs text-gray-500">scaffold</div>
-        </div>
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">✅</span>
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
+              <span class="text-xl">✅</span>
+            </div>
+            <span class="text-sm font-display font-bold text-white mt-3">validate</span>
+            <span class="text-xs text-gray-500 mt-0.5">schema</span>
           </div>
-          <div class="text-xs text-white font-medium">validate</div>
-          <div class="text-xs text-gray-500">schema</div>
-        </div>
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">🛡️</span>
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
+              <span class="text-xl">🛡️</span>
+            </div>
+            <span class="text-sm font-display font-bold text-white mt-3">audit</span>
+            <span class="text-xs text-gray-500 mt-0.5">A-F grade</span>
           </div>
-          <div class="text-xs text-white font-medium">audit</div>
-          <div class="text-xs text-gray-500">A-F grade</div>
-        </div>
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">⚡</span>
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
+              <span class="text-xl">⚡</span>
+            </div>
+            <span class="text-sm font-display font-bold text-white mt-3">eval</span>
+            <span class="text-xs text-gray-500 mt-0.5">measure</span>
           </div>
-          <div class="text-xs text-white font-medium">eval</div>
-          <div class="text-xs text-gray-500">measure</div>
-        </div>
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">🧬</span>
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
+              <span class="text-xl">🧬</span>
+            </div>
+            <span class="text-sm font-display font-bold text-white mt-3">optimize</span>
+            <span class="text-xs text-gray-500 mt-0.5">LLM loop</span>
           </div>
-          <div class="text-xs text-white font-medium">optimize</div>
-          <div class="text-xs text-gray-500">LLM loop</div>
-        </div>
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">📦</span>
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
+              <span class="text-xl">📦</span>
+            </div>
+            <span class="text-sm font-display font-bold text-white mt-3">publish</span>
+            <span class="text-xs text-gray-500 mt-0.5">governed</span>
           </div>
-          <div class="text-xs text-white font-medium">publish</div>
-          <div class="text-xs text-gray-500">governed</div>
-        </div>
-        <div class="text-center relative">
-          <div class="w-12 h-12 rounded-xl bg-brand/20 border border-brand/30 flex items-center justify-center mx-auto mb-2 relative z-10">
-            <span class="text-lg">🚀</span>
+          <div class="flex flex-col items-center text-center">
+            <div class="pipeline-node w-14 h-14 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center relative z-10 cursor-default pulse-glow">
+              <span class="text-xl">🚀</span>
+            </div>
+            <span class="text-sm font-display font-bold text-brand mt-3">install</span>
+            <span class="text-xs text-gray-500 mt-0.5">every IDE</span>
           </div>
-          <div class="text-xs text-brand font-medium">install</div>
-          <div class="text-xs text-gray-500">every IDE</div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Features -->
-  <section class="max-w-5xl mx-auto px-6 py-16">
-    <h2 class="text-sm font-semibold text-brand uppercase tracking-wider mb-8 text-center">Features</h2>
-    <div class="grid md:grid-cols-3 gap-6">
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6 hover:border-brand/30 transition-colors">
-        <h3 class="text-white font-semibold mb-2">Security scanning</h3>
-        <p class="text-gray-400 text-sm">9 threat categories, ~50 pattern detectors. A-F grading. Critical findings block publishing. Customize with <code class="text-brand/80 text-xs">.skilleval.yaml</code>.</p>
+  <section class="max-w-5xl mx-auto px-6 py-24">
+    <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">Capabilities</p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-14 reveal stagger-1">
+      Everything you need
+    </h2>
+
+    <div class="grid md:grid-cols-3 gap-5">
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-2">
+        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold mb-2">Security scanning</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">9 threat categories, ~50 pattern detectors. A-F grading. Critical findings block publishing. Customize with <code class="text-brand/70 text-xs">.skilleval.yaml</code>.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6 hover:border-brand/30 transition-colors">
-        <h3 class="text-white font-semibold mb-2">Multi-IDE install</h3>
-        <p class="text-gray-400 text-sm">One command distributes to Claude Code, Cursor, Windsurf, GitHub Copilot, and Kiro. Frontmatter auto-translated to each IDE's format.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-3">
+        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold mb-2">Multi-IDE install</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">One command distributes to Claude Code, Cursor, Windsurf, GitHub Copilot, and Kiro. Frontmatter auto-translated to each IDE's format.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6 hover:border-brand/30 transition-colors">
-        <h3 class="text-white font-semibold mb-2">SKILL.md first-class</h3>
-        <p class="text-gray-400 text-sm">Works with bare SKILL.md files — no <code class="text-brand/80 text-xs">skill.yaml</code> required. Add a <code class="text-brand/80 text-xs">skillctl:</code> block for governance metadata that IDEs ignore.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-4">
+        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold mb-2">SKILL.md first-class</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Works with bare SKILL.md files — no <code class="text-brand/70 text-xs">skill.yaml</code> required. Add a <code class="text-brand/70 text-xs">skillctl:</code> block for governance metadata that IDEs ignore.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6 hover:border-brand/30 transition-colors">
-        <h3 class="text-white font-semibold mb-2">Automated optimization</h3>
-        <p class="text-gray-400 text-sm">LLM-driven iterative loop: evaluate &rarr; identify weaknesses &rarr; generate variants &rarr; promote the best. Any model via LiteLLM.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-5">
+        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold mb-2">Automated optimization</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">LLM-driven iterative loop: evaluate &rarr; identify weaknesses &rarr; generate variants &rarr; promote the best. Any model via LiteLLM.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6 hover:border-brand/30 transition-colors">
-        <h3 class="text-white font-semibold mb-2">Export &amp; import</h3>
-        <p class="text-gray-400 text-sm">Portable skill archives (tar.gz/zip). Export from one machine, import on another. Filter by namespace or tag.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-6">
+        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold mb-2">Export &amp; import</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Portable skill archives (tar.gz/zip). Export from one machine, import on another. Filter by namespace or tag.</p>
       </div>
-      <div class="bg-surface-800 border border-surface-700 rounded-xl p-6 hover:border-brand/30 transition-colors">
-        <h3 class="text-white font-semibold mb-2">Claude Code plugin</h3>
-        <p class="text-gray-400 text-sm">14 MCP tools + 3 skills. Claude can validate, audit, optimize, and install skills as part of its workflow.</p>
+
+      <div class="glass rounded-2xl p-7 card-hover reveal stagger-7">
+        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg>
+        </div>
+        <h3 class="text-white font-display font-bold mb-2">Claude Code plugin</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">14 MCP tools + 3 skills. Claude can validate, audit, optimize, and install skills as part of its workflow.</p>
       </div>
     </div>
   </section>
 
   <!-- Quickstart -->
-  <section class="max-w-3xl mx-auto px-6 py-16">
-    <h2 class="text-sm font-semibold text-brand uppercase tracking-wider mb-8 text-center">Get started in 60 seconds</h2>
-    <div class="bg-surface-800 border border-surface-700 rounded-xl overflow-hidden glow">
-      <div class="flex items-center gap-2 px-4 py-3 border-b border-surface-700">
-        <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
-        <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
-        <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
-        <span class="text-xs text-gray-500 ml-2 font-mono">terminal</span>
+  <section id="quickstart" class="max-w-3xl mx-auto px-6 py-24">
+    <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">Quickstart</p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-14 reveal stagger-1">
+      Up and running in 60 seconds
+    </h2>
+
+    <div class="glass-strong rounded-2xl overflow-hidden glow reveal stagger-2">
+      <div class="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.04]">
+        <div class="flex gap-2">
+          <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+          <div class="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+          <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
+        </div>
+        <span class="text-xs text-gray-600 font-mono ml-3">~/projects</span>
       </div>
-      <pre class="p-6 text-sm leading-relaxed overflow-x-auto"><code class="text-gray-300"><span class="text-gray-500">$</span> <span class="text-brand">pip install</span> skillsops
+      <pre class="p-6 text-sm leading-loose overflow-x-auto"><code><span class="text-gray-600">$</span> <span class="text-brand">pip install</span> <span class="text-gray-300">skillsops</span>
 
-<span class="text-gray-500">$</span> <span class="text-brand">skillctl create skill</span> my-org/code-reviewer
-<span class="text-green-400">✓ Skill scaffolded: skill.yaml + SKILL.md</span>
+<span class="text-gray-600">$</span> <span class="text-brand">skillctl create skill</span> <span class="text-gray-300">my-org/code-reviewer</span>
+<span class="text-emerald-400">✓ Skill scaffolded: skill.yaml + SKILL.md</span>
 
-<span class="text-gray-500">$</span> <span class="text-brand">skillctl eval audit</span> .
-<span class="text-green-400">Grade: A (95/100) — 0 critical, 1 warning</span>
+<span class="text-gray-600">$</span> <span class="text-brand">skillctl eval audit</span> <span class="text-gray-300">.</span>
+<span class="text-emerald-400">Grade: A (95/100) — 0 critical, 1 warning</span>
 
-<span class="text-gray-500">$</span> <span class="text-brand">skillctl apply</span>
-<span class="text-green-400">✓ Pushed my-org/code-reviewer@0.1.0 (hash: a3f7c2...)</span>
+<span class="text-gray-600">$</span> <span class="text-brand">skillctl apply</span>
+<span class="text-emerald-400">✓ Pushed my-org/code-reviewer@0.1.0 (hash: a3f7c2...)</span>
 
-<span class="text-gray-500">$</span> <span class="text-brand">skillctl install</span> my-org/code-reviewer@0.1.0 <span class="text-brand">--target all</span>
-<span class="text-green-400">  ✓ claude: .claude/skills/code-reviewer/SKILL.md</span>
-<span class="text-green-400">  ✓ cursor: .cursor/rules/code-reviewer.mdc</span>
-<span class="text-green-400">  ✓ kiro:   .kiro/steering/code-reviewer.md</span></code></pre>
+<span class="text-gray-600">$</span> <span class="text-brand">skillctl install</span> <span class="text-gray-300">my-org/code-reviewer@0.1.0</span> <span class="text-accent">--target all</span>
+<span class="text-emerald-400">  ✓ claude: .claude/skills/code-reviewer/SKILL.md</span>
+<span class="text-emerald-400">  ✓ cursor: .cursor/rules/code-reviewer.mdc</span>
+<span class="text-emerald-400">  ✓ kiro:   .kiro/steering/code-reviewer.md</span></code></pre>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="relative py-24 overflow-hidden">
+    <div class="absolute inset-0 bg-grid opacity-50"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-brand/10 rounded-full blur-[120px]"></div>
+
+    <div class="relative max-w-2xl mx-auto px-6 text-center">
+      <h2 class="font-display text-3xl md:text-4xl font-bold text-white mb-4 reveal">
+        Ready to govern your skills?
+      </h2>
+      <p class="text-gray-400 mb-10 reveal stagger-1">
+        One install. One command. Every IDE.
+      </p>
+      <div class="inline-flex items-center gap-4 glass-strong rounded-2xl px-7 py-5 glow reveal stagger-2">
+        <span class="text-gray-600 text-sm font-mono">$</span>
+        <code class="text-brand text-lg font-mono font-medium">pip install skillsops</code>
+      </div>
     </div>
   </section>
 
   <!-- Footer -->
-  <footer class="border-t border-surface-700 mt-8">
+  <footer class="border-t border-white/[0.04]">
     <div class="max-w-5xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-6">
-      <div class="text-sm text-gray-500">
-        <span class="text-white font-semibold">skillsops</span> &mdash; MPL-2.0
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-lg">⚡</span>
+        <span class="text-white font-display font-bold">SkillsOps</span>
+        <span class="text-gray-600">&mdash;</span>
+        <span class="text-gray-500">MPL-2.0</span>
       </div>
-      <div class="flex items-center gap-6 text-sm">
-        <a href="https://pypi.org/project/skillsops/" class="text-gray-400 hover:text-white transition-colors">PyPI</a>
-        <a href="https://github.com/dgallitelli/skillsops" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
-        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="text-gray-400 hover:text-white transition-colors">Blog</a>
-        <a href="https://github.com/dgallitelli/skillsops/blob/main/docs/1-skill-format.md" class="text-gray-400 hover:text-white transition-colors">Docs</a>
+      <div class="flex items-center gap-8 text-sm">
+        <a href="https://pypi.org/project/skillsops/" class="text-gray-500 hover:text-white transition-colors">PyPI</a>
+        <a href="https://github.com/dgallitelli/skillsops" class="text-gray-500 hover:text-white transition-colors">GitHub</a>
+        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="text-gray-500 hover:text-white transition-colors">Blog</a>
+        <a href="https://github.com/dgallitelli/skillsops/blob/main/docs/1-skill-format.md" class="text-gray-500 hover:text-white transition-colors">Docs</a>
       </div>
     </div>
   </footer>
 
   <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
     function copyInstall() {
       navigator.clipboard.writeText('pip install skillsops').then(() => {
         document.getElementById('copy-icon').classList.add('hidden');
@@ -251,4 +504,3 @@
 
 </body>
 </html>
-<!-- deployed -->
