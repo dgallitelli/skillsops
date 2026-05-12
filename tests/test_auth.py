@@ -141,7 +141,13 @@ def test_write_ns_grants_write_and_read(auth: AuthManager):
         expires_at=None,
     )
     assert auth.check_permission(token, "write", "my-org") is True
-    assert auth.check_permission(token, "read") is True
+    # Read inside its own namespace works.
+    assert auth.check_permission(token, "read", "my-org") is True
+    # Read of an unspecified namespace is not granted by a scoped write —
+    # callers must pass the namespace explicitly.  This is the H4 fix.
+    assert auth.check_permission(token, "read") is False
+    # Read of a different namespace is also not granted.
+    assert auth.check_permission(token, "read", "other-org") is False
     assert auth.check_permission(token, "admin") is False
 
 

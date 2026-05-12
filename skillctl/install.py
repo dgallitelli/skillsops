@@ -37,14 +37,32 @@ class InstallRecord:
 
 
 class InstallationTracker:
-    """Track which skills are installed where."""
+    """Track which skills are installed where.
+
+    Holds an exclusive ``flock`` on a sibling ``.lock`` file for the
+    lifetime of the instance.  Use as a context manager when possible — the
+    lock is released in ``__exit__`` even if the body raises.  For legacy
+    callers, ``save()`` and ``release_lock()`` also release the lock; the
+    constructor itself releases the lock if loading fails so the lock can
+    never leak from ``__init__``.
+    """
 
     def __init__(self, state_path: Path = DEFAULT_STATE_PATH):
         self.state_path = state_path
         self._lock_fd = None
         self._data: dict[str, dict[str, InstallRecord]] = {}
         self._acquire_lock()
-        self._load()
+        try:
+            self._load()
+        except Exception:
+            self.release_lock()
+            raise
+
+    def __enter__(self) -> InstallationTracker:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.release_lock()
 
     def _acquire_lock(self):
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,11 +70,14 @@ class InstallationTracker:
         self._lock_fd = open(lock_path, "w")  # noqa: SIM115
         fcntl.flock(self._lock_fd, fcntl.LOCK_EX)
 
-    def _release_lock(self):
+    def release_lock(self):
         if self._lock_fd:
             fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
             self._lock_fd.close()
             self._lock_fd = None
+
+    # Back-compat alias — older code calls _release_lock directly.
+    _release_lock = release_lock
 
     def _load(self):
         if self.state_path.exists():
@@ -88,7 +109,7 @@ class InstallationTracker:
                 fix="Check disk space and permissions on ~/.skillctl/",
             ) from e
         finally:
-            self._release_lock()
+            self.release_lock()
 
     def add(self, ref: str, target: str, record: InstallRecord):
         if ref not in self._data:
@@ -463,7 +484,7 @@ def install_skill(
     if not dry_run:
         tracker.save()
     else:
-        tracker._release_lock()
+        tracker.release_lock()
     return results
 
 
@@ -514,21 +535,26 @@ def uninstall_skill(
 
 
 def download_skill(url: str, target_dir: Path) -> Path:
-    """Download a SKILL.md from a URL to a local directory. Returns the path."""
+    """Download a SKILL.md from a URL to a local directory. Returns the path.
+
+    Uses :func:`skillctl._secure.safe_urlopen` to block SSRF (private IPs,
+    link-local, loopback, cloud metadata), cap response size, and limit
+    redirect chains.
+    """
     import re
-    import urllib.request
-    from urllib.parse import urlparse
 
-    parsed = urlparse(url)
-    if parsed.scheme not in ("https", "http"):
+    from skillctl._secure import safe_urlopen
+
+    raw = safe_urlopen(url)
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
         raise SkillctlError(
-            code="E_INVALID_URL",
-            what=f"Unsupported URL scheme: {parsed.scheme}",
-            why="Only https:// and http:// URLs are supported for security",
-            fix="Use an https:// URL",
-        )
-
-    content = urllib.request.urlopen(url, timeout=30).read().decode("utf-8")
+            code="E_INVALID_ENCODING",
+            what=f"Downloaded content from {url} is not valid UTF-8",
+            why=str(e),
+            fix="The remote SKILL.md must be UTF-8 encoded",
+        ) from e
     skill_name = "downloaded-skill"
     frontmatter, body = _parse_frontmatter(content)
     if frontmatter.get("name"):

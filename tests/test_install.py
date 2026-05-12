@@ -251,6 +251,7 @@ class TestResolveTargets:
     def test_target_alias_claude_code(self):
         """claude-code should resolve to claude."""
         from skillctl.install import _resolve_targets
+
         result = _resolve_targets(["claude-code"], global_scope=False)
         assert result == ["claude"]
 
@@ -470,29 +471,25 @@ class TestDownloadSkill:
         assert exc_info.value.code == "E_INVALID_URL"
 
     def test_download_skill_with_http_mock(self, tmp_path, monkeypatch):
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
 
         from skillctl.install import download_skill
 
         content = "---\nname: test-dl\ndescription: test\n---\n\nBody"
-        mock_response = MagicMock()
-        mock_response.read.return_value = content.encode("utf-8")
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("skillctl._secure.safe_urlopen", return_value=content.encode("utf-8")):
             result = download_skill("https://example.com/skill.md", tmp_path / "dest")
         assert (result / "SKILL.md").exists()
         assert result.name == "test-dl"
 
     def test_download_skill_fallback_name(self, tmp_path, monkeypatch):
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
 
         from skillctl.install import download_skill
 
         content = "---\ndescription: test\n---\n\nBody"
-        mock_response = MagicMock()
-        mock_response.read.return_value = content.encode("utf-8")
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("skillctl._secure.safe_urlopen", return_value=content.encode("utf-8")):
             result = download_skill("https://example.com/skill.md", tmp_path / "dest")
         assert (result / "SKILL.md").exists()
         assert result.name == "downloaded-skill"

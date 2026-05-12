@@ -220,11 +220,38 @@ def main():
 
     # skillctl serve
     serve_p = sub.add_parser("serve", help="Start the skill registry server")
-    serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    serve_p.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     serve_p.add_argument("--port", type=int, default=8080, help="Bind port (default: 8080)")
     serve_p.add_argument("--data-dir", default=None, help="Data directory (default: ~/.skillctl/registry)")
-    serve_p.add_argument("--auth-disabled", action="store_true", help="Disable authentication (dev only)")
-    serve_p.add_argument("--hmac-key", default=None, help="HMAC key for audit log signing")
+    serve_p.add_argument(
+        "--auth-disabled",
+        action="store_true",
+        help="Disable authentication (dev only — refuses to bind to non-loopback hosts)",
+    )
+    serve_p.add_argument(
+        "--hmac-key",
+        default=None,
+        help="HMAC key for audit log signing (or set SKILLCTL_HMAC_KEY env var)",
+    )
+    serve_p.add_argument(
+        "--auto-generate-hmac-key",
+        action="store_true",
+        help="Auto-generate an HMAC key in data_dir if none is supplied (development only)",
+    )
+    serve_p.add_argument(
+        "--allowed-host",
+        action="append",
+        dest="allowed_hosts",
+        default=[],
+        help="Additional Host header value to accept (repeatable)",
+    )
+    serve_p.add_argument(
+        "--cors-origin",
+        action="append",
+        dest="cors_origins",
+        default=[],
+        help="CORS allow_origins entry (repeatable; default: none)",
+    )
     serve_p.add_argument("--log-level", default="info", help="Log level (default: info)")
     serve_p.add_argument(
         "--storage",
@@ -1002,7 +1029,7 @@ def cmd_logs(args):
     try:
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
-            events = json.loads(resp.read())
+            response = json.loads(resp.read())
     except urllib.error.HTTPError as e:
         print(f"Error fetching logs: HTTP {e.code} {e.reason}", file=sys.stderr)
         print("  Fix: Check registry URL and auth token with 'skillctl doctor'", file=sys.stderr)
@@ -1014,6 +1041,13 @@ def cmd_logs(args):
     except (json.JSONDecodeError, ValueError) as e:
         print(f"Error parsing audit log response: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # /api/v1/audit returns {"events": [...], "integrity": {...}}.
+    # Older response shapes were a flat list; accept both for compatibility.
+    if isinstance(response, dict):
+        events = response.get("events", [])
+    else:
+        events = response
 
     if not events:
         print(f"No audit events found for '{args.name}'.")
@@ -1446,12 +1480,24 @@ def cmd_serve(args):
         github_branch=args.github_branch,
         auth_disabled=args.auth_disabled,
         hmac_key=args.hmac_key,
+        auto_generate_hmac_key=getattr(args, "auto_generate_hmac_key", False),
         log_level=args.log_level,
+        allowed_hosts=tuple(getattr(args, "allowed_hosts", []) or ()),
+        cors_allow_origins=tuple(getattr(args, "cors_origins", []) or ()),
     )
     if data_dir is not None:
         config.data_dir = data_dir
 
-    app = create_app(config)
+    try:
+        app = create_app(config)
+    except RuntimeError as e:
+        raise SkillctlError(
+            code="E_SERVER_CONFIG",
+            what="Refusing to start the registry server",
+            why=str(e),
+            fix="Adjust the flags as suggested above and retry.",
+        ) from e
+
     uvicorn.run(app, host=config.host, port=config.port, log_level=config.log_level)
 
 

@@ -6,12 +6,15 @@ All config access should go through this module — not raw YAML loads.
 
 from __future__ import annotations
 
+import getpass
 import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional
 
 import yaml
+
+from skillctl._secure import atomic_write_secret
 
 CONFIG_DIR = Path.home() / ".skillctl"
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
@@ -83,10 +86,13 @@ def load_config() -> SkillctlConfig:
 
 
 def save_config(config: SkillctlConfig) -> None:
-    """Write config to ~/.skillctl/config.yaml with restricted permissions."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(yaml.dump(config.to_dict(), default_flow_style=False, sort_keys=False))
-    CONFIG_PATH.chmod(0o600)
+    """Write config to ~/.skillctl/config.yaml with restricted permissions.
+
+    Written atomically via :func:`skillctl._secure.atomic_write_secret` so the
+    file is never world-readable, even momentarily.
+    """
+    payload = yaml.dump(config.to_dict(), default_flow_style=False, sort_keys=False)
+    atomic_write_secret(CONFIG_PATH, payload.encode())
 
 
 def _parse_config(raw: dict) -> SkillctlConfig:
@@ -159,9 +165,9 @@ def run_configure_wizard(config: SkillctlConfig | None = None) -> SkillctlConfig
             )
             or None
         )
-        token_val = _prompt(
-            "  Auth token (leave blank if auth disabled)",
-            "",
+        existing_marker = "*** set ***" if config.registry.local.token else "(unset)"
+        token_val = _prompt_secret(
+            f"  Auth token (leave blank to keep current: {existing_marker})",
         )
         if token_val:
             config.registry.local.token = token_val
@@ -193,3 +199,16 @@ def _prompt(label: str, default: str) -> str:
         print()
         return default
     return value if value else default
+
+
+def _prompt_secret(label: str) -> str:
+    """Prompt for a secret without echoing it back to the terminal.
+
+    Uses :func:`getpass.getpass` so the value never lands in shell history
+    or scrollback.  Returns an empty string on EOF/Ctrl-C.
+    """
+    try:
+        return getpass.getpass(f"{label}: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ""

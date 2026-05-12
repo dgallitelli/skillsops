@@ -220,12 +220,12 @@ class TestConfigureWizard:
             [
                 "local",  # backend
                 "https://my-server:8080",  # url
-                "",  # token (blank)
                 "",  # model (default)
                 "5.0",  # budget
             ]
         )
         monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+        monkeypatch.setattr("getpass.getpass", lambda _: "")  # blank token
 
         cfg = run_configure_wizard(SkillctlConfig())
         assert cfg.registry.backend == "local"
@@ -254,6 +254,7 @@ class TestConfigureWizard:
 
     def test_wizard_accepts_defaults(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "")
+        monkeypatch.setattr("getpass.getpass", lambda _: "")
 
         cfg = run_configure_wizard(SkillctlConfig())
         assert cfg.registry.backend == "local"
@@ -286,18 +287,19 @@ class TestConfigureWizard:
             [
                 "",  # backend
                 "",  # url
-                "",  # token
                 "",  # model
                 "not-a-number",  # invalid budget
             ]
         )
         monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+        monkeypatch.setattr("getpass.getpass", lambda _: "")
 
         cfg = run_configure_wizard(SkillctlConfig())
         assert cfg.optimize.budget_usd == 10.0
 
     def test_wizard_handles_eof(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(EOFError))
+        monkeypatch.setattr("getpass.getpass", lambda _: "")
 
         cfg = run_configure_wizard(SkillctlConfig())
         assert cfg.registry.backend == "local"
