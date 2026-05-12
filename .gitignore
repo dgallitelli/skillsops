@@ -45,5 +45,6 @@ firebase-debug.log
 *.jsonl
 hmac.key
 .codegraph/
+.understand-anything/
 infra/
 docs/superpowers/

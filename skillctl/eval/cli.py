@@ -413,6 +413,12 @@ def _dispatch(args) -> int:
                     print(f"Score {report.score} is below minimum {min_score}", file=sys.stderr)
                 worst_exit = max(worst_exit, 1)
 
+        # Breadcrumb on a clean run, when stdout looks human.  Suppressed
+        # for --quiet, --format json/html, and non-TTY output (CI logs).
+        if worst_exit == 0 and not args.quiet and args.format == "text" and sys.stdout.isatty() and len(reports) == 1:
+            target = args.skill_path[0]
+            print(f"\n  Next: skillctl apply {target}", file=sys.stderr)
+
         return worst_exit
 
     elif args.command == "init":

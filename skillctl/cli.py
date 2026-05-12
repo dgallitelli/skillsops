@@ -95,6 +95,19 @@ def _load_github_token() -> str | None:
 from skillctl.utils import parse_ref as _parse_ref
 
 
+def _output_is_machine(args) -> bool:
+    """True when output is being piped or the caller asked for machine output.
+
+    Suppress human breadcrumbs in those cases so they don't pollute JSON
+    pipelines or CI logs.
+    """
+    if getattr(args, "json", False):
+        return True
+    if getattr(args, "quiet", False):
+        return True
+    return not sys.stdout.isatty()
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point — kubectl-style verbs with backward-compatible aliases
 # ---------------------------------------------------------------------------
@@ -503,13 +516,21 @@ def cmd_apply(args):
             print(f"  ✗ [{e.code}] {e.message}", file=sys.stderr)
         sys.exit(1)
 
-    # 2b. Namespace gate — bare names blocked from store/registry
-    if "/" not in manifest.metadata.name:
+    # 2b. Namespace gate — bare names allowed locally, blocked from registry.
+    # The local store is single-user, so collisions are the user's problem;
+    # the registry is shared, so names must be namespaced there.
+    bare_name = "/" not in manifest.metadata.name
+    going_remote = bool(_get_registry_url(args)) and not getattr(args, "local", False)
+    if bare_name and going_remote:
         raise SkillctlError(
             code="E_NO_NAMESPACE",
             what=f"Skill '{manifest.metadata.name}' has no namespace",
-            why="The store and registry require namespaced names to prevent collisions",
-            fix="Add 'skillctl:\\n  namespace: my-org' to SKILL.md frontmatter, or create a skill.yaml",
+            why="The remote registry requires namespaced names to prevent collisions",
+            fix=(
+                "Add a 'skillctl:' block with 'namespace: my-org' to SKILL.md frontmatter,\n"
+                "  or create a skill.yaml with 'metadata.name: my-org/<skill>',\n"
+                "  or pass --local to push to the local store only."
+            ),
         )
 
     # 3. Resolve content
@@ -574,6 +595,14 @@ def cmd_apply(args):
         print(f"✓ Applied {ref} ({scope})")
     if local_status != "unchanged" and push_result is not None:
         print(f"  Hash: {push_result.hash}")
+
+    # Breadcrumb: nudge the user to the next lifecycle step.
+    # Skip when called transitively from `cmd_install` — the user is
+    # already running install, telling them to run install would be
+    # noise — and skip when the output is being piped or asked to be
+    # machine-readable.
+    if not getattr(args, "_skip_breadcrumb", False) and not _output_is_machine(args):
+        print(f"\n  Next: skillctl install {ref} --target all", file=sys.stderr)
 
 
 def cmd_create(args):
@@ -655,6 +684,8 @@ def cmd_create_skill(args):
         queries_json.write_text(json.dumps(queries_data, indent=2) + "\n")
 
     print("✓ Skill scaffolded: skill.yaml + SKILL.md + evals/")
+    if not _output_is_machine(args):
+        print("\n  Next: edit SKILL.md, then `skillctl validate`", file=sys.stderr)
 
 
 def cmd_get(args):
@@ -1090,6 +1121,7 @@ def cmd_install(args):
                     local=True,
                     registry_url=None,
                     token=None,
+                    _skip_breadcrumb=True,
                 )
             )
             loader = ManifestLoader()
@@ -1114,6 +1146,7 @@ def cmd_install(args):
                 local=True,
                 registry_url=None,
                 token=None,
+                _skip_breadcrumb=True,
             )
         )
         loader = ManifestLoader()
@@ -1233,6 +1266,10 @@ def cmd_validate(args):
             print("✓ Valid")
         elif result.valid and all_warnings:
             print(f"✓ Valid (with {len(all_warnings)} warning{'s' if len(all_warnings) != 1 else ''})")
+
+        # Breadcrumb on success.
+        if result.valid and not _output_is_machine(args):
+            print(f"\n  Next: skillctl eval audit {args.path}", file=sys.stderr)
 
     # Determine exit code
     if result.errors:

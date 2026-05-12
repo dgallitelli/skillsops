@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skillsops"
-version = "0.1.0b4"
+dynamic = ["version"]
 description = "SkillsOps — governance CLI for agent skills. Validate, evaluate, optimize, publish, and distribute skills across any IDE."
 readme = "README.md"
 license = {text = "MPL-2.0"}
@@ -46,6 +46,9 @@ skillctl = "skillctl.cli:main"
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "skillctl.version.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["skillctl*"]
