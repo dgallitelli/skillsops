@@ -2,6 +2,49 @@
 
 ## Unreleased
 
+### Added
+
+- `LICENSE` file (MPL-2.0).  The license was advertised in `pyproject.toml`,
+  README, the landing page, and the plugin manifest but the actual text
+  was never committed; PyPI and GitHub now both render the correct
+  license.
+- `CONTRIBUTING.md` with dev setup, project conventions, and PR guidelines.
+- README now links `LICENSE`, `SECURITY.md`, and `CONTRIBUTING.md`.
+- CI `build-smoke` job: builds the sdist + wheel from a clean checkout,
+  installs the wheel into a fresh venv, and verifies that
+  `skillctl version` matches `skillctl/version.py`.  This is the test
+  that would have caught the half-finished `skillctl → skillsops` rename
+  artifacts.
+
+### Changed
+
+- `pyproject.toml` now uses `dynamic = ["version"]` reading from
+  `skillctl.version.__version__` — single source of truth.
+- `apply` no longer requires a namespace when the skill goes only to the
+  local store.  The local store is single-user; only the **remote**
+  registry needs namespaces.  Bare-name skills work end-to-end with
+  `apply --local` / `install <path>`, fixing the README's "Already have
+  skills?" path.
+- `validate`, `eval audit`, `apply`, and `create skill` now print a
+  one-line "Next:" breadcrumb on success.  All four suppress when stdout
+  is not a TTY (CI / piped output).  `validate` additionally suppresses
+  for `--json`; `eval audit` for `--quiet` and `--format {json,html}`.
+  The transitive `cmd_apply` invocations inside `install <path>` /
+  `install --from-url` also suppress to avoid telling the user to run
+  the command they're already running.
+- PyPI publish workflow switched to **Trusted Publishing (OIDC)** —
+  removes the long-lived `PYPI_API_TOKEN` secret from the repo.  An
+  environment-protected job + a tag/version equality check guard the
+  release.
+
+### Removed
+
+- Stale `skillctl.svg` (orphaned from the rename).  `skillsops.svg` is
+  the canonical logo.
+- `dist/`, `build/`, `*.egg-info/`, `.coverage`, `.understand-anything/`
+  cleaned out of the working tree (all already gitignored; physical
+  files removed locally).  `.understand-anything/` added to `.gitignore`.
+
 ## v0.1.0b4 (2026-05-12) — Security hardening
 
 This release addresses the critical and high-severity findings from the

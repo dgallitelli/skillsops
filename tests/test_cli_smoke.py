@@ -91,11 +91,25 @@ class TestPluginHint:
 
 
 class TestApplyNamespaceGate:
-    def test_apply_bare_name_blocked(self, tmp_path):
+    def test_apply_bare_name_local_ok(self, tmp_path):
+        # Bare names are allowed for the local store — only the remote
+        # registry requires namespacing.  The README's existing-skill
+        # quickstart depends on this.
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
         (skill_dir / "SKILL.md").write_text("---\nname: bare-name\ndescription: test\n---\n\nBody")
-        r = _run(["apply", "--local", str(skill_dir)])
+        r = _run(["apply", "--local", "--dry-run", str(skill_dir)])
+        assert r.returncode == 0, r.stderr
+
+    def test_apply_bare_name_remote_blocked(self, tmp_path):
+        # When a registry is configured and --local is NOT passed, bare
+        # names are rejected.
+        skill_dir = tmp_path / "my-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: bare-name\ndescription: test\n---\n\nBody")
+        r = _run(
+            ["apply", "--registry-url", "http://localhost:8080", str(skill_dir)],
+        )
         assert r.returncode != 0
         assert "namespace" in r.stderr.lower()
 

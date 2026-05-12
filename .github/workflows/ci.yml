@@ -79,3 +79,39 @@ jobs:
 
       - name: Audit dependencies
         run: pip-audit
+
+  build-smoke:
+    # Build the sdist + wheel from a clean checkout, install only the
+    # wheel (no editable install, no source checkout on the install side),
+    # and verify the entry point resolves and reports the same version.
+    # This catches pyproject/MANIFEST regressions that the editable
+    # install hides — e.g. stale egg-info or rename-related artifacts.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tooling
+        run: pip install build
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Install built wheel in a fresh venv
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install --upgrade pip
+          /tmp/smoke-venv/bin/pip install dist/skillsops-*.whl
+
+      - name: Verify console script resolves and version matches source
+        run: |
+          set -euo pipefail
+          source_version=$(python -c "from skillctl.version import __version__; print(__version__)")
+          installed_version=$(/tmp/smoke-venv/bin/skillctl version | awk '{print $2}')
+          echo "source=$source_version installed=$installed_version"
+          /tmp/smoke-venv/bin/skillctl --help > /dev/null
+          test "$source_version" = "$installed_version"

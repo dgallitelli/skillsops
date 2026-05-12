@@ -58,14 +58,18 @@ If you already have skills in Claude Code, Cursor, or any IDE — no `skill.yaml
 skillctl validate ~/.claude/skills/my-skill/SKILL.md
 skillctl eval audit ~/.claude/skills/my-skill/
 
-# Install it to other IDEs
+# Install it to other IDEs (auto-applies to your local store first)
 skillctl install ~/.claude/skills/my-skill/ --target cursor,windsurf,kiro
 
 # Or install from a URL
 skillctl install --from-url https://raw.githubusercontent.com/.../SKILL.md --target all
 ```
 
-Add a `skillctl:` block to your SKILL.md frontmatter for full governance metadata — IDEs ignore it, skillctl reads it:
+`skillctl apply` accepts a bare-name skill (no namespace) when pushing to
+your **local** store — that's all `install` needs.  Only the **remote
+registry** requires a namespace, because the remote store is shared.  Add a
+`skillctl:` block to your SKILL.md frontmatter when you're ready to
+publish — IDEs ignore it, skillctl reads it:
 
 ```yaml
 ---
@@ -219,6 +223,8 @@ skillctl doctor                       # checks Python, deps, store, registry, ID
 |----------|---------|
 | [docs/0-architecture.md](docs/0-architecture.md) | System overview, module map, data flow diagrams |
 | [docs/1-skill-format.md](docs/1-skill-format.md) | Full CLI reference, skill format, registry server, eval suite, optimizer flags, API endpoints |
+| [SECURITY.md](SECURITY.md) | Threat model, controls, and how to report vulnerabilities |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to set up a dev environment and send a PR |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
 
 ## Development
@@ -226,10 +232,13 @@ skillctl doctor                       # checks Python, deps, store, registry, ID
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,optimize,plugin]"
-pytest -m "not integration"           # 545 unit tests
-pytest -m integration                 # 10 real Bedrock tests (needs AWS creds)
+pytest -m "not integration"           # unit tests
+pytest -m integration                 # real Bedrock tests (needs AWS creds)
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project conventions and PR
+guidelines.
 
 ## License
 
-[MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/)
+[MPL-2.0](LICENSE) — see the [LICENSE](LICENSE) file for the full text.

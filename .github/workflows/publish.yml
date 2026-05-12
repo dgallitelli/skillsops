@@ -4,9 +4,22 @@ on:
   release:
     types: [published]
 
+# This workflow uses PyPI Trusted Publishing (OIDC) — no long-lived
+# PYPI_API_TOKEN secret is required.  Configure the trusted publisher on
+# PyPI under Project → Publishing → Add a new pending publisher with:
+#   PyPI Project Name: skillsops
+#   Owner: dgallitelli
+#   Repository: skillsops
+#   Workflow: publish.yml
+#   Environment: pypi  (must match the `environment:` key below)
+# See https://docs.pypi.org/trusted-publishers/ for details.
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/skillsops
     permissions:
       contents: read
       id-token: write
@@ -23,7 +36,18 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Publish to PyPI
+      - name: Verify the built version matches the tag
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          tag="${tag#v}"
+          built=$(ls dist/skillsops-*.whl | sed -E 's|.*skillsops-([^-]+)-py3.*|\1|')
+          echo "tag=$tag built=$built"
+          if [ "$tag" != "$built" ]; then
+            echo "::error::Tag $tag does not match built wheel version $built — refusing to publish."
+            exit 1
+          fi
+
+      - name: Publish to PyPI (Trusted Publishing / OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        # No `password:` — uses the GitHub OIDC token automatically.
