@@ -1,125 +1,72 @@
-"""SkillsOps CLI — governance commands for agent skills."""
+"""SkillsOps CLI — governance commands for agent skills.
+
+Helpers (config IO, registry URL/token resolution, output discipline,
+the registry HTTP request wrapper) live in
+:mod:`skillctl._cli_helpers`.  They're re-imported here so the
+``skillctl.cli.<helper>`` module-attribute path remains stable for
+test monkeypatching.
+"""
 
 import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 from pathlib import Path
 
 import yaml
 
 from skillctl.config import (
+    CONFIG_PATH,
     load_config as _load_skillctl_config,
     save_config as _save_skillctl_config,
     run_configure_wizard,
-    CONFIG_PATH,
 )
 from skillctl.diff import diff_skills, format_diff
 from skillctl.errors import SkillctlError
 from skillctl.manifest import ManifestLoader
 from skillctl.optimize.cli import register_optimize_commands, handle_optimize
 from skillctl.store import ContentStore
+from skillctl.utils import parse_ref as _parse_ref
 from skillctl.validator import SchemaValidator
 from skillctl.version import version_info
 
+# Re-export helpers from _cli_helpers so tests that monkeypatch
+# ``skillctl.cli.<helper>`` continue to work — the module-level
+# rebindings here are what monkeypatch.setattr replaces, and the
+# handlers below resolve the helper through the cli module's namespace
+# at call time.
+from skillctl._cli_helpers import (
+    _emit_plugin_hint,
+    _get_registry_token,
+    _get_registry_url,
+    _load_config,
+    _load_github_token,
+    _output_is_machine,
+    _registry_request,
+    _require_registry_url,
+    _save_config,
+)
 
-# ---------------------------------------------------------------------------
-# Config helpers — thin wrappers over skillctl.config
-# ---------------------------------------------------------------------------
-
-
-def _load_config() -> dict:
-    """Load raw CLI config as a dict (backward compat for config set/get)."""
-    if CONFIG_PATH.exists():
-        return yaml.safe_load(CONFIG_PATH.read_text()) or {}
-    return {}
-
-
-def _save_config(config: dict):
-    """Save raw CLI config dict (backward compat for config set/get)."""
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(yaml.dump(config, default_flow_style=False))
-    CONFIG_PATH.chmod(0o600)
-
-
-def _get_registry_url(args) -> str | None:
-    """Resolve registry URL from args > env > typed config."""
-    url = getattr(args, "registry_url", None)
-    if url:
-        return url.rstrip("/")
-    url = os.environ.get("SKILLCTL_REGISTRY_URL")
-    if url:
-        return url.rstrip("/")
-    cfg = _load_skillctl_config()
-    url = cfg.registry.local.url
-    if url:
-        return url.rstrip("/")
-    return None
-
-
-def _require_registry_url(args) -> str:
-    """Resolve registry URL, raise SkillctlError if not configured."""
-    url = _get_registry_url(args)
-    if url:
-        return url
-    raise SkillctlError(
-        code="E_NO_REGISTRY",
-        what="No registry URL configured",
-        why="This command requires a registry URL to communicate with the remote registry",
-        fix="Run 'skillctl configure' or 'skillctl config set registry.url <url>'",
-    )
-
-
-def _get_registry_token(args) -> str | None:
-    """Resolve registry token from args > env > typed config."""
-    token = getattr(args, "token", None)
-    if token:
-        return token
-    token = os.environ.get("SKILLCTL_REGISTRY_TOKEN")
-    if token:
-        return token
-    cfg = _load_skillctl_config()
-    return cfg.registry.local.token
-
-
-def _load_github_token() -> str | None:
-    """Load GitHub token from env > config."""
-    from skillctl.github_auth import load_github_token
-
-    return load_github_token()
-
-
-from skillctl.utils import parse_ref as _parse_ref
-
-
-def _output_is_machine(args) -> bool:
-    """True when output is being piped or the caller asked for machine output.
-
-    Suppress human breadcrumbs in those cases so they don't pollute JSON
-    pipelines or CI logs.
-    """
-    if getattr(args, "json", False):
-        return True
-    if getattr(args, "quiet", False):
-        return True
-    return not sys.stdout.isatty()
-
-
-# ---------------------------------------------------------------------------
-# CLI entry point — kubectl-style verbs with backward-compatible aliases
-# ---------------------------------------------------------------------------
-
-
-def _emit_plugin_hint():
-    """Emit a Claude Code plugin hint on stderr when running inside Claude Code."""
-    if os.environ.get("CLAUDECODE"):
-        print(
-            '<claude-code-hint v="1" type="plugin" value="skillctl@claude-plugins-official" />',
-            file=sys.stderr,
-        )
+__all__ = [
+    "main",
+    "cmd_apply",
+    "cmd_validate",
+    "cmd_create_skill",
+    "cmd_doctor",
+    "_get_registry_url",
+    "_get_registry_token",
+    "_require_registry_url",
+    "_load_config",
+    "_save_config",
+    "_load_github_token",
+    "_output_is_machine",
+    "_emit_plugin_hint",
+    "_registry_request",
+    "ContentStore",
+]
 
 
 def main():
@@ -749,25 +696,8 @@ def cmd_get_skills_remote(args):
     if params:
         url += "?" + "&".join(params)
 
-    req = urllib.request.Request(url, method="GET")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-
-    try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode()
-        print(f"Error ({e.code}): {body_text}", file=sys.stderr)
-        sys.exit(1)
-    except urllib.error.URLError as e:
-        print(f"Error: Could not connect to registry: {e.reason}", file=sys.stderr)
-        print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error: Registry request failed: {e}", file=sys.stderr)
-        print("  Fix: Check registry URL and auth with 'skillctl doctor'", file=sys.stderr)
-        sys.exit(1)
+    raw = _registry_request("GET", url, token=token)
+    data = json.loads(raw.decode())
 
     skills = data.get("skills", [])
     total = data.get("total", len(skills))
@@ -801,23 +731,7 @@ def cmd_get_skill(args):
         token = _get_registry_token(args)
         ns, skill_name = name.split("/", 1) if "/" in name else ("", name)
         url = f"{registry_url}/api/v1/skills/{ns}/{skill_name}/{version}/content"
-        req = urllib.request.Request(url, method="GET")
-        if token:
-            req.add_header("Authorization", f"Bearer {token}")
-        try:
-            with urllib.request.urlopen(req) as resp:
-                content = resp.read()
-        except urllib.error.HTTPError as e:
-            print(f"Error ({e.code}): {e.read().decode()}", file=sys.stderr)
-            sys.exit(1)
-        except urllib.error.URLError as e:
-            print(f"Error: Could not connect to registry: {e.reason}", file=sys.stderr)
-            print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
-            sys.exit(1)
-        except Exception as e:
-            print(f"Error: Registry request failed: {e}", file=sys.stderr)
-            print("  Fix: Check registry URL and auth with 'skillctl doctor'", file=sys.stderr)
-            sys.exit(1)
+        content = _registry_request("GET", url, token=token)
 
         output_dir = Path(getattr(args, "output", "."))
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1053,22 +967,9 @@ def cmd_logs(args):
 
     url = f"{registry_url}/api/v1/audit?action=skill.published&limit=50"
 
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
+    raw = _registry_request("GET", url, token=token, timeout=10)
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            response = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        print(f"Error fetching logs: HTTP {e.code} {e.reason}", file=sys.stderr)
-        print("  Fix: Check registry URL and auth token with 'skillctl doctor'", file=sys.stderr)
-        sys.exit(1)
-    except urllib.error.URLError as e:
-        print(f"Error fetching logs: {e.reason}", file=sys.stderr)
-        print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
-        sys.exit(1)
+        response = json.loads(raw)
     except (json.JSONDecodeError, ValueError) as e:
         print(f"Error parsing audit log response: {e}", file=sys.stderr)
         sys.exit(1)
@@ -1571,32 +1472,9 @@ def cmd_token_create(args):
 
     url = f"{registry_url}/api/v1/tokens"
     body = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-
-    try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode())
-            raw_token = data.get("token", "")
-            print(raw_token)
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode()
-        try:
-            err = json.loads(body_text)
-            print(f"Error: {err.get('what', err.get('detail', body_text))}", file=sys.stderr)
-        except json.JSONDecodeError:
-            print(f"Error ({e.code}): {body_text}", file=sys.stderr)
-        sys.exit(1)
-    except urllib.error.URLError as e:
-        print(f"Error: Could not connect to registry: {e.reason}", file=sys.stderr)
-        print("  Fix: Check registry URL with 'skillctl doctor'", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error: Registry request failed: {e}", file=sys.stderr)
-        print("  Fix: Check registry URL and auth with 'skillctl doctor'", file=sys.stderr)
-        sys.exit(1)
+    raw = _registry_request("POST", url, token=token, body=body, content_type="application/json")
+    data = json.loads(raw.decode())
+    print(data.get("token", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -1793,16 +1671,10 @@ def _publish_to_registry(args, manifest, content: str, registry_url: str):
     body = parts.encode() + content.encode() + f"\r\n--{boundary}--\r\n".encode()
 
     url = f"{registry_url}/api/v1/skills"
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            resp.read()
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode()
-        raise Exception(f"Registry returned {e.code}: {body_text}")
-    except urllib.error.URLError as e:
-        raise Exception(f"Could not connect to registry: {e.reason}. Fix: Check registry URL with 'skillctl doctor'")
+    _registry_request(
+        "POST",
+        url,
+        token=token,
+        body=body,
+        content_type=f"multipart/form-data; boundary={boundary}",
+    )
