@@ -28,13 +28,14 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      # Option A — direct install (smallest dependency surface).
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with: { python-version: '3.13' }
+
       - name: Install skillsops
         run: pip install skillsops
+
       - name: Audit skills
         # IMPORTANT: change `./skills/` below to the directory (or
         # directories) where your skills live.  The `paths:` filter
@@ -44,11 +45,3 @@ jobs:
         # If skills live throughout the tree, use:
         #   skillctl eval audit . --include-all --fail-on-warning
         run: skillctl eval audit ./skills/ --fail-on-warning
-
-      # Option B — use the reusable composite action shipped with this
-      # repo.  Replace the three steps above with this single block:
-      #
-      #   - uses: dgallitelli/skillsops/.github/actions/audit@v0.1.0b4
-      #     with:
-      #       paths: skills              # or: 'packages/foo/skills packages/bar/skills'
-      #       fail-on-warning: 'true'

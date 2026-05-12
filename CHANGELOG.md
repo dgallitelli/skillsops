@@ -16,21 +16,12 @@
   replaces" table frames the alternative as the hand-rolled pipeline
   most teams build (bash script + gitleaks + bumpversion + custom
   harness), making the integration story explicit.
-- **Reusable composite GitHub Action** at `.github/actions/audit/`.
-  Drop-in CI integration: `uses:
-  dgallitelli/skillsops/.github/actions/audit@<ref>` with `paths`,
-  `fail-on-warning`, `min-score`, `skillsops-version`, `python-version`,
-  and `format` inputs.  Installs skillsops from PyPI and runs
-  `skillctl eval audit` against the supplied paths.
-- **Copy-paste-ready workflow template** at
-  `examples/workflows/skill-audit.yml`.  The README's six-line CI snippet
-  is real and runnable; this file is the maintained source.
+- **Copy-paste-ready CI workflow template** at
+  `examples/workflows/skill-audit.yml`.  The README's CI snippet is real
+  and runnable; this file is the maintained source.
 - **CI `dogfood-audit` job** — runs `skillctl eval audit` against the
   example skills shipped in `examples/`.  Catches README-drift the
   moment an example stops being clean.
-- **CI `action-yaml-lint` job** — validates that
-  `.github/actions/audit/action.yml` and
-  `examples/workflows/skill-audit.yml` parse as valid YAML.
 
 ### Test count
 
