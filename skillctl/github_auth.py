@@ -174,17 +174,21 @@ def verify_token(token: str) -> dict:
 
 
 def save_github_token(token: str) -> None:
-    """Save the GitHub token to ~/.skillctl/config.yaml."""
+    """Save the GitHub token to ~/.skillctl/config.yaml.
+
+    Written atomically with mode 0o600 so the token is never world-readable
+    even momentarily.
+    """
+    from skillctl._secure import atomic_write_secret
+
     config_path = Path.home() / ".skillctl" / "config.yaml"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
 
     cfg: dict = {}
     if config_path.exists():
         cfg = yaml.safe_load(config_path.read_text()) or {}
 
     cfg.setdefault("github", {})["token"] = token
-    config_path.write_text(yaml.dump(cfg, default_flow_style=False))
-    config_path.chmod(0o600)
+    atomic_write_secret(config_path, yaml.dump(cfg, default_flow_style=False).encode())
 
 
 def load_github_token() -> str | None:

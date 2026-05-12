@@ -12,6 +12,14 @@ Repo layout::
 
 The backend maintains a local clone for fast reads and pushes to GitHub
 on writes.  A SQLite index is rebuilt from the repo on startup for FTS search.
+
+Security notes
+--------------
+- The PAT is **never** embedded in the clone URL.  We use ``GIT_ASKPASS``
+  with a one-shot helper script so the token never lands in argv, error
+  output, or the local credential cache.
+- Every name/version received from the registry layer is re-validated
+  against a strict regex before any filesystem or git operation.
 """
 
 from __future__ import annotations
@@ -19,12 +27,38 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import subprocess
+import re
 import shutil
+import stat
+import subprocess
+import tempfile
 from pathlib import Path
 
+from skillctl.errors import SkillctlError
 from skillctl.registry.db import MetadataDB, SkillRecord
 from skillctl.registry.storage import StorageBackend, NotFoundError
+
+
+# Strict patterns matching the registry's published validator constraints.
+_NAMESPACE_NAME_PATTERN = re.compile(r"^[a-z0-9-]+/[a-z0-9-]+$")
+_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
+
+
+def _validate_name_version(name: str, version: str) -> None:
+    if not _NAMESPACE_NAME_PATTERN.match(name):
+        raise SkillctlError(
+            code="E_INVALID_NAME",
+            what=f"Invalid skill name: {name!r}",
+            why="Must match <namespace>/<name> with characters [a-z0-9-]",
+            fix="Rename the skill to use lowercase letters, numbers, and hyphens",
+        )
+    if not _VERSION_PATTERN.match(version):
+        raise SkillctlError(
+            code="E_INVALID_VERSION",
+            what=f"Invalid skill version: {version!r}",
+            why="Must be a valid semver like 1.2.3 or 1.2.3-rc.1",
+            fix="Bump to a valid semver version",
+        )
 
 
 class GitHubBackend(StorageBackend):
@@ -39,7 +73,8 @@ class GitHubBackend(StorageBackend):
     branch : str
         Branch to use (default ``main``).
     github_token : str | None
-        Personal access token — injected into the clone URL for push access.
+        Personal access token — supplied to git via ``GIT_ASKPASS`` so it
+        never lands in argv or error output.
     """
 
     def __init__(
@@ -55,9 +90,6 @@ class GitHubBackend(StorageBackend):
         self._token = github_token
         self._skills_dir = clone_dir / "skills"
 
-        # Build the authenticated URL for push
-        self._auth_url = self._build_auth_url(repo_url, github_token)
-
     # ------------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------------
@@ -69,12 +101,22 @@ class GitHubBackend(StorageBackend):
             self._git("reset", "--hard", f"origin/{self._branch}")
         else:
             self._clone_dir.mkdir(parents=True, exist_ok=True)
-            subprocess.run(
-                ["git", "clone", "--branch", self._branch, "--single-branch", self._auth_url, str(self._clone_dir)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            with self._git_env() as env:
+                subprocess.run(
+                    [
+                        "git",
+                        "clone",
+                        "--branch",
+                        self._branch,
+                        "--single-branch",
+                        self._repo_url,
+                        str(self._clone_dir),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
         self._skills_dir.mkdir(exist_ok=True)
 
     # ------------------------------------------------------------------
@@ -93,6 +135,7 @@ class GitHubBackend(StorageBackend):
 
         Returns the SHA-256 hash of the content.
         """
+        _validate_name_version(name, version)
         namespace, skill_name = name.split("/", 1)
         skill_dir = self._skills_dir / namespace / skill_name / version
         skill_dir.mkdir(parents=True, exist_ok=True)
@@ -118,6 +161,7 @@ class GitHubBackend(StorageBackend):
 
     def delete_skill(self, name: str, version: str) -> None:
         """Remove a skill version from the repo, commit, and push."""
+        _validate_name_version(name, version)
         namespace, skill_name = name.split("/", 1)
         skill_dir = self._skills_dir / namespace / skill_name / version
 
@@ -140,6 +184,7 @@ class GitHubBackend(StorageBackend):
 
     def get_skill_content(self, name: str, version: str) -> bytes:
         """Read skill content bytes from the local clone."""
+        _validate_name_version(name, version)
         namespace, skill_name = name.split("/", 1)
         content_path = self._skills_dir / namespace / skill_name / version / "content"
         if not content_path.is_file():
@@ -148,6 +193,7 @@ class GitHubBackend(StorageBackend):
 
     def update_metadata(self, name: str, version: str, metadata: dict) -> None:
         """Update metadata.json for a skill version, commit, and push."""
+        _validate_name_version(name, version)
         namespace, skill_name = name.split("/", 1)
         meta_path = self._skills_dir / namespace / skill_name / version / "metadata.json"
         if not meta_path.parent.is_dir():
@@ -233,10 +279,15 @@ class GitHubBackend(StorageBackend):
                     continue
                 skill_name = name_dir.name
                 full_name = f"{namespace}/{skill_name}"
+                # Skip directories whose names don't match the strict pattern.
+                if not _NAMESPACE_NAME_PATTERN.match(full_name):
+                    continue
                 for ver_dir in sorted(name_dir.iterdir()):
                     if not ver_dir.is_dir():
                         continue
                     version = ver_dir.name
+                    if not _VERSION_PATTERN.match(version):
+                        continue
                     # Skip if already indexed
                     if db.get_skill(full_name, version) is not None:
                         count += 1
@@ -252,7 +303,16 @@ class GitHubBackend(StorageBackend):
         return count
 
     def _read_skill_record(self, full_name: str, namespace: str, version: str, ver_dir: Path) -> SkillRecord | None:
-        """Read a SkillRecord from a version directory in the repo."""
+        """Read a SkillRecord from a version directory in the repo.
+
+        Defensive: re-validate name/version even though :meth:`rebuild_index`
+        has already filtered them.  Cheap insurance against future callers.
+        """
+        if not _NAMESPACE_NAME_PATTERN.match(full_name):
+            return None
+        if not _VERSION_PATTERN.match(version):
+            return None
+
         manifest_path = ver_dir / "skill.yaml"
         content_path = ver_dir / "content"
         meta_path = ver_dir / "metadata.json"
@@ -306,44 +366,72 @@ class GitHubBackend(StorageBackend):
     # Git helpers
     # ------------------------------------------------------------------
 
+    def _git_env(self):
+        """Yield an env dict configured for non-interactive token auth.
+
+        Uses ``GIT_ASKPASS`` with a temp helper script that prints the PAT
+        on stdout when git asks for a password.  The script is created in a
+        per-call temp directory and cleaned up on exit, so the token never
+        lives on disk longer than the git invocation.
+        """
+        # Defer the contextmanager import so the module stays importable
+        # without contextlib.contextmanager at top-level.
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _env_ctx():
+            env = os.environ.copy()
+            env["GIT_TERMINAL_PROMPT"] = "0"
+            env["GIT_CONFIG_NOSYSTEM"] = "1"
+            tmp: tempfile.TemporaryDirectory | None = None
+            if self._token:
+                tmp = tempfile.TemporaryDirectory(prefix="skillctl-askpass-")
+                helper_path = Path(tmp.name) / "askpass.sh"
+                helper_path.write_text(
+                    "#!/usr/bin/env sh\n"
+                    'case "$1" in\n'
+                    "    Username*) echo 'x-access-token' ;;\n"
+                    "    *) printf '%s' \"$GIT_TOKEN\" ;;\n"
+                    "esac\n"
+                )
+                helper_path.chmod(stat.S_IRWXU)  # 0o700
+                env["GIT_ASKPASS"] = str(helper_path)
+                env["GIT_TOKEN"] = self._token
+            try:
+                yield env
+            finally:
+                if tmp is not None:
+                    tmp.cleanup()
+
+        return _env_ctx()
+
     def _git(self, *args: str) -> subprocess.CompletedProcess:
         """Run a git command in the clone directory."""
-        env = os.environ.copy()
-        env["GIT_TERMINAL_PROMPT"] = "0"
-        try:
-            return subprocess.run(
-                ["git", *args],
-                cwd=str(self._clone_dir),
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-        except subprocess.CalledProcessError as e:
-            sanitized_cmd = e.cmd
-            sanitized_out = e.output or ""
-            sanitized_err = e.stderr or ""
-            if self._token:
-                sanitized_cmd = [a.replace(self._token, "***") for a in e.cmd]
-                sanitized_out = sanitized_out.replace(self._token, "***")
-                sanitized_err = sanitized_err.replace(self._token, "***")
-            raise subprocess.CalledProcessError(
-                e.returncode,
-                sanitized_cmd,
-                sanitized_out,
-                sanitized_err,
-            ) from None
+        with self._git_env() as env:
+            try:
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=str(self._clone_dir),
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+            except subprocess.CalledProcessError as e:
+                sanitized_cmd = e.cmd
+                sanitized_out = e.output or ""
+                sanitized_err = e.stderr or ""
+                if self._token:
+                    sanitized_cmd = [a.replace(self._token, "***") for a in e.cmd]
+                    sanitized_out = sanitized_out.replace(self._token, "***")
+                    sanitized_err = sanitized_err.replace(self._token, "***")
+                raise subprocess.CalledProcessError(
+                    e.returncode,
+                    sanitized_cmd,
+                    sanitized_out,
+                    sanitized_err,
+                ) from None
 
     def _push(self) -> None:
-        """Push to remote, setting the upstream URL with token."""
-        self._git("push", self._auth_url, self._branch)
-
-    @staticmethod
-    def _build_auth_url(repo_url: str, token: str | None) -> str:
-        """Inject token into HTTPS URL for authenticated push."""
-        if not token:
-            return repo_url
-        # https://github.com/... → https://<token>@github.com/...
-        if repo_url.startswith("https://"):
-            return repo_url.replace("https://", f"https://{token}@", 1)
-        return repo_url
+        """Push to remote (auth comes from GIT_ASKPASS env)."""
+        self._git("push", "origin", self._branch)

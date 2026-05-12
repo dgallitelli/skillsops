@@ -64,7 +64,9 @@ def test_tamper_detection(logger: AuditLogger):
     logger.log("skill.published", "ci", "org/skill@1.0.0")
     logger.log("token.created", "admin", "token-1")
 
-    # Tamper with the first line
+    # Tamper with the first line.  The hash chain means the *second* line's
+    # prev_signature also no longer matches what we recompute, so both
+    # entries should count as invalid.
     lines = logger.log_path.read_text().splitlines()
     entry = json.loads(lines[0])
     entry["actor"] = "evil-actor"
@@ -72,8 +74,8 @@ def test_tamper_detection(logger: AuditLogger):
     logger.log_path.write_text("\n".join(lines) + "\n")
 
     valid, invalid, _parse_errors = logger.verify_integrity()
-    assert valid == 1
-    assert invalid == 1
+    assert valid == 0
+    assert invalid == 2
 
 
 def test_tamper_signature_field(logger: AuditLogger):

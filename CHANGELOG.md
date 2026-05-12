@@ -2,6 +2,81 @@
 
 ## Unreleased
 
+## v0.1.0b4 (2026-05-12) — Security hardening
+
+This release addresses the critical and high-severity findings from the
+v0.1.0b3 security review.  See SECURITY.md for the threat model and
+production hardening checklist.
+
+### Security
+
+- **SSRF protection on `install --from-url`**: every host is resolved and
+  rejected if any A/AAAA address is loopback, private (RFC1918),
+  link-local (incl. `169.254.169.254`), reserved, or a known cloud
+  metadata IPv6.  Redirects are followed manually with a hard cap and
+  re-validation each hop.  Responses are size-capped (5 MiB by default).
+  `file://`/`ftp://` continue to be rejected.
+- **Audit log is now hash-chained**: each entry's HMAC includes the
+  previous entry's signature, so deletion or reordering is detectable.
+  `verify_integrity()` returns the count of broken-chain entries.  The
+  log file is created with mode `0o600`.
+- **HMAC key decoupling**: the registry server no longer auto-generates
+  an HMAC key in `data_dir` by default.  It reads from `--hmac-key`,
+  `SKILLCTL_HMAC_KEY`, or refuses to start unless `--auto-generate-hmac-key`
+  is passed.  This makes operators wire up real key management.
+- **`--auth-disabled` is now localhost-only**: the server refuses to
+  start when `--auth-disabled` is combined with a non-loopback bind.
+  The default `--host` for `skillctl serve` is now `127.0.0.1` (was
+  `0.0.0.0`).
+- **Rate limiting**: `slowapi` is added to the `server` extra and
+  installed by `create_app` (default 60 req/min/IP).
+- **CORS + TrustedHost middleware**: installed by default, scoped to the
+  configured host.  No browser cross-origin access unless `--cors-origin`
+  is passed explicitly.
+- **`/api/v1/audit` endpoint** (admin-only): returns recent events plus
+  the integrity check report.  `skillctl logs` now reads from this
+  endpoint.
+- **Atomic credential file writes**: `~/.skillctl/config.yaml`, the
+  HMAC key file, and any future secret are written via
+  `os.open(..., O_CREAT|O_EXCL|O_WRONLY, 0o600)` — no TOCTOU window in
+  which they are world-readable.
+- **Read permission is now namespace-scoped**: previously, any token
+  with any permission could read every namespace.  `read:<ns>`,
+  `write:<ns>`, and unscoped `read` are honoured separately.
+- **Permission strings are validated at `create_token`**: only `admin`,
+  `read`, `read:<ns>`, and `write:<ns>` (with `[a-z0-9-]+` namespaces)
+  are accepted.
+- **`name`/`version` re-validation in `GitHubBackend`**: every storage
+  call re-validates against a strict regex before any FS or git op.
+- **`GIT_ASKPASS` instead of PAT-in-URL**: the GitHub PAT is no longer
+  embedded in the clone URL or argv; it's supplied to git via a
+  one-shot helper script that reads the token from an env var.
+- **`getpass.getpass` for token entry**: the `configure` wizard no
+  longer echoes auth tokens to the terminal or shell history.
+
+### Changed
+
+- `RegistryConfig.host` default changed from `0.0.0.0` to `127.0.0.1`.
+  Operators that bind publicly must now pass `--host 0.0.0.0` explicitly.
+- `RegistryConfig` gained `auto_generate_hmac_key`, `allowed_hosts`,
+  and `cors_allow_origins` fields.
+- `AuditLogger.AuditEvent` gained a `prev_signature` field.
+- `slowapi>=0.1.9` is now listed in the `server` extra.
+- The custom YAML parser in `eval/audit/structure_check.py` was replaced
+  with `yaml.safe_load` (PyYAML is already a hard dep).  Skills with
+  YAML constructs the custom parser silently dropped (anchors, tag
+  types) are now correctly handled.
+- `InstallationTracker` is now a context manager and releases its
+  `flock` if `__init__` fails.
+
+### Added
+
+- `skillctl/_secure.py` — shared `safe_urlopen` and `atomic_write_secret`
+  helpers.
+- `tests/test_security.py` — 51 regression tests covering each fix.
+- `SECURITY.md` — threat model, controls, hardening checklist,
+  vulnerability reporting process.
+
 ## v0.1.0b3 (2026-05-04)
 
 ### Added

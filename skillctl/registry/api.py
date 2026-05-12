@@ -321,16 +321,37 @@ async def list_skills(
     token: TokenInfo = Depends(get_current_token),
 ):
     db: MetadataDB = request.app.state.db
-    auth_manager: AuthManager = request.app.state.auth_manager
 
-    if not auth_manager.check_permission(token, "read"):
+    allowed = AuthManager.allowed_namespaces(token)
+    if allowed is None:
+        # Unscoped read / admin — full access.
+        pass
+    elif not allowed:
         _error_response(
             403,
             "E_FORBIDDEN",
             "Insufficient permissions",
-            "Token lacks read scope",
-            "Use a token with 'read' permission",
+            "Token has no read scope",
+            "Use a token with 'read', 'read:<ns>', 'write:<ns>', or 'admin'",
         )
+    else:
+        # Scoped token: namespace must be explicit and inside the allowed set.
+        if namespace is None:
+            _error_response(
+                403,
+                "E_FORBIDDEN",
+                "Namespace filter required",
+                f"Token only grants read on {sorted(allowed)}",
+                "Pass ?namespace=<ns> to list skills in a namespace you can read",
+            )
+        if namespace not in allowed:
+            _error_response(
+                403,
+                "E_FORBIDDEN",
+                f"No read access to namespace '{namespace}'",
+                f"Token grants read on {sorted(allowed)}",
+                "Request a token with the correct scope",
+            )
 
     results = db.search(query=q, namespace=namespace, tag=tag, limit=limit, offset=offset)
     total = db.count_search(query=q, namespace=namespace, tag=tag)
@@ -356,7 +377,7 @@ async def get_skill(
     db: MetadataDB = request.app.state.db
     auth_manager: AuthManager = request.app.state.auth_manager
 
-    if not auth_manager.check_permission(token, "read"):
+    if not auth_manager.check_permission(token, "read", namespace):
         _error_response(
             403,
             "E_FORBIDDEN",
@@ -393,7 +414,7 @@ async def get_skill_version(
     db: MetadataDB = request.app.state.db
     auth_manager: AuthManager = request.app.state.auth_manager
 
-    if not auth_manager.check_permission(token, "read"):
+    if not auth_manager.check_permission(token, "read", namespace):
         _error_response(
             403,
             "E_FORBIDDEN",
@@ -432,7 +453,7 @@ async def download_content(
     storage = request.app.state.storage
     auth_manager: AuthManager = request.app.state.auth_manager
 
-    if not auth_manager.check_permission(token, "read"):
+    if not auth_manager.check_permission(token, "read", namespace):
         _error_response(
             403,
             "E_FORBIDDEN",
@@ -650,11 +671,20 @@ async def create_token(
             "Use a token with 'admin' permission",
         )
 
-    raw_token = auth_manager.create_token(
-        name=body.name,
-        permissions=body.permissions,
-        expires_in_days=body.expires_in_days,
-    )
+    try:
+        raw_token = auth_manager.create_token(
+            name=body.name,
+            permissions=body.permissions,
+            expires_in_days=body.expires_in_days,
+        )
+    except ValueError as exc:
+        _error_response(
+            400,
+            "E_INVALID_PERMISSION",
+            "One or more permission strings are invalid",
+            str(exc),
+            "Use 'admin', 'read', 'read:<namespace>', or 'write:<namespace>'.",
+        )
 
     # Look up the created token to get its ID and expiry from the DB directly
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
@@ -678,6 +708,65 @@ async def create_token(
         name=body.name,
         permissions=body.permissions,
         expires_at=row["expires_at"],
+    )
+
+
+# -- 6.9 Audit log read (admin) --------------------------------------------
+
+
+class AuditEventResponse(BaseModel):
+    timestamp: str
+    action: str
+    actor: str
+    resource: str
+    details: dict
+    prev_signature: str
+    hmac_signature: str
+
+
+class AuditReadResponse(BaseModel):
+    events: list[AuditEventResponse]
+    integrity: dict  # {"valid": int, "invalid": int, "parse_errors": int}
+
+
+@api_router.get("/audit", response_model=AuditReadResponse)
+async def read_audit(
+    request: Request,
+    since: str | None = None,
+    until: str | None = None,
+    action: str | None = None,
+    limit: int = Query(default=100, ge=1, le=1000),
+    token: TokenInfo = Depends(get_current_token),
+):
+    """Return recent audit events.  Admin permission required."""
+    auth_manager: AuthManager = request.app.state.auth_manager
+    audit = request.app.state.audit
+
+    if not auth_manager.check_permission(token, "admin"):
+        _error_response(
+            403,
+            "E_FORBIDDEN",
+            "Admin permission required",
+            "Token lacks admin scope",
+            "Use a token with 'admin' permission",
+        )
+
+    events = audit.read(since=since, until=until, action=action, limit=limit)
+    valid, invalid, parse_errors = audit.verify_integrity()
+    return AuditReadResponse(
+        events=[
+            AuditEventResponse(
+                timestamp=e.timestamp,
+                action=e.action,
+                actor=e.actor,
+                resource=e.resource,
+                details=e.details,
+                prev_signature=e.prev_signature,
+                hmac_signature=e.hmac_signature,
+            )
+            for e in events
+        ],
+        integrity={"valid": valid, "invalid": invalid, "parse_errors": parse_errors},
     )
 
 

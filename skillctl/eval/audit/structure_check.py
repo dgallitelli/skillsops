@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 from typing import Optional
 
+import yaml
+
 from skillctl.eval.schemas import Finding, Severity, Category
 
 
@@ -55,92 +57,20 @@ def _parse_frontmatter(content: str) -> tuple[Optional[dict], Optional[str], int
     if end_idx is None:
         return None, "YAML frontmatter is not closed (missing second ---)", 0
 
-    # Parse YAML
+    # Parse YAML — use PyYAML's safe_load (PyYAML is already a hard dep).
     yaml_text = "\n".join(lines[1:end_idx])
     try:
-        # Use a simple YAML parser that doesn't require PyYAML
-        fm = _simple_yaml_parse(yaml_text)
-        return fm, None, end_idx + 1
-    except Exception as e:
+        fm = yaml.safe_load(yaml_text) or {}
+    except yaml.YAMLError as e:
         return None, f"Failed to parse YAML frontmatter: {e}", 0
 
+    if not isinstance(fm, dict):
+        return None, "YAML frontmatter must be a mapping (key: value pairs)", 0
 
-def _simple_yaml_parse(text: str) -> dict:
-    """Minimal YAML parser for frontmatter (handles flat key-value and nested maps).
-
-    Supports:
-    - key: value
-    - key: "quoted value"
-    - key: 'quoted value'
-    - key: |  (block scalar - joins lines)
-    - nested maps (metadata:)
-    - space-delimited strings (allowed-tools)
-
-    Does NOT support: arrays, complex nesting, anchors, etc.
-    For production use, consider PyYAML, but we want zero dependencies.
-    """
-    result = {}
-    lines = text.split("\n")
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
-
-        if not stripped or stripped.startswith("#"):
-            i += 1
-            continue
-
-        # Check indent level
-        indent = len(line) - len(line.lstrip())
-
-        match = re.match(r"^(\S[\w-]*)\s*:\s*(.*)", stripped)
-        if not match:
-            i += 1
-            continue
-
-        key = match.group(1)
-        value = match.group(2).strip()
-
-        if value == "" or value == "|":
-            # Could be nested map or block scalar
-            # Look ahead for indented content
-            nested_lines = []
-            j = i + 1
-            while j < len(lines):
-                next_line = lines[j]
-                if next_line.strip() == "" or (len(next_line) - len(next_line.lstrip()) > indent):
-                    nested_lines.append(next_line)
-                    j += 1
-                else:
-                    break
-
-            if nested_lines:
-                # Check if it's a nested map (key: value pairs)
-                is_map = any(re.match(r"^\s+\S[\w-]*\s*:", nl) for nl in nested_lines if nl.strip())
-                if is_map:
-                    nested = {}
-                    for nl in nested_lines:
-                        nl_stripped = nl.strip()
-                        nm = re.match(r"^(\S[\w-]*)\s*:\s*(.*)", nl_stripped)
-                        if nm:
-                            nk = nm.group(1)
-                            nv = nm.group(2).strip().strip("'\"")
-                            nested[nk] = nv
-                    result[key] = nested
-                else:
-                    # Block scalar - join lines
-                    result[key] = " ".join(nl.strip() for nl in nested_lines if nl.strip())
-            else:
-                result[key] = ""
-            i = j
-        else:
-            # Strip quotes
-            if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-                value = value[1:-1]
-            result[key] = value
-            i += 1
-
-    return result
+    # Coerce values to strings for keys the audit logic expects as strings.
+    # PyYAML decodes numeric / boolean values to native types; downstream
+    # checks expect strings.
+    return fm, None, end_idx + 1
 
 
 def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dict], int]:
@@ -311,6 +241,22 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     )
                 )
                 break  # One finding is enough
+    else:
+        # PyYAML decoded the value as a non-string (list, int, bool, ...).
+        # Previously the custom parser silently coerced everything to a
+        # string; safe_load is stricter, so flag the error explicitly.
+        findings.append(
+            Finding(
+                code="STR-005",
+                severity=Severity.CRITICAL,
+                category=Category.STRUCTURE,
+                title="'name' field must be a string",
+                detail=f"The 'name' field must be a string, got {type(name).__name__}.",
+                file_path=str(skill_md),
+                line_number=1,
+                fix='Quote the name value in YAML: name: "my-skill".',
+            )
+        )
 
     # --- Check 4: description field ---
     desc = frontmatter.get("description")
@@ -396,6 +342,19 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     fix="Rewrite the description in third person: 'Analyzes data...' instead of 'I analyze data...'.",
                 )
             )
+    else:
+        findings.append(
+            Finding(
+                code="STR-009",
+                severity=Severity.CRITICAL,
+                category=Category.STRUCTURE,
+                title="'description' field must be a string",
+                detail=f"The 'description' field must be a string, got {type(desc).__name__}.",
+                file_path=str(skill_md),
+                line_number=1,
+                fix='Quote the description value in YAML: description: "..."',
+            )
+        )
 
     # --- Check 5: compatibility field ---
     compat = frontmatter.get("compatibility")
