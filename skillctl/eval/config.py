@@ -33,6 +33,14 @@ audit:
 
   # Minimum passing score (default: 0, set higher for stricter CI)
   min_score: 70
+
+  # Opt this skill into AST-level Python checks and a larger size cap.
+  # See `--strict` in `skillctl eval audit --help`.
+  strict: true
+
+  # Override the per-file size cap (default: 1 MB; 10 MB when strict).
+  # Files larger than this are skipped with a STR-022 INFO finding.
+  max_file_bytes: 5242880
 ```
 """
 
@@ -75,6 +83,8 @@ class AuditConfig:
     safe_domains: set[str] = field(default_factory=set)
     custom_rules: list[CustomRule] = field(default_factory=list)
     min_score: int = 0
+    strict: bool = False
+    max_file_bytes: Optional[int] = None  # None = use the audit's default
 
     @classmethod
     def empty(cls) -> "AuditConfig":
@@ -167,12 +177,24 @@ def load_config(skill_path: str | Path) -> AuditConfig:
     if not isinstance(min_score, int):
         min_score = 0
 
+    # Strict mode (per-skill opt-in to AST-level checks).
+    strict = bool(audit.get("strict", False))
+
+    # Per-skill override of the file-size cap (in bytes).  None means
+    # "use the scanner's default".
+    raw_cap = audit.get("max_file_bytes")
+    max_file_bytes: Optional[int] = None
+    if isinstance(raw_cap, int) and raw_cap > 0:
+        max_file_bytes = raw_cap
+
     return AuditConfig(
         ignore=ignore,
         severity_overrides=severity_overrides,
         safe_domains=safe_domains,
         custom_rules=custom_rules,
         min_score=min_score,
+        strict=strict,
+        max_file_bytes=max_file_bytes,
     )
 
 

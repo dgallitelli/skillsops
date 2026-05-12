@@ -4,6 +4,31 @@
 
 ### Added
 
+- **`skillctl eval audit --strict`** — bypass-resistant audit mode
+  that addresses several specific gaps in the default audit's
+  coverage.  Opt-in; the default audit is unchanged.
+  **Closed:** multi-line `eval`/`exec`/`compile`/`__import__` (Python
+  AST pass — emits `SEC-007-AST`); `pickle.loads` / `marshal.loads` /
+  `shelve.open` / `yaml.load` without `Loader=` (`SEC-006-AST`);
+  `subprocess.* shell=True` and `os.system` / `os.popen`
+  (`SEC-003-AST`); base64 literal-concatenation
+  (`b64decode("AA" + "BB" + ...)` — `SEC-008-AST`); fullwidth and
+  mathematical-alphanumeric homoglyphs (NFKC normalisation before
+  regex matching — `ｅｖａｌ` and `𝐞𝐯𝐚𝐥` now match the existing
+  `eval` pattern); files between 1 MB and 10 MB (default cap raised
+  in strict mode, with STR-022 INFO emitted for any file still over
+  cap so operators see the audit was incomplete instead of silently
+  truncating).  **Honestly NOT closed:** Cyrillic homoglyphs (NFKC
+  doesn't fold cross-script visual confusables — would require a
+  Unicode confusables map; documented in `docs/3-security-audit.md`);
+  variable-fed base64 concat (`b64decode(s + t)` — taint analysis,
+  out of scope); name-indirected calls (`getattr(__builtins__,
+  "eval")(...)` — beyond the AST's name-matching limit); JS/TS/shell
+  AST analysis.  Per-skill opt-in via `audit.strict: true` in
+  `.skilleval.yaml`; per-skill size cap via
+  `audit.max_file_bytes: <n>`.  Also exposes `--max-file-bytes`
+  independently for fine-grained control.
+
 - **`skillctl eval audit --format=github`** — emits GitHub Actions
   workflow commands (`::error::` / `::warning::` / `::notice::`, one per
   finding) so audit findings appear as inline annotations on the

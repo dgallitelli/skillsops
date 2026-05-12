@@ -225,6 +225,60 @@ audit:
 INFO findings would exhaust the cap fast.  Severity → level mapping:
 CRITICAL → `error`, WARNING → `warning`, INFO → `notice`.
 
+## Strict Mode (`--strict`)
+
+`skillctl eval audit --strict` enables bypass-resistant checks on top
+of the default audit.  It is **opt-in** — the default audit is
+unchanged.
+
+### What strict mode adds
+
+| Bypass | Coverage |
+|--------|----------|
+| **Multi-line `eval`/`exec`** (`eval(\n  payload\n)`) | Closed.  An AST pass over `*.py` files emits `SEC-007-AST` for any literal `eval`/`exec`/`compile`/`__import__` call regardless of line wrapping. |
+| **Unsafe deserialization with multi-line args** (`pickle.loads(\n  …\n)`) | Closed.  AST emits `SEC-006-AST` for `pickle.{load,loads}`, `marshal.{load,loads}`, `shelve.open`, and `yaml.load(...)` without `Loader=`. |
+| **`subprocess.run(..., shell=True)`** with multi-line args | Closed.  AST emits `SEC-003-AST`. |
+| **`os.system` / `os.popen`** | Closed.  AST emits `SEC-003-AST`. |
+| **Base64 string-literal concatenation bypass** (`b64decode("AA" + "BB" + …)`) | Closed for the literal-only shape.  AST emits `SEC-008-AST`.  `b64decode(s + t)` where `s` and `t` are names is **not** flagged — that requires taint analysis, out of scope. |
+| **Fullwidth / mathematical-alphanumeric homoglyphs** (`ｅｖａｌ`, `𝐞𝐯𝐚𝐥`) | Closed.  Strict mode NFKC-normalises text before regex matching. |
+| **Cyrillic homoglyphs** (`еval` with Cyrillic `е`) | **NOT closed.**  Cyrillic letters are a different Unicode script, not a compatibility variant — NFKC leaves them alone.  Detecting visual confusables requires a different mechanism (e.g. the Unicode `confusables.txt` mapping); this is an honest gap. |
+| **Files exceeding the size cap** | Strict raises the per-file cap from 1 MB to 10 MB.  Files that still exceed it are surfaced via a STR-022 INFO finding so operators can see the audit was incomplete instead of silently truncating coverage. |
+
+### What strict mode does NOT add
+
+- JavaScript / TypeScript / shell AST analysis — Python only.
+- Deobfuscation of runtime-decoded payloads (e.g. base64 piped into
+  `eval`).
+- Detection of `getattr(__builtins__, "eval")(...)` style indirection
+  — name-based AST matching is the limit.
+- **`from`-import aliasing**: `from pickle import loads; loads(data)`
+  is **not** flagged because `_attr_chain` only matches the literal
+  `pickle.loads` chain.  Same for `from yaml import load`,
+  `from subprocess import run`, etc.  Most code that uses these APIs
+  imports the module rather than the symbol; if your codebase does
+  use `from`-imports for these, supplement with a regex `--ignore`
+  list or a separate linter.
+- Deeply-namespaced calls (`some_pkg.pickle.loads(...)`) — the chain
+  match is exact-string, so `some_pkg.pickle.loads` won't match
+  `pickle.loads` in the dispatch table.
+
+### Per-skill opt-in via `.skilleval.yaml`
+
+```yaml
+audit:
+  strict: true
+  max_file_bytes: 5242880  # optional override of the size cap
+```
+
+The CLI flag (`--strict`) wins over the config; the config wins over
+the default-off.
+
+### Performance
+
+The AST pass parses each `*.py` file once with `ast.parse`.  For a
+~50-file skill the added cost is sub-second; well within typical CI
+budget.
+
 ## Key Source Files
 
 | File | Role |

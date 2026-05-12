@@ -54,7 +54,7 @@ vendor lock-in, no requirement to host skills off-site.
 | Capability | Status | Why it's here |
 |---|---|---|
 | `validate` — schema, semver, capability checks | stable | Bad manifests should never reach the store. |
-| `eval audit` — static security audit (9 categories, ~35 finding codes, ~70 regex patterns) | stable | Block leaked secrets, prompt injection, exfil URLs, unsafe deserialization, encoded payloads in CI. |
+| `eval audit` — static security audit (9 categories, ~35 finding codes, ~70 regex patterns; `--strict` adds an AST pass for Python) | stable | Block leaked secrets, prompt injection, exfil URLs, unsafe deserialization, encoded payloads in CI. |
 | `apply` / `get` / `describe` / `delete` / `diff` — content-addressed local store | stable | SHA-256 hashing, integrity verification, structural version diffs. |
 | `bump` — semver version edits in `skill.yaml` | stable | `--major` / `--minor` / `--patch` with breaking-change detection. |
 | `install` / `uninstall` — multi-IDE deploy (Claude Code, Cursor, Windsurf, Copilot, Kiro) | stable | One source SKILL.md, native frontmatter on every IDE. |
