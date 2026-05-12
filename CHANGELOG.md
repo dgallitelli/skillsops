@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.1.0b5 (2026-05-12)
+
+A capability-and-cleanup release on top of the v0.1.0b4 security
+hardening.  Two new audit features (`--strict` AST pass, `--format=github`
+PR annotations), an internal refactor that turns the apply lifecycle
+into a real library function, and several smaller polish items.
+
 ### Added
 
 - **`skillctl eval audit --strict`** — bypass-resistant audit mode
