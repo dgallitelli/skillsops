@@ -27,6 +27,9 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -35,6 +38,9 @@ from skillctl.config import (
     load_config as _load_skillctl_config,
 )
 from skillctl.errors import SkillctlError
+
+if TYPE_CHECKING:
+    from skillctl.store import PushResult
 
 
 # ---------------------------------------------------------------------------
@@ -204,3 +210,216 @@ def _registry_request(
             why=str(e.reason),
             fix="Check registry URL with 'skillctl doctor'",
         ) from e
+
+
+# ---------------------------------------------------------------------------
+# `apply_skill` — library form of the CLI's `apply` lifecycle
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ApplyResult:
+    """Outcome of an :func:`apply_skill` call.
+
+    Attributes:
+        ref: Canonical ``namespace/name@version`` reference.
+        local_status: ``"pushed"`` (new push to local store), ``"unchanged"``
+            (already existed), or ``"dry-run"`` (when called with
+            ``dry_run=True``).
+        remote_status: ``None`` (no remote published — either ``--local``,
+            no registry configured, or dry-run), ``"published"``,
+            ``"blocked (security)"`` if the security gate fired, or
+            ``"failed (...)"`` with the failure reason.
+        push_result: The store-level ``PushResult`` (hash, size, created
+            flag).  ``None`` on dry-run.
+        critical_findings: Non-empty list of CRITICAL findings ONLY when
+            ``remote_status == "blocked (security)"``; otherwise empty.
+            Lets the CLI shim format the per-finding stderr output.
+    """
+
+    ref: str
+    local_status: str
+    remote_status: str | None
+    push_result: "PushResult | None"
+    critical_findings: list = field(default_factory=list)
+
+
+def apply_skill(
+    path: str,
+    *,
+    dry_run: bool = False,
+    local: bool = False,
+    registry_url: str | None = None,
+    token: str | None = None,
+) -> ApplyResult:
+    """Library form of the ``skillctl apply`` lifecycle.
+
+    Validates the skill at *path*, pushes it to the local content-
+    addressed store (idempotently), and — when a registry is configured
+    AND *local* is False — publishes to the remote after a security
+    gate.  No CLI side effects: doesn't print, doesn't ``sys.exit``.
+
+    The CLI shim ``cmd_apply`` calls this and formats the result; so
+    does ``cmd_install`` when the user passes a local path or a URL
+    (via ``--from-url``).
+
+    Args:
+        path: Path to the skill directory or manifest file.
+        dry_run: If True, validate + report what would happen without
+            mutating the store.
+        local: If True, skip remote publish even when a registry URL is
+            configured.
+        registry_url: Override of the registry URL.  ``None`` falls back
+            to the resolved-from-config value (via :func:`_get_registry_url`
+            on a synthetic argparse-shaped object — internal detail).
+        token: Override of the registry auth token.  ``None`` falls back
+            to config.
+
+    Returns:
+        :class:`ApplyResult` describing what happened.
+
+    Raises:
+        SkillctlError(code="E_VALIDATION"): The manifest failed schema
+            validation.  ``why`` is a multi-line list of ``[CODE]
+            message`` entries — the CLI shim ``cmd_apply`` catches
+            ``E_VALIDATION`` and re-formats inline so user output is
+            unchanged from before the refactor.
+        SkillctlError(code="E_NO_NAMESPACE"): Bare-name skill being
+            published to a remote (the shared-namespace gate).
+    """
+    # Local imports so this module stays cheap to import; the
+    # heavy-weight ``ManifestLoader`` etc. are only loaded when a
+    # caller actually applies a skill.  Resolve ``ContentStore`` via
+    # ``skillctl.cli`` so test ``monkeypatch.setattr("skillctl.cli.
+    # ContentStore", ...)`` patches are honoured at call time.
+    #
+    # WARNING: ``skillctl.cli`` imports ``skillctl._cli_helpers`` at
+    # module top.  This local import works because by the time
+    # ``apply_skill`` is actually *called*, ``cli``'s own
+    # initialisation is finished.  Don't move this import to module
+    # scope — that creates a hard circular import — and don't call
+    # ``apply_skill`` from anything that runs during ``skillctl.cli``
+    # module initialisation.
+    from skillctl import cli as _cli
+    from skillctl.manifest import ManifestLoader
+    from skillctl.validator import SchemaValidator
+
+    loader = ManifestLoader()
+    validator = SchemaValidator()
+    store = _cli.ContentStore()
+
+    # 1. Load manifest
+    manifest, _warnings = loader.load(path)
+
+    # 2. Validate.  On failure raise E_VALIDATION carrying the
+    # structured errors as an instance attribute.  The CLI shim
+    # ``cmd_apply`` reads ``err.errors`` to print the inline
+    # per-error format (same shape as pre-refactor) without doing a
+    # string round-trip.  ``why`` carries a flattened text fallback
+    # for any caller that doesn't dig into the attribute.
+    result = validator.validate(manifest)
+    if not result.valid:
+        why_lines = [f"  [{e.code}] {e.message}" for e in result.errors]
+        err = SkillctlError(
+            code="E_VALIDATION",
+            what="Skill manifest failed validation",
+            why="\n".join(why_lines),
+            fix="Address the validation errors above and retry.",
+        )
+        # Carry the original ValidationIssue list so cmd_apply can
+        # render it without re-parsing the multi-line ``why``.
+        err.errors = result.errors  # type: ignore[attr-defined]
+        raise err
+
+    # 2b. Namespace gate — bare names allowed locally, blocked from
+    # the remote.  Resolve registry-config via the cli module so
+    # tests can patch ``skillctl.cli._get_registry_url``.
+    bare_name = "/" not in manifest.metadata.name
+    args_shim = _ArgsShim(registry_url=registry_url, token=token)
+    going_remote = bool(_cli._get_registry_url(args_shim)) and not local
+    if bare_name and going_remote:
+        raise SkillctlError(
+            code="E_NO_NAMESPACE",
+            what=f"Skill '{manifest.metadata.name}' has no namespace",
+            why="The remote registry requires namespaced names to prevent collisions",
+            fix=(
+                "Add a 'skillctl:' block with 'namespace: my-org' to SKILL.md frontmatter,\n"
+                "  or create a skill.yaml with 'metadata.name: my-org/<skill>',\n"
+                "  or pass --local to push to the local store only."
+            ),
+        )
+
+    # 3. Resolve content
+    base_dir = str(Path(path).parent) if Path(path).is_file() else path
+    content = loader.resolve_content(manifest, base_dir)
+    ref = f"{manifest.metadata.name}@{manifest.metadata.version}"
+
+    if dry_run:
+        push_result = store.push(manifest, content.encode(), dry_run=True)
+        return ApplyResult(
+            ref=ref,
+            local_status="dry-run",
+            remote_status=None,
+            push_result=push_result,
+        )
+
+    # 4. Push to local store (idempotent)
+    push_result: "PushResult | None" = None
+    try:
+        push_result = store.push(manifest, content.encode())
+        local_status = "pushed"
+    except SkillctlError as e:
+        if e.code == "E_ALREADY_EXISTS":
+            local_status = "unchanged"
+        else:
+            raise
+
+    # 5. Optionally publish to remote (with security gate)
+    remote_status: str | None = None
+    critical_findings: list = []
+    resolved_registry = _cli._get_registry_url(args_shim)
+    if resolved_registry and not local:
+        from skillctl.eval.audit.security_scan import scan_security
+        from skillctl.eval.schemas import Severity
+
+        scan_path = str(Path(path).parent) if Path(path).is_file() else path
+        findings = scan_security(scan_path)
+        critical_findings = [f for f in findings if f.severity == Severity.CRITICAL]
+        if critical_findings:
+            remote_status = "blocked (security)"
+        else:
+            try:
+                _cli._publish_to_registry(args_shim, manifest, content, resolved_registry)
+                remote_status = "published"
+            except Exception as e:  # noqa: BLE001 — preserve old behaviour
+                remote_status = f"failed ({e})"
+
+    return ApplyResult(
+        ref=ref,
+        local_status=local_status,
+        remote_status=remote_status,
+        push_result=push_result,
+        critical_findings=critical_findings,
+    )
+
+
+@dataclass
+class _ArgsShim:
+    """Minimal stand-in for an ``argparse.Namespace`` so the existing
+    config-resolution helpers can read fields via ``getattr`` without
+    ``apply_skill`` constructing fake CLI args.
+
+    **Attribute contract** (must stay in sync with the helpers):
+
+    - ``registry_url``: read by :func:`_get_registry_url` (line 72).
+    - ``token``: read by :func:`_get_registry_token` (line 100).
+
+    No other attributes are read by ``_publish_to_registry`` /
+    ``_get_registry_url`` / ``_get_registry_token`` today.  If any of
+    those helpers grow to read another args attribute, add it here —
+    otherwise ``getattr(shim, "<new_attr>", None)`` will silently
+    return ``None`` and ``apply_skill`` will misbehave.
+    """
+
+    registry_url: str | None = None
+    token: str | None = None

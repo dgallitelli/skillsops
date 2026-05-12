@@ -105,6 +105,26 @@ integration"`.  The README and `AGENTS.md` are now updated to match.
   removes the long-lived `PYPI_API_TOKEN` secret from the repo.  An
   environment-protected job + a tag/version equality check guard the
   release.
+- **Internal: `apply_skill` library function.**  Extracted the apply
+  lifecycle (validate → push → optional remote publish, with the
+  security gate) from `cmd_apply` into a real `apply_skill(path, *,
+  dry_run, local, registry_url, token) -> ApplyResult` function in
+  `skillctl/_cli_helpers.py`.  `cmd_apply` is now a thin CLI shim that
+  formats the result; `cmd_install` calls `apply_skill` directly,
+  removing the synthetic-`argparse.Namespace` injection that the
+  PR #1 review flagged as an anti-pattern.  The `_skip_breadcrumb`
+  arg is no longer needed — `cmd_install` doesn't transit through
+  `cmd_apply` anymore, so there's nothing to suppress.  No
+  user-visible behaviour change: same exit codes, same stdout/stderr
+  output (including the pre-existing per-error inline format on
+  validation failures).
+- **Internal: `cmd_logout` uses the typed config.**  Removed the last
+  raw-YAML round-trip (`yaml.safe_load(config_path.read_text())` →
+  `yaml.dump(...)` → `write_text`).  Now goes through `load_config()`
+  / `save_config()`, which means logout writes the credentials file
+  atomically with mode 0o600 via `atomic_write_secret` — strictly
+  safer.  Also preserves unrelated config fields (registry URL,
+  optimizer budget) instead of round-tripping the whole dict.
 - **Internal: registry HTTP boilerplate consolidated.**  The five
   duplicated try/except `urllib.request.urlopen` blocks across
   `cmd_get_skills_remote`, `cmd_get_skill --remote`, `cmd_logs`,
