@@ -248,12 +248,25 @@ class TestCmdInstallLocalPath:
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".claude").mkdir()
 
-        # Redirect the ContentStore so the apply step writes there.
+        # Redirect the ContentStore so BOTH the apply step (which
+        # resolves via skillctl.cli.ContentStore) AND the install
+        # step (which imports ContentStore from skillctl.store
+        # via `from skillctl.store import ContentStore` at module
+        # top of skillctl.install) write to and read from the same
+        # fresh store rooted in tmp_path.  Patching the
+        # already-imported binding inside skillctl.install is what
+        # actually intercepts install_skill()'s `ContentStore()`
+        # call.
         store_root = tmp_path / "store-root"
-        monkeypatch.setattr(
-            "skillctl.cli.ContentStore",
-            lambda: __import__("skillctl.store", fromlist=["ContentStore"]).ContentStore(store_root),
-        )
+        from skillctl.store import ContentStore as _RealContentStore
+
+        def _store_factory(root=None):
+            # Default-instantiated case (apply_skill, install_skill):
+            # ignore the absent ``root`` arg and force the test root.
+            return _RealContentStore(root if root is not None else store_root)
+
+        monkeypatch.setattr("skillctl.cli.ContentStore", _store_factory)
+        monkeypatch.setattr("skillctl.install.ContentStore", _store_factory)
 
         # Redirect install_skill's tracker default to a fresh path so
         # we don't read or pollute the user's
