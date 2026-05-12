@@ -1,0 +1,54 @@
+# Skill audit — drop this file at .github/workflows/skill-audit.yml in
+# your repo to run skillctl eval audit on every PR that touches a SKILL.md
+# or skill.yaml file.
+#
+# CRITICAL findings fail the build unconditionally.  Warnings fail the
+# build because of `--fail-on-warning`; flip that off if you only want to
+# block on critical issues.
+
+name: Skill audit
+
+on:
+  pull_request:
+    paths:
+      - '**/SKILL.md'
+      - '**/skill.yaml'
+      - '**/.skilleval.yaml'
+  push:
+    branches: [main]
+    paths:
+      - '**/SKILL.md'
+      - '**/skill.yaml'
+      - '**/.skilleval.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Option A — direct install (smallest dependency surface).
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - name: Install skillsops
+        run: pip install skillsops
+      - name: Audit skills
+        # IMPORTANT: change `./skills/` below to the directory (or
+        # directories) where your skills live.  The `paths:` filter
+        # above matches SKILL.md anywhere in the repo, so monorepo
+        # users want something like:
+        #   skillctl eval audit packages/foo/skills packages/bar/skills --fail-on-warning
+        # If skills live throughout the tree, use:
+        #   skillctl eval audit . --include-all --fail-on-warning
+        run: skillctl eval audit ./skills/ --fail-on-warning
+
+      # Option B — use the reusable composite action shipped with this
+      # repo.  Replace the three steps above with this single block:
+      #
+      #   - uses: dgallitelli/skillsops/.github/actions/audit@v0.1.0b4
+      #     with:
+      #       paths: skills              # or: 'packages/foo/skills packages/bar/skills'
+      #       fail-on-warning: 'true'
