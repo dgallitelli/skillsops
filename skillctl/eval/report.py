@@ -102,3 +102,120 @@ def format_json_report(report: AuditReport, file: TextIO | None = None) -> None:
     if file is None:
         file = sys.stdout
     print(json.dumps(report.to_dict(), indent=2), file=file)
+
+
+# ---------------------------------------------------------------------------
+# GitHub Actions workflow-command format
+# ---------------------------------------------------------------------------
+
+
+# Severity → workflow command level.  ``::error::`` adds the finding to
+# the workflow's failure summary in the PR UI; ``::warning::`` and
+# ``::notice::`` show inline but don't affect the failure summary.  None
+# of these levels affect the script's exit code on their own — that's
+# what ``--fail-on-warning`` etc. are for.
+_GITHUB_LEVEL = {
+    Severity.CRITICAL: "error",
+    Severity.WARNING: "warning",
+    Severity.INFO: "notice",
+}
+
+
+def _gh_escape_param(value: str) -> str:
+    """Escape a workflow-command parameter value.
+
+    Per the actions/toolkit ``escapeProperty`` rules:
+    ``%`` → ``%25``, ``\\r`` → ``%0D``, ``\\n`` → ``%0A``,
+    ``:`` → ``%3A``, ``,`` → ``%2C``.
+    """
+    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A").replace(":", "%3A").replace(",", "%2C")
+
+
+def _gh_escape_message(value: str) -> str:
+    """Escape a workflow-command message body.
+
+    Per ``escapeData``: only ``%``, ``\\r``, ``\\n`` need escaping;
+    commas and colons are fine inside the body.
+    """
+    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _gh_workflow_command(level: str, finding: Finding) -> str:
+    """Render one workflow command line for *finding*.
+
+    ``line=`` is emitted only when ``file_path`` is also set — GitHub
+    silently drops a ``line=`` parameter without a ``file=``, so omitting
+    it makes the wire format match the actual rendered behaviour.
+    """
+    params: list[str] = []
+    if finding.file_path:
+        params.append(f"file={_gh_escape_param(finding.file_path)}")
+        if finding.line_number:
+            params.append(f"line={finding.line_number}")
+    title = _gh_escape_param(f"{finding.code} {finding.title}")
+    params.append(f"title={title}")
+    body_parts = [finding.detail]
+    if finding.fix:
+        body_parts.append(f"Fix: {finding.fix}")
+    body = _gh_escape_message(" — ".join(body_parts))
+    param_str = ",".join(params)
+    return f"::{level} {param_str}::{body}"
+
+
+def format_github_report(
+    report: AuditReport,
+    *,
+    verbose: bool = False,
+    file: TextIO | None = None,
+) -> None:
+    """Emit GitHub Actions workflow commands for the report's findings.
+
+    One ``::error::`` / ``::warning::`` / ``::notice::`` line per finding
+    on *file* (defaults to stdout).  When run inside a GitHub Actions
+    workflow these surface as PR annotations bound to the offending
+    file / line.
+
+    Findings are wrapped in a ``::group::<skill>`` collapse so multi-skill
+    audit runs stay readable in the workflow log.  A score-summary line
+    is printed inside the group so the collapsed log still shows a quick
+    pass/fail signal even without ``--quiet``.
+
+    INFO findings are skipped unless *verbose* is True — mirrors the
+    text-format behaviour and avoids exhausting GitHub's per-level
+    annotation cap (10) with low-severity noise.  When INFO findings are
+    suppressed, a single aggregated ``::notice::`` documents what the
+    user isn't seeing (one notice line, regardless of how many INFO
+    findings were collapsed).
+    """
+    if file is None:
+        file = sys.stdout
+
+    print(f"::group::Audit findings: {_gh_escape_message(report.skill_name)}", file=file)
+
+    # Score summary inside the group — visible even when the group is
+    # collapsed in the workflow log because GitHub keeps the title line.
+    status = "PASSED" if report.passed else "FAILED"
+    summary = (
+        f"{status} — {report.score}/100 (Grade: {report.grade}) — "
+        f"{report.critical_count} critical, {report.warning_count} warning, "
+        f"{report.info_count} info"
+    )
+    print(summary, file=file)
+
+    suppressed_info: list[Finding] = []
+    for finding in report.findings:
+        if finding.severity == Severity.INFO and not verbose:
+            suppressed_info.append(finding)
+            continue
+        level = _GITHUB_LEVEL.get(finding.severity, "notice")
+        print(_gh_workflow_command(level, finding), file=file)
+
+    if suppressed_info:
+        codes = sorted({f.code for f in suppressed_info})
+        n = len(suppressed_info)
+        noun = "finding" if n == 1 else "findings"
+        msg = _gh_escape_message(f"{n} INFO {noun} suppressed ({', '.join(codes)}). Re-run with --verbose to see them.")
+        # Single notice line so the cap (10 per level) isn't burned.
+        print(f"::notice::{msg}", file=file)
+
+    print("::endgroup::", file=file)

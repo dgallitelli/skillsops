@@ -4,6 +4,24 @@
 
 ### Added
 
+- **`skillctl eval audit --format=github`** — emits GitHub Actions
+  workflow commands (`::error::` / `::warning::` / `::notice::`, one per
+  finding) so audit findings appear as inline annotations on the
+  offending lines of pull-request files.  CRITICAL → error, WARNING →
+  warning, INFO → notice.  INFO findings are suppressed by default and
+  surfaced via a single aggregate `::notice::` summarising what was
+  hidden (so the GitHub 10-per-level cap isn't burned by low-severity
+  noise — pass `--verbose` to render each one).  Each skill's findings
+  are wrapped in a `::group::` collapse with a one-line
+  `PASSED|FAILED — score/100 — N critical, N warning, N info` summary
+  inside, so the collapsed CI log still shows a quick pass/fail signal.
+  `--quiet` additionally routes a one-line per-skill summary to stderr
+  (workflow commands stay on stdout).  Pair with `--fail-on-warning` to
+  block PR merges on findings.  The workflow template at
+  `examples/workflows/skill-audit.yml`, the README's CI snippet, and
+  `docs/3-security-audit.md` are updated to use and document this
+  format.
+
 - **README rewrite — sharpened around the governance-layer framing.**
   The headline is "the governance layer for agent skills" and the lead
   is the lifecycle CLI itself: validate, audit, apply, bump, diff,

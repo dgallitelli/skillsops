@@ -2,6 +2,11 @@
 # your repo to run skillctl eval audit on every PR that touches a SKILL.md
 # or skill.yaml file.
 #
+# `--format=github` emits Actions workflow commands so each finding shows
+# up as an inline annotation on the offending line of the SKILL.md in
+# the PR diff.  GitHub caps inline annotations at 10 per level per run;
+# beyond that, findings still show in the raw log.
+#
 # CRITICAL findings fail the build unconditionally.  Warnings fail the
 # build because of `--fail-on-warning`; flip that off if you only want to
 # block on critical issues.
@@ -41,7 +46,7 @@ jobs:
         # directories) where your skills live.  The `paths:` filter
         # above matches SKILL.md anywhere in the repo, so monorepo
         # users want something like:
-        #   skillctl eval audit packages/foo/skills packages/bar/skills --fail-on-warning
+        #   skillctl eval audit packages/foo/skills packages/bar/skills --fail-on-warning --format=github
         # If skills live throughout the tree, use:
-        #   skillctl eval audit . --include-all --fail-on-warning
-        run: skillctl eval audit ./skills/ --fail-on-warning
+        #   skillctl eval audit . --include-all --fail-on-warning --format=github
+        run: skillctl eval audit ./skills/ --fail-on-warning --format=github
