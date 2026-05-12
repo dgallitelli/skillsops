@@ -10,7 +10,7 @@ flowchart TD
 
     subgraph audit [Audit — 40% weight]
         Audit[skillctl eval audit]
-        SecScan[Security Scan\n9 threat categories · ~50 patterns]
+        SecScan[Security Scan\n9 threat categories · ~70 patterns]
         StructCheck[Structure Check\nFrontmatter · headings · size]
         PermAnalyze[Permission Analyzer\nDeclared vs actual capabilities]
         Audit --> SecScan & StructCheck & PermAnalyze
@@ -250,7 +250,7 @@ skillctl eval regression .              # Compare against baseline
 | File | Role |
 |------|------|
 | `skillctl/eval/cli.py` | Eval orchestration and audit pipeline |
-| `skillctl/eval/audit/security_scan.py` | 9 threat categories, ~50 regex patterns |
+| `skillctl/eval/audit/security_scan.py` | 9 threat categories, ~70 regex patterns |
 | `skillctl/eval/audit/structure_check.py` | Frontmatter, naming, size validation |
 | `skillctl/eval/audit/permission_analyzer.py` | Capability over-privilege detection |
 | `skillctl/eval/functional.py` | With/without skill comparison, 4-dimension scoring |

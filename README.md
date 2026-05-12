@@ -3,13 +3,18 @@
 </p>
 
 <p align="center">
-  <em>What kubectl does for Kubernetes, SkillsOps does for agent skills.</em>
+  <strong>The governance layer for agent skills.</strong>
+</p>
+
+<p align="center">
+  <em>Validate, audit, version, deploy, and self-host agent skills.<br>
+  One CLI for the whole lifecycle — what kubectl does for Kubernetes, skillctl does for skills.</em>
 </p>
 
 <p align="center">
   <a href="https://github.com/dgallitelli/skillsops/actions/workflows/ci.yml"><img src="https://github.com/dgallitelli/skillsops/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/python-3.10%20|%203.12%20|%203.13-blue" alt="Python">
-  <img src="https://img.shields.io/badge/coverage-81%25-green" alt="Coverage">
+  <img src="https://img.shields.io/badge/coverage-82%25-green" alt="Coverage">
   <img src="https://img.shields.io/badge/pyright-strict-green" alt="Type Checked">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue" alt="License">
   <img src="https://img.shields.io/badge/pip--audit-clean-green" alt="Security">
@@ -17,203 +22,204 @@
 
 ---
 
-## The problem
+## Why SkillsOps
 
-Agent skills are spreading fast — code review skills, deployment skills, IaC security skills — but there's no quality gate between "someone wrote a SKILL.md" and "it's running in production." Teams end up with:
+A `SKILL.md` is a typed resource with a manifest, versioned content, capabilities,
+and a lifecycle.  Treating it that way — instead of as "just a markdown file
+that lives in a folder" — is the difference between a hobby project and
+production governance.
 
-- Skills with **hardcoded secrets** or **prompt injection patterns** that nobody catches
-- No way to answer **"does this skill actually help?"** with data
-- The **same skill copy-pasted** across Claude Code, Cursor, Windsurf, and Kiro
-- **Breaking changes** that ship without warning or versioning
+SkillsOps gives that resource one CLI:
 
-**SkillsOps** is the governance layer. One CLI to validate, evaluate, optimize, publish, and distribute agent skills across any IDE and any runtime.
+```bash
+skillctl validate    ./my-skill        # schema, semver, capabilities
+skillctl eval audit  ./my-skill        # security audit -> A-F grade
+skillctl apply       ./my-skill        # push to a content-addressed store
+skillctl bump        --minor           # 1.2.0 -> 1.3.0
+skillctl diff        my-org/x@1.2.0 my-org/x@1.3.0
+skillctl install     ./my-skill --target all   # deploy to every IDE
+skillctl describe    skill my-org/x@1.3.0
+skillctl logs        my-org/x          # audit trail from the registry
+```
+
+Skills are written in the **same `SKILL.md` format Anthropic uses** —
+SkillsOps adds the governance layer so your team can keep them
+**secure, private, and auditable on infrastructure you control**.  No
+vendor lock-in, no requirement to host skills off-site.
 
 ---
 
-## Get started in 60 seconds
+## What's in the box
 
-```bash
-pip install skillsops
-
-# Create your first skill
-skillctl create skill my-org/code-reviewer
-# Edit SKILL.md with your instructions, then:
-
-skillctl validate                         # schema + semver check
-skillctl eval audit .                     # security scan → A-F grade
-skillctl apply                            # push to governed store
-skillctl install my-org/code-reviewer@0.1.0 --target all   # deploy to every IDE
-```
-
-That's the full lifecycle: **create → validate → audit → publish → distribute.**
+| Capability | Status | Why it's here |
+|---|---|---|
+| `validate` — schema, semver, capability checks | stable | Bad manifests should never reach the store. |
+| `eval audit` — static security audit (9 categories, ~35 finding codes, ~70 regex patterns) | stable | Block leaked secrets, prompt injection, exfil URLs, unsafe deserialization, encoded payloads in CI. |
+| `apply` / `get` / `describe` / `delete` / `diff` — content-addressed local store | stable | SHA-256 hashing, integrity verification, structural version diffs. |
+| `bump` — semver version edits in `skill.yaml` | stable | `--major` / `--minor` / `--patch` with breaking-change detection. |
+| `install` / `uninstall` — multi-IDE deploy (Claude Code, Cursor, Windsurf, Copilot, Kiro) | stable | One source SKILL.md, native frontmatter on every IDE. |
+| `serve` — self-hosted FastAPI registry with token auth, hash-chained audit log | stable | Run governance on infra you control.  See [SECURITY.md](SECURITY.md) for the threat model. |
+| `eval functional` / `eval trigger` — LLM-as-judge behavioural eval | beta | Measure whether the skill actually helps and triggers when it should. |
+| `optimize` — automated improvement loop (eval → LLM critique → variants → promote) | experimental | Cost-capped, plateau-detecting; no published case study yet. |
+| Claude Code MCP plugin (14 tools + 3 skills) | stable | Use SkillsOps from inside an agentic IDE. |
+| `export` / `import` — portable archives | stable | Backup, share, migrate between hosts. |
 
 ---
 
-## Already have skills? Start here
+## Self-hosted, by design
 
-If you already have skills in Claude Code, Cursor, or any IDE — no `skill.yaml` needed:
+Skills often encode private prompts, internal IP, and security-sensitive
+review rules.  Most teams don't want to ship those to a vendor:
 
 ```bash
-# Validate and audit an existing Claude Code skill
-skillctl validate ~/.claude/skills/my-skill/SKILL.md
-skillctl eval audit ~/.claude/skills/my-skill/
+# Run the registry on your own host (or a private VPC).
+skillctl serve --hmac-key "$SKILLCTL_HMAC_KEY"
 
-# Install it to other IDEs (auto-applies to your local store first)
-skillctl install ~/.claude/skills/my-skill/ --target cursor,windsurf,kiro
+# Issue narrowly-scoped tokens to CI / authors.
+skillctl token create --name ci-bot --scope read --scope write:my-org
 
-# Or install from a URL
-skillctl install --from-url https://raw.githubusercontent.com/.../SKILL.md --target all
+# Push and pull through your own URL.
+skillctl config set registry.url https://skills.internal.example.com
+skillctl apply ./my-skill
 ```
 
-`skillctl apply` accepts a bare-name skill (no namespace) when pushing to
-your **local** store — that's all `install` needs.  Only the **remote
-registry** requires a namespace, because the remote store is shared.  Add a
-`skillctl:` block to your SKILL.md frontmatter when you're ready to
-publish — IDEs ignore it, skillctl reads it:
+The registry is FastAPI + SQLite + FTS5, stores blobs content-addressed
+on the filesystem (or in a git repository), and signs every mutation
+into a hash-chained audit log.  Tokens are SHA-256-hashed at rest;
+namespace-scoped permissions enforce tenant isolation; rate limiting,
+CORS, and TrustedHost middleware are on by default.  See
+[SECURITY.md](SECURITY.md) for the full threat model and hardening
+checklist.
+
+---
+
+## Audit in CI
 
 ```yaml
+# .github/workflows/skill-audit.yml
+name: Skill audit
+on:
+  pull_request:
+    paths: ['**/SKILL.md', '**/skill.yaml']
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: pip install skillsops
+      - run: skillctl eval audit ./skills/ --fail-on-warning
+```
+
+A copy-paste-ready template lives at
+[examples/workflows/skill-audit.yml](examples/workflows/skill-audit.yml).
+A reusable composite action is published at
+[`.github/actions/audit`](.github/actions/audit/action.yml):
+
+```yaml
+- uses: dgallitelli/skillsops/.github/actions/audit@v0.1.0b4
+  with:
+    paths: skills
+    fail-on-warning: 'true'
+```
+
+CRITICAL findings fail the build unconditionally.  Tune per-skill
+suppressions with a `.skilleval.yaml` ([docs](docs/3-security-audit.md)).
+The audit is *static* — an A grade means "no obvious issues against
+~35 finding codes / ~70 regex patterns", not "safe to run untrusted".
+Pair it with the LLM-as-judge functional eval for a fuller picture.
+
 ---
-name: code-reviewer
-description: Reviews code for security issues
-allowed-tools: Read Grep
-skillctl:
-  namespace: my-org
-  version: 1.2.0
-  category: security
-  tags: [security, code-review]
----
-```
 
----
+## Multi-IDE install — what it actually does
 
-## What SkillsOps does
+Each IDE has its own conventions:
 
-### Validate and scan
+| IDE          | Project path                         | Frontmatter |
+|--------------|--------------------------------------|-------------|
+| Claude Code  | `.claude/skills/<name>/SKILL.md`     | passthrough |
+| Cursor       | `.cursor/rules/<name>.mdc`           | `description`, `globs`, `alwaysApply` |
+| Windsurf     | `.windsurf/rules/<name>.md`          | `trigger: always_on \| glob \| manual \| model_decision` |
+| GitHub Copilot | `.github/instructions/<name>.instructions.md` | `applyTo: "<glob>"` |
+| Kiro         | `.kiro/steering/<name>.md`           | `inclusion`, `fileMatchPattern` |
 
-```bash
-skillctl validate ./my-skill          # schema, semver, capabilities
-skillctl eval audit ./my-skill        # security scan → A-F grade
-```
-
-The security scanner checks 9 threat categories (~50 pattern detectors): hardcoded secrets, prompt injection, data exfiltration URLs, unsafe deserialization, encoded payloads, and more. Skills with critical findings are **blocked from publishing**. Customize with `.skilleval.yaml` — run `skillctl eval init ./my-skill` to generate one.
-
-### Evaluate with data
+`skillctl install` reads one source SKILL.md and writes the right file
+with the right frontmatter to every target you ask for — no copy-paste
+drift.
 
 ```bash
-skillctl eval init ./my-skill         # generate eval scaffolds + .skilleval.yaml
-skillctl eval functional ./my-skill   # runs agent with/without skill, measures difference
-skillctl eval trigger ./my-skill      # does the skill activate when it should?
-skillctl eval report ./my-skill       # unified score: 40% audit + 40% functional + 20% trigger
-```
-
-### Optimize automatically
-
-```bash
-skillctl optimize ./my-skill --budget 5.0
-```
-
-Iterative loop: evaluate → identify weaknesses via LLM → generate variants → re-evaluate → promote the best. Works with any LLM via [LiteLLM](https://docs.litellm.ai/docs/providers).
-
-### Publish with governance
-
-```bash
-skillctl apply ./my-skill             # validate + security scan + push to store
-```
-
-Every mutation is versioned, diffable, and auditable:
-
-```bash
-skillctl bump --minor                 # 1.0.0 → 1.1.0
-skillctl diff my-org/code-reviewer@1.0.0 my-org/code-reviewer@1.1.0
-skillctl get skills                   # list everything in the store
-skillctl describe skill my-org/code-reviewer@1.1.0
-```
-
-### Install to every IDE
-
-```bash
-skillctl install my-org/code-reviewer@1.1.0 --target all      # auto-detect IDEs
-skillctl install my-org/code-reviewer@1.1.0 --target cursor    # specific IDE
-skillctl install my-org/code-reviewer@1.1.0 --target kiro --global  # user-level
-skillctl get installations                                     # what's installed where
-skillctl uninstall my-org/code-reviewer@1.1.0 --target all     # clean up
-```
-
-Supported targets: **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, **Kiro**. Frontmatter is automatically translated to each IDE's native format.
-
-### Export, import, share
-
-```bash
-skillctl export --namespace my-org    # tar.gz archive of your skills
-skillctl import skills-backup.tar.gz  # restore on another machine
+skillctl install ./my-skill --target all                    # auto-detect
+skillctl install ./my-skill --target cursor,windsurf,kiro   # specific
+skillctl install ./my-skill --target claude --global        # user-level
+skillctl uninstall ./my-skill --target all
 ```
 
 ---
 
-## Key features
-
-| Feature | What it does |
-|---------|-------------|
-| **Security scanning** | 9 threat categories, ~50 pattern detectors, A-F grading |
-| **Functional evaluation** | With/without-skill baseline comparison via LLM-as-judge |
-| **Trigger evaluation** | Activation recall and specificity measurement |
-| **Automated optimization** | LLM-driven iterative improvement loop with budget control |
-| **Multi-IDE install** | Install governed skills to Claude Code, Cursor, Windsurf, Copilot, Kiro |
-| **SKILL.md first-class** | Works with bare SKILL.md files — no skill.yaml required for local ops |
-| **Category taxonomy** | 12 built-in categories with validation |
-| **Content-addressed storage** | SHA-256 hashing, integrity verification, structural diffing |
-| **Version management** | `skillctl bump`, `skillctl diff`, breaking change detection |
-| **Self-hosted registry** | FastAPI + SQLite + FTS5 search, HMAC-signed audit logs |
-| **AWS Agent Registry** | Native integration via `bedrock-agentcore-control` API |
-| **Claude Code plugin** | 14 MCP tools + 3 skills for governance inside agentic IDEs |
-| **Export/import** | Portable skill archives for sharing and backup |
-
-## How it fits in
-
-```
-Author writes skill
-    → skillctl validate        (schema check)
-    → skillctl eval audit      (security scan, A-F grade)
-    → skillctl eval functional (behavioral testing)
-    → skillctl optimize        (automated improvement)
-    → skillctl apply           (push to governed store)
-    → skillctl install         (distribute to IDEs)
-    → Enterprise discovery     (self-hosted registry or AWS Agent Registry)
-```
-
----
-
-## Claude Code plugin
-
-SkillsOps ships a [Claude Code plugin](https://code.claude.com/docs/en/plugins) in the `plugin/` directory. It gives Claude direct access to all skillctl operations via MCP tools.
+## Install
 
 ```bash
-claude --plugin-dir ./plugin
-
-# 14 MCP tools: validate, apply, list, describe, delete, diff, create,
-#   eval_audit, eval_functional, eval_trigger, eval_report,
-#   optimize, optimize_history, install
-#
-# 3 skills: /skillctl:skill-lifecycle, /skillctl:create-skill, /skillctl:diagnose-skill
-```
-
----
-
-## Installation
-
-```bash
-pip install skillsops                  # core CLI (Python 3.10+)
-pip install "skillsops[optimize]"      # + optimizer (LiteLLM)
+pip install skillsops                  # core CLI
+pip install "skillsops[server]"        # + the registry server
+pip install "skillsops[optimize]"      # + LLM-driven optimizer
 pip install "skillsops[plugin]"        # + MCP server for Claude Code plugin
-pip install "skillsops[server]"        # + registry server (FastAPI)
 pip install "skillsops[all]"           # everything
 ```
 
-Verify your setup:
+Python 3.10+.  The core CLI has only one dependency (`pyyaml`); the
+server, optimizer, and plugin are optional extras.
+
+---
+
+## 60-second tour
 
 ```bash
-skillctl doctor                       # checks Python, deps, store, registry, IDE targets
+# Author from scratch.
+skillctl create skill my-org/code-reviewer
+# (edit SKILL.md)
+
+# Validate and audit.
+skillctl validate
+skillctl eval audit .
+
+# Push to your local content-addressed store.
+skillctl apply
+
+# Deploy to every IDE in the workspace.
+skillctl install my-org/code-reviewer@0.1.0 --target all
+
+# Or, working from an existing SKILL.md:
+skillctl validate   ~/.claude/skills/code-reviewer/SKILL.md
+skillctl eval audit ~/.claude/skills/code-reviewer/
+skillctl install    ~/.claude/skills/code-reviewer/ --target cursor,windsurf,kiro
 ```
+
+`apply --local` accepts a bare-name skill (no namespace) for the local
+store.  Only the **remote registry** requires a namespaced name like
+`my-org/code-reviewer`, because that store is shared.
+
+---
+
+## What this replaces
+
+If you don't use SkillsOps, the typical alternative is a hand-rolled
+pipeline:
+
+| Without SkillsOps | With SkillsOps |
+|---|---|
+| Bash script that copies SKILL.md to `.claude/skills/`, `.cursor/rules/`, `.windsurf/rules/`, `.github/instructions/`, `.kiro/steering/`, each with different frontmatter | `skillctl install ./my-skill --target all` |
+| `gitleaks` + a list of "things people said agents shouldn't do" + a CI script | `skillctl eval audit --fail-on-warning` |
+| `bumpversion` config + a `git tag` script + ad-hoc changelog | `skillctl bump`, `skillctl diff`, `skillctl logs` |
+| Skills shipped to a vendor, or no central store at all | `skillctl serve` on your own host |
+| `promptfoo` config + custom harness | `skillctl eval functional` (beta — promptfoo / inspect-ai are more mature today) |
+| LLM eval loop someone wrote one weekend | `skillctl optimize` (experimental — research preview) |
+
+The wedge is the **integration**: one resource model, one error model,
+one config, one CLI, one audit trail.  Each individual capability has
+mature standalone alternatives — what those don't give you is the
+shared lifecycle.
 
 ---
 
@@ -223,21 +229,43 @@ skillctl doctor                       # checks Python, deps, store, registry, ID
 |----------|---------|
 | [docs/0-architecture.md](docs/0-architecture.md) | System overview, module map, data flow diagrams |
 | [docs/1-skill-format.md](docs/1-skill-format.md) | Full CLI reference, skill format, registry server, eval suite, optimizer flags, API endpoints |
+| [docs/3-security-audit.md](docs/3-security-audit.md) | Audit categories, severities, suppression workflow |
 | [SECURITY.md](SECURITY.md) | Threat model, controls, and how to report vulnerabilities |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to set up a dev environment and send a PR |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
+
+---
+
+## Verify your setup
+
+```bash
+skillctl doctor    # Python, deps, store, registry, IDE targets
+skillctl version   # current version
+```
+
+---
 
 ## Development
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,optimize,plugin]"
-pytest -m "not integration"           # unit tests
-pytest -m integration                 # real Bedrock tests (needs AWS creds)
+pytest -m "not integration"      # unit tests
+pytest -m integration            # real Bedrock tests (needs AWS creds)
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project conventions and PR
-guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project conventions.
+
+---
+
+## Status
+
+Beta (`0.1.x`).  The core CLI surface (`apply`, `install`, `validate`,
+`eval audit`, `bump`, `diff`, `get`, `describe`, `delete`, `serve`,
+`logs`) is stable and covered by 600+ unit tests plus a
+real-Bedrock integration suite.  The optimizer, the registry's REST API
+shape, and the `skillctl:` frontmatter block may change before `1.0.0`
+based on user feedback.
 
 ## License
 

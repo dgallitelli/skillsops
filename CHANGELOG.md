@@ -4,6 +4,41 @@
 
 ### Added
 
+- **README rewrite — sharpened around the governance-layer framing.**
+  The headline is "the governance layer for agent skills" and the lead
+  is the lifecycle CLI itself: validate, audit, apply, bump, diff,
+  install, describe, logs, serve.  Self-hosting is called out as the
+  point of differentiation vs. vendor-hosted skills (skills often encode
+  internal IP and security-sensitive review rules; teams want them on
+  infra they control).  The capability matrix labels each feature with
+  its actual maturity (`stable` / `beta` / `experimental`) — honest about
+  the optimizer being a research preview, but not hidden.  A "What this
+  replaces" table frames the alternative as the hand-rolled pipeline
+  most teams build (bash script + gitleaks + bumpversion + custom
+  harness), making the integration story explicit.
+- **Reusable composite GitHub Action** at `.github/actions/audit/`.
+  Drop-in CI integration: `uses:
+  dgallitelli/skillsops/.github/actions/audit@<ref>` with `paths`,
+  `fail-on-warning`, `min-score`, `skillsops-version`, `python-version`,
+  and `format` inputs.  Installs skillsops from PyPI and runs
+  `skillctl eval audit` against the supplied paths.
+- **Copy-paste-ready workflow template** at
+  `examples/workflows/skill-audit.yml`.  The README's six-line CI snippet
+  is real and runnable; this file is the maintained source.
+- **CI `dogfood-audit` job** — runs `skillctl eval audit` against the
+  example skills shipped in `examples/`.  Catches README-drift the
+  moment an example stops being clean.
+- **CI `action-yaml-lint` job** — validates that
+  `.github/actions/audit/action.yml` and
+  `examples/workflows/skill-audit.yml` parse as valid YAML.
+
+### Test count
+
+The unit-test count quoted in this CHANGELOG hadn't been bumped since
+v0.1.0b1 (292 tests).  Current state: **605 unit tests + 10 Bedrock
+integration tests** — measured with `pytest --collect-only -q -m "not
+integration"`.  The README and `AGENTS.md` are now updated to match.
+
 - `LICENSE` file (MPL-2.0).  The license was advertised in `pyproject.toml`,
   README, the landing page, and the plugin manifest but the actual text
   was never committed; PyPI and GitHub now both render the correct

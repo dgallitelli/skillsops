@@ -102,7 +102,8 @@ The following are **out of scope**:
 ### Audit scanner (`eval audit`)
 
 The audit scanner is a **static-pattern audit**.  An A grade means "no
-obvious issues against ~50 detectors", not "safe to run untrusted".
+obvious issues against ~35 finding codes / ~70 regex patterns across
+9 threat categories", not "safe to run untrusted".
 
 Operators publishing third-party skills should defense-in-depth with an
 LLM-as-a-judge eval, AST-level review, and runtime sandboxing.
