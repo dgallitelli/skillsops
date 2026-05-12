@@ -62,6 +62,25 @@ integration"`.  The README and `AGENTS.md` are now updated to match.
   removes the long-lived `PYPI_API_TOKEN` secret from the repo.  An
   environment-protected job + a tag/version equality check guard the
   release.
+- **Internal: registry HTTP boilerplate consolidated.**  The five
+  duplicated try/except `urllib.request.urlopen` blocks across
+  `cmd_get_skills_remote`, `cmd_get_skill --remote`, `cmd_logs`,
+  `cmd_token_create`, and `_publish_to_registry` now go through a single
+  `_registry_request(method, url, *, token, body, content_type, timeout)`
+  helper in the new `skillctl/_cli_helpers` module.  The helper raises
+  `SkillctlError(code="E_REGISTRY_HTTP" | "E_REGISTRY_UNREACHABLE", ...)`,
+  which the dispatch layer's `except SkillctlError` block already
+  formats and prints — so behaviour is preserved (same exit codes), with
+  slightly more structured / consistent error text across all five
+  paths.  Bonus: the previously-broken FastAPI envelope inspection in
+  `cmd_token_create` (`err.get('what', err.get('detail', body_text))`,
+  which printed a Python `repr` against the actual `{"detail": {"what":
+  ...}}` shape) now correctly extracts the `what` field.  Two
+  `raise Exception(...)` in `_publish_to_registry` flagged in the
+  `v0.1.0b4` security review are also now `SkillctlError`.  The other
+  CLI helpers (`_get_registry_url`, `_load_config`, etc.) moved to the
+  same new module; they remain importable from `skillctl.cli` for test
+  monkeypatching.
 
 ### Removed
 
