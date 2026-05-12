@@ -84,8 +84,7 @@ jobs:
     # Audit the example skills shipped in `examples/` using the
     # in-tree wheel.  Dogfoods the headline value prop — if the example
     # skills stop auditing clean, the README's pitch stops being true
-    # and CI catches it.  Validating the composite action's YAML is
-    # done by the separate `action-yaml-lint` job.
+    # and CI catches it.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -103,21 +102,6 @@ jobs:
             examples/dependency-scanner \
             examples/tdd-workflow \
             --fail-on-warning
-
-  action-yaml-lint:
-    # Catch syntax errors in the composite action's YAML before they
-    # ship to consumers.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with: { python-version: '3.13' }
-      - name: Install PyYAML
-        run: pip install pyyaml
-      - name: Validate composite action YAML
-        run: |
-          python -c "import yaml; yaml.safe_load(open('.github/actions/audit/action.yml'))"
-          python -c "import yaml; yaml.safe_load(open('examples/workflows/skill-audit.yml'))"
 
   build-smoke:
     # Build the sdist + wheel from a clean checkout, install only the

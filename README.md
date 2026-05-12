@@ -106,8 +106,8 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with: { python-version: '3.13' }
       - run: pip install skillsops
       - run: skillctl eval audit ./skills/ --fail-on-warning
@@ -115,16 +115,6 @@ jobs:
 
 A copy-paste-ready template lives at
 [examples/workflows/skill-audit.yml](examples/workflows/skill-audit.yml).
-A reusable composite action is published at
-[`.github/actions/audit`](.github/actions/audit/action.yml):
-
-```yaml
-- uses: dgallitelli/skillsops/.github/actions/audit@v0.1.0b4
-  with:
-    paths: skills
-    fail-on-warning: 'true'
-```
-
 CRITICAL findings fail the build unconditionally.  Tune per-skill
 suppressions with a `.skilleval.yaml` ([docs](docs/3-security-audit.md)).
 The audit is *static* — an A grade means "no obvious issues against
