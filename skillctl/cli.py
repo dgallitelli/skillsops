@@ -446,109 +446,85 @@ def main():
 
 
 def cmd_apply(args):
-    """Validate + push to local store. If registry configured, also publish remotely."""
+    """Validate + push to local store. If registry configured, also publish remotely.
+
+    Thin CLI shim over :func:`skillctl._cli_helpers.apply_skill`.  The
+    library function does the lifecycle; this handler keeps the CLI's
+    validation-error formatting (multi-line inline output, exit 1) and
+    the success/breadcrumb output.
+    """
+    from skillctl._cli_helpers import apply_skill
+
     path = args.file or args.path
-    loader = ManifestLoader()
-    validator = SchemaValidator()
-    store = ContentStore()
 
-    # 1. Load manifest
-    manifest, warnings = loader.load(path)
-
-    # 2. Validate
-    result = validator.validate(manifest)
-    if not result.valid:
-        print("Validation errors — cannot apply:", file=sys.stderr)
-        for e in result.errors:
-            print(f"  ✗ [{e.code}] {e.message}", file=sys.stderr)
-        sys.exit(1)
-
-    # 2b. Namespace gate — bare names allowed locally, blocked from registry.
-    # The local store is single-user, so collisions are the user's problem;
-    # the registry is shared, so names must be namespaced there.
-    bare_name = "/" not in manifest.metadata.name
-    going_remote = bool(_get_registry_url(args)) and not getattr(args, "local", False)
-    if bare_name and going_remote:
-        raise SkillctlError(
-            code="E_NO_NAMESPACE",
-            what=f"Skill '{manifest.metadata.name}' has no namespace",
-            why="The remote registry requires namespaced names to prevent collisions",
-            fix=(
-                "Add a 'skillctl:' block with 'namespace: my-org' to SKILL.md frontmatter,\n"
-                "  or create a skill.yaml with 'metadata.name: my-org/<skill>',\n"
-                "  or pass --local to push to the local store only."
-            ),
+    try:
+        result = apply_skill(
+            path,
+            dry_run=args.dry_run,
+            local=getattr(args, "local", False),
+            registry_url=getattr(args, "registry_url", None),
+            token=getattr(args, "token", None),
         )
+    except SkillctlError as e:
+        if e.code == "E_VALIDATION":
+            # Preserve the pre-refactor inline-per-error format.  The
+            # structured errors list is carried as an attribute on the
+            # exception so we don't have to re-parse the multi-line
+            # ``why`` field (which would mis-render any future
+            # validator message containing a literal ``]``).
+            print("Validation errors — cannot apply:", file=sys.stderr)
+            errors = getattr(e, "errors", None)
+            if errors:
+                for ve in errors:
+                    print(f"  ✗ [{ve.code}] {ve.message}", file=sys.stderr)
+            else:
+                # Fallback: render the multi-line ``why`` line by line.
+                for line in e.why.splitlines():
+                    stripped = line.strip()
+                    if stripped:
+                        print(f"  ✗ {stripped}", file=sys.stderr)
+            sys.exit(1)
+        raise
 
-    # 3. Resolve content
-    base_dir = str(Path(path).parent) if Path(path).is_file() else path
-    content = loader.resolve_content(manifest, base_dir)
+    ref = result.ref
 
-    ref = f"{manifest.metadata.name}@{manifest.metadata.version}"
-
-    if args.dry_run:
-        push_result = store.push(manifest, content.encode(), dry_run=True)
+    if result.local_status == "dry-run":
+        push_result = result.push_result
         print(f"Dry run — would apply {ref}")
-        print(f"  Hash: {push_result.hash}")
-        print(f"  Size: {push_result.size} bytes")
-        print(f"  New: {push_result.created}")
+        if push_result is not None:
+            print(f"  Hash: {push_result.hash}")
+            print(f"  Size: {push_result.size} bytes")
+            print(f"  New: {push_result.created}")
         return
 
-    # 4. Push to local store (idempotent)
-    push_result = None
-    try:
-        push_result = store.push(manifest, content.encode())
-        local_status = "pushed"
-    except SkillctlError as e:
-        if e.code == "E_ALREADY_EXISTS":
-            local_status = "unchanged"
-        else:
-            raise
+    # Security-gate stderr printing lives here — it's CLI presentation.
+    if result.remote_status == "blocked (security)":
+        n = len(result.critical_findings)
+        print(f"Security gate: {n} CRITICAL finding(s) — publish blocked:", file=sys.stderr)
+        for f in result.critical_findings:
+            print(f"  ✗ [{f.code}] {f.title}", file=sys.stderr)
+            if f.detail:
+                print(f"    {f.detail}", file=sys.stderr)
+        print("\nFix the findings above, or use --local to push without publishing.", file=sys.stderr)
 
-    # 5. Optionally publish to remote (with security gate)
-    remote_status = None
+    # 6. Print summary (same shape as before).
     registry_url = _get_registry_url(args)
-    if registry_url and not getattr(args, "local", False):
-        from skillctl.eval.audit.security_scan import scan_security
-        from skillctl.eval.schemas import Severity
-
-        scan_path = str(Path(path).parent) if Path(path).is_file() else path
-        findings = scan_security(scan_path)
-        critical_findings = [f for f in findings if f.severity == Severity.CRITICAL]
-        if critical_findings:
-            print(f"Security gate: {len(critical_findings)} CRITICAL finding(s) — publish blocked:", file=sys.stderr)
-            for f in critical_findings:
-                print(f"  ✗ [{f.code}] {f.title}", file=sys.stderr)
-                if f.detail:
-                    print(f"    {f.detail}", file=sys.stderr)
-            print("\nFix the findings above, or use --local to push without publishing.", file=sys.stderr)
-            remote_status = "blocked (security)"
-        else:
-            try:
-                _publish_to_registry(args, manifest, content, registry_url)
-                remote_status = "published"
-            except Exception as e:
-                remote_status = f"failed ({e})"
-
-    # 6. Print summary
-    if local_status == "unchanged" and remote_status is None:
+    if result.local_status == "unchanged" and result.remote_status is None:
         print(f"✓ Applied {ref} (unchanged)")
-    elif remote_status == "published":
+    elif result.remote_status == "published":
         print(f"✓ Applied {ref} (local + remote)")
-    elif remote_status and remote_status.startswith("failed"):
-        print(f"✓ Applied {ref} (local only — remote {remote_status})")
+    elif result.remote_status and result.remote_status.startswith("failed"):
+        print(f"✓ Applied {ref} (local only — remote {result.remote_status})")
     else:
         scope = "local only" if getattr(args, "local", False) or not registry_url else "local"
         print(f"✓ Applied {ref} ({scope})")
-    if local_status != "unchanged" and push_result is not None:
-        print(f"  Hash: {push_result.hash}")
+    if result.local_status != "unchanged" and result.push_result is not None:
+        print(f"  Hash: {result.push_result.hash}")
 
-    # Breadcrumb: nudge the user to the next lifecycle step.
-    # Skip when called transitively from `cmd_install` — the user is
-    # already running install, telling them to run install would be
-    # noise — and skip when the output is being piped or asked to be
-    # machine-readable.
-    if not getattr(args, "_skip_breadcrumb", False) and not _output_is_machine(args):
+    # Breadcrumb stays in the CLI — only `cmd_apply` users get the
+    # nudge; `cmd_install` calls `apply_skill` directly so it never
+    # passes through here.
+    if not _output_is_machine(args):
         print(f"\n  Next: skillctl install {ref} --target all", file=sys.stderr)
 
 
@@ -999,10 +975,32 @@ def cmd_logs(args):
         print(f"  {ts}  {action:20s}  {actor:15s}  {resource}")
 
 
+def _print_inner_apply_summary(result) -> None:
+    """Print the one-line ``✓ Applied`` confirmation for the apply step
+    that runs transparently inside ``cmd_install``.
+
+    Mirrors the user-visible output `cmd_apply` produced when
+    ``cmd_install`` used to call it via a synthetic ``argparse.Namespace``
+    — kept here so refactoring didn't quietly drop the line.
+    """
+    ref = result.ref
+    if result.local_status == "unchanged" and result.remote_status is None:
+        print(f"✓ Applied {ref} (unchanged)")
+    elif result.remote_status == "published":
+        print(f"✓ Applied {ref} (local + remote)")
+    elif result.remote_status and result.remote_status.startswith("failed"):
+        print(f"✓ Applied {ref} (local only — remote {result.remote_status})")
+    else:
+        print(f"✓ Applied {ref} (local only)")
+    if result.local_status not in ("unchanged", "dry-run") and result.push_result is not None:
+        print(f"  Hash: {result.push_result.hash}")
+
+
 def cmd_install(args):
     """Install a skill to AI coding IDEs."""
     import tempfile
 
+    from skillctl._cli_helpers import apply_skill
     from skillctl.install import download_skill, install_skill
 
     ref = args.ref
@@ -1010,24 +1008,15 @@ def cmd_install(args):
     targets = [t.strip() for t in args.target.split(",")]
 
     if from_url:
-        # Download from URL, apply locally, then install
+        # Download from URL, apply locally, then install.  apply_skill
+        # returns the canonical ref so we don't need to reload the
+        # manifest just to compute name@version.
         with tempfile.TemporaryDirectory() as tmp_dir:
             skill_dir = download_skill(from_url, Path(tmp_dir))
             print(f"Downloaded skill to {skill_dir}")
-            cmd_apply(
-                argparse.Namespace(
-                    path=str(skill_dir),
-                    file=None,
-                    dry_run=False,
-                    local=True,
-                    registry_url=None,
-                    token=None,
-                    _skip_breadcrumb=True,
-                )
-            )
-            loader = ManifestLoader()
-            manifest, _ = loader.load(str(skill_dir))
-            ref = f"{manifest.metadata.name}@{manifest.metadata.version}"
+            apply_result = apply_skill(str(skill_dir), local=True)
+            _print_inner_apply_summary(apply_result)
+            ref = apply_result.ref
     elif ref is None:
         raise SkillctlError(
             code="E_MISSING_REF",
@@ -1036,23 +1025,12 @@ def cmd_install(args):
             fix="Provide a skill ref (namespace/name@version), a path, or --from-url <url>",
         )
     elif "@" not in ref and Path(ref).expanduser().exists():
-        # If ref looks like a local path (no @version), apply first
-        ref = str(Path(ref).expanduser())
-        print(f"Applying {ref} first...")
-        cmd_apply(
-            argparse.Namespace(
-                path=ref,
-                file=None,
-                dry_run=False,
-                local=True,
-                registry_url=None,
-                token=None,
-                _skip_breadcrumb=True,
-            )
-        )
-        loader = ManifestLoader()
-        manifest, _ = loader.load(ref)
-        ref = f"{manifest.metadata.name}@{manifest.metadata.version}"
+        # If ref looks like a local path (no @version), apply first.
+        path = str(Path(ref).expanduser())
+        print(f"Applying {path} first...")
+        apply_result = apply_skill(path, local=True)
+        _print_inner_apply_summary(apply_result)
+        ref = apply_result.ref
 
     results = install_skill(
         ref=ref,
@@ -1621,24 +1599,18 @@ def cmd_login(args):
 
 
 def cmd_logout():
-    """Remove stored GitHub credentials."""
-    config_path = Path.home() / ".skillctl" / "config.yaml"
-    if not config_path.exists():
+    """Remove stored GitHub credentials.
+
+    Goes through the typed config (``load_config`` / ``save_config``) so
+    the file is written atomically with mode 0o600 — no raw-YAML
+    round-trip.
+    """
+    config = _load_skillctl_config()
+    if not config.github.token:
         print("Not logged in.")
         return
-
-    import yaml
-
-    cfg = yaml.safe_load(config_path.read_text()) or {}
-    gh = cfg.get("github", {})
-    if "token" not in gh:
-        print("Not logged in.")
-        return
-
-    del gh["token"]
-    if not gh:
-        del cfg["github"]
-    config_path.write_text(yaml.dump(cfg, default_flow_style=False))
+    config.github.token = None
+    _save_skillctl_config(config)
     print("✓ GitHub credentials removed.")
 
 
