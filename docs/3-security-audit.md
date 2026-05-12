@@ -211,6 +211,20 @@ audit:
 | WARNING | -10 points | Should fix. May indicate a real risk. |
 | INFO | -2 points | Informational. Review but may be acceptable. |
 
+## Output Formats
+
+| `--format` | Use case |
+|------------|---------|
+| `text` (default) | Human-readable, with grade banner and grouped findings. |
+| `json` | Machine-readable; full report including `findings[]`, `metadata`, scores. |
+| `html` | Standalone HTML page; pair with `--output` to save. |
+| `github` | One workflow command per finding (`::error::` / `::warning::` / `::notice::`).  When run inside a GitHub Actions workflow, each finding appears as an inline annotation on the offending file/line in the PR diff. |
+
+`--format=github` skips INFO findings unless `--verbose` is also passed
+— GitHub caps inline annotations at 10 per level per workflow run, and
+INFO findings would exhaust the cap fast.  Severity → level mapping:
+CRITICAL → `error`, WARNING → `warning`, INFO → `notice`.
+
 ## Key Source Files
 
 | File | Role |

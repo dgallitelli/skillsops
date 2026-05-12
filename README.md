@@ -110,12 +110,17 @@ jobs:
       - uses: actions/setup-python@v6
         with: { python-version: '3.13' }
       - run: pip install skillsops
-      - run: skillctl eval audit ./skills/ --fail-on-warning
+      - run: skillctl eval audit ./skills/ --fail-on-warning --format=github
 ```
 
 A copy-paste-ready template lives at
 [examples/workflows/skill-audit.yml](examples/workflows/skill-audit.yml).
-CRITICAL findings fail the build unconditionally.  Tune per-skill
+CRITICAL findings fail the build unconditionally.
+
+`--format=github` emits Actions workflow commands so each finding shows
+up as an inline annotation on the offending line of the SKILL.md in the
+PR diff.  GitHub caps inline annotations at 10 per level per run, so
+quiet noisy categories with `.skilleval.yaml` if you hit it.  Tune per-skill
 suppressions with a `.skilleval.yaml` ([docs](docs/3-security-audit.md)).
 The audit is *static* — an A grade means "no obvious issues against
 ~35 finding codes / ~70 regex patterns", not "safe to run untrusted".

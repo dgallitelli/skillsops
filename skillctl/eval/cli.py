@@ -13,7 +13,7 @@ from skillctl.eval.audit.structure_check import check_structure
 from skillctl.eval.audit.security_scan import scan_security
 from skillctl.eval.audit.permission_analyzer import analyze_permissions
 from skillctl.eval.config import load_config, apply_config
-from skillctl.eval.report import format_text_report, format_json_report
+from skillctl.eval.report import format_github_report, format_json_report, format_text_report
 from skillctl.eval.version import version_info
 
 
@@ -111,7 +111,13 @@ def build_parser() -> argparse.ArgumentParser:
     audit_parser = subparsers.add_parser("audit", help="Run security audit on a skill")
     audit_parser.add_argument("skill_path", nargs="+", help="Path(s) to skill directory(ies)")
     audit_parser.add_argument(
-        "--format", choices=["text", "json", "html"], default="text", help="Output format (default: text)"
+        "--format",
+        choices=["text", "json", "html", "github"],
+        default="text",
+        help=(
+            "Output format (default: text).  'github' emits Actions workflow "
+            "commands so findings appear as inline PR annotations."
+        ),
     )
     audit_parser.add_argument("--verbose", "-v", action="store_true", help="Show INFO-level findings")
     audit_parser.add_argument(
@@ -357,7 +363,24 @@ def _dispatch(args) -> int:
             )
             reports.append(report)
 
-            if args.quiet:
+            # Render per format.
+            #
+            # `--quiet` collapses every format to a one-line summary EXCEPT
+            # `--format=github`, where the workflow commands ARE the point.
+            # For github + quiet we still emit the workflow commands (on
+            # stdout) AND the quiet summary line (routed to stderr so it
+            # doesn't interleave with the annotation stream).  For non-
+            # github + quiet (the existing behaviour) the summary stays on
+            # stdout.
+            if args.format == "github":
+                format_github_report(report, verbose=args.verbose)
+                if args.quiet:
+                    status = "PASSED" if report.passed else "FAILED"
+                    print(
+                        f"{status} {report.score}/{report.grade} {report.skill_name} ({report.skill_path})",
+                        file=sys.stderr,
+                    )
+            elif args.quiet:
                 status = "PASSED" if report.passed else "FAILED"
                 print(f"{status} {report.score}/{report.grade} {report.skill_name} ({report.skill_path})")
             elif args.format == "json":
