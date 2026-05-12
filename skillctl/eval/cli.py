@@ -23,6 +23,8 @@ def run_audit(
     ignore_codes: set[str] | None = None,
     extra_safe_domains: set[str] | None = None,
     include_all: bool = False,
+    strict: bool = False,
+    max_file_bytes: int | None = None,
 ) -> AuditReport:
     """Run a full security audit on a skill directory.
 
@@ -33,6 +35,11 @@ def run_audit(
         extra_safe_domains: Additional domains to treat as safe
         include_all: If True, scan entire directory tree instead of
             just skill-standard directories (SKILL.md, scripts/, references/, etc.)
+        strict: Enable AST-level Python checks + NFKC normalisation
+            (fullwidth / math-alphanumeric homoglyphs).  See
+            ``docs/3-security-audit.md`` for the bypass-coverage scorecard.
+        max_file_bytes: Override the per-file size cap.  ``None`` means
+            "use the scanner's default" (1 MB normally, 10 MB in strict).
 
     Returns:
         AuditReport with all findings
@@ -52,6 +59,10 @@ def run_audit(
     if ignore_codes:
         all_ignore.update(ignore_codes)
 
+    # CLI flag wins over config; config wins over default.
+    effective_strict = strict or config.strict
+    effective_max_bytes = max_file_bytes if max_file_bytes is not None else config.max_file_bytes
+
     all_findings: list[Finding] = []
     frontmatter = None
 
@@ -64,6 +75,8 @@ def run_audit(
         path,
         include_all=include_all,
         extra_safe_domains=all_safe_domains if all_safe_domains else None,
+        strict=effective_strict,
+        max_file_bytes=effective_max_bytes,
     )
     all_findings.extend(security_findings)
 
@@ -144,6 +157,29 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Minimum passing score (exit 1 if below). Overrides .skilleval.yaml min_score.",
+    )
+    audit_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "Enable bypass-resistant checks: NFKC-normalise text before "
+            "regex matching (catches fullwidth / math-alphanumeric "
+            "homoglyphs) and run a Python AST pass over .py files "
+            "(catches multi-line eval/exec, unsafe pickle/yaml.load, "
+            "subprocess shell=True, base64 literal-concat).  Raises the "
+            "default file-size cap to 10 MB.  Per-skill opt-in via "
+            "`audit.strict: true` in .skilleval.yaml."
+        ),
+    )
+    audit_parser.add_argument(
+        "--max-file-bytes",
+        type=int,
+        default=None,
+        help=(
+            "Per-file size cap (default: 1 MB; 10 MB with --strict).  "
+            "Files larger than this are skipped with a STR-022 INFO "
+            "finding so operators can see the audit was incomplete."
+        ),
     )
 
     # init command
@@ -360,6 +396,8 @@ def _dispatch(args) -> int:
                 ignore_codes=ignore_codes,
                 extra_safe_domains=extra_domains,
                 include_all=args.include_all,
+                strict=args.strict,
+                max_file_bytes=args.max_file_bytes,
             )
             reports.append(report)
 
