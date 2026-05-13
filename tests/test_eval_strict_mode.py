@@ -326,6 +326,163 @@ class TestFromImportAliasing:
 
 
 # ---------------------------------------------------------------------------
+# import-as aliasing — closes the docs-listed gap from PR #12
+# ---------------------------------------------------------------------------
+
+
+class TestImportAsAliasing:
+    """``import MOD as ALIAS; ALIAS.NAME(args)`` should resolve via
+    leading-segment rewrite to ``MOD.NAME`` so the same dispatch
+    rules fire as for the plain ``MOD.NAME(args)`` shape.  Plain
+    ``import MOD`` (no asname) is already canonical via
+    ``_attr_chain`` and isn't affected."""
+
+    # ---- Positive cases (aliased dangerous calls are flagged) ----
+
+    def test_import_pickle_as_p_loads_detected(self):
+        codes = _ast_codes("import pickle as p\np.loads(data)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_import_marshal_as_m_loads_detected(self):
+        codes = _ast_codes("import marshal as m\nm.loads(b)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_import_yaml_as_y_load_detected(self):
+        codes = _ast_codes("import yaml as y\ny.load(s)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_import_yaml_as_y_load_with_loader_NOT_detected(self):
+        codes = _ast_codes("import yaml as y\ny.load(s, Loader=y.SafeLoader)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_import_subprocess_as_sp_run_shell_true_detected(self):
+        codes = _ast_codes("import subprocess as sp\nsp.run('ls', shell=True)\n")
+        assert "SEC-003-AST" in codes
+
+    def test_import_subprocess_as_sp_run_no_shell_NOT_detected(self):
+        codes = _ast_codes("import subprocess as sp\nsp.run(['ls'])\n")
+        assert "SEC-003-AST" not in codes
+
+    def test_import_os_as_o_system_detected(self):
+        codes = _ast_codes("import os as o\no.system('echo hi')\n")
+        assert "SEC-003-AST" in codes
+
+    def test_import_base64_as_b_b64decode_concat_detected(self):
+        codes = _ast_codes('import base64 as b\nb.b64decode("AA" + "BB" + "CC")\n')
+        assert "SEC-008-AST" in codes
+
+    def test_plain_import_pickle_still_detected(self):
+        # Sanity: the existing canonical shape (no asname) still works
+        # after the alias-map refactor.
+        codes = _ast_codes("import pickle\npickle.loads(data)\n")
+        assert "SEC-006-AST" in codes
+
+    # ---- Negative cases (false-positive boundary) ----
+
+    def test_import_unrelated_module_as_p_NOT_detected(self):
+        # ``import notpickle as p; p.loads(data)`` resolves to
+        # "notpickle.loads", which isn't in the dispatch table.
+        codes = _ast_codes("import notpickle as p\np.loads(data)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_aliased_module_unknown_attribute_NOT_detected(self):
+        # ``p.Pickler.dumps(x)`` rewrites to
+        # "pickle.Pickler.dumps" — not in dispatch table, no finding.
+        # Locks in non-overreach: the rewrite doesn't accidentally
+        # match deeper attribute chains.
+        codes = _ast_codes("import pickle as p\np.Pickler.dumps(x, fp)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_import_without_call_NOT_detected(self):
+        # The import alone isn't dangerous — only the call is.
+        codes = _ast_codes("import pickle as p\nx = 1\n")
+        assert "SEC-006-AST" not in codes
+
+    # ---- Multi-dot module paths ----
+
+    def test_import_dotted_module_as_alias_does_not_crash(self):
+        # ``import xml.etree.ElementTree as ET; ET.parse(x)`` is a
+        # smoke test: the rewrite produces "xml.etree.ElementTree.parse",
+        # which isn't in any dispatch table.  The point is verifying
+        # the substitution doesn't crash and doesn't accidentally
+        # match anything.
+        codes = _ast_codes("import xml.etree.ElementTree as ET\nET.parse(x)\n")
+        # No assertion on absence — what matters is no crash and no
+        # SEC findings (xml.etree.ElementTree.parse isn't dispatched).
+        assert "SEC-006-AST" not in codes
+        assert "SEC-003-AST" not in codes
+
+    # ---- Mixed shapes (both alias maps in play) ----
+
+    def test_both_from_and_import_as_in_same_file(self):
+        # Both ``from pickle import loads`` AND ``import marshal as m``
+        # in the same file — both shapes flag.
+        codes = _ast_codes(
+            textwrap.dedent("""
+                from pickle import loads
+                import marshal as m
+
+                loads(blob1)
+                m.loads(blob2)
+            """)
+        )
+        assert codes.count("SEC-006-AST") == 2
+
+    # ---- File-wide alias-map semantics ----
+
+    def test_import_as_alias_map_is_file_wide_by_design(self):
+        # Mirrors the `from`-import file-wide trade-off test: an
+        # ``import X as Y`` inside a function still pollutes the
+        # module-wide alias map.  Both call sites flag.
+        codes = _ast_codes(
+            textwrap.dedent("""
+                def helper():
+                    import pickle as p
+                    return p.loads(trusted)
+
+                # File-wide alias map — module-scope call below also
+                # resolves through the alias.
+                p.loads(maybe_untrusted)
+            """)
+        )
+        assert codes.count("SEC-006-AST") == 2
+
+    # ---- Surprise positive: shadow-conflict (alias names a different stdlib) ----
+
+    def test_import_pickle_as_json_resolves_to_pickle(self):
+        # ``import pickle as json; json.loads(x)`` rewrites the leading
+        # ``json`` to ``pickle``, yielding ``pickle.loads`` — flagged.
+        # The user's intent here is genuinely confusing but the dangerous
+        # call is what fires; over-flagging is the right side of the
+        # ledger when someone aliases stdlib pickle as json.
+        codes = _ast_codes("import pickle as json\njson.loads(data)\n")
+        assert "SEC-006-AST" in codes
+
+    # ---- Honestly-disclosed gap: asname shadows another stdlib ----
+
+    def test_attribute_call_on_non_name_base_does_not_crash(self):
+        # ``b"hi".decode()`` — the attribute call's base is a Constant,
+        # not a Name, so ``_attr_chain`` returns None.  The resolver
+        # must handle this defensively (return None, no findings, no
+        # crash).  Locks in the explicit ``chain is None`` guard.
+        codes = _ast_codes('b"hi".decode()\n')
+        assert "SEC-006-AST" not in codes
+        assert "SEC-003-AST" not in codes
+        assert "SEC-008-AST" not in codes
+
+    def test_import_pickle_as_os_silently_misses_os_system(self):
+        # Pathological / deliberately confusing: ``import pickle as os``
+        # then ``os.system(x)``.  Leading ``os`` rewrites to ``pickle``,
+        # producing ``pickle.system`` — not in dispatch — so neither
+        # ``pickle.<anything>`` nor ``os.system`` fires.  This is
+        # documented in docs/3-security-audit.md as a remaining gap;
+        # the test locks in the current (silent-miss) behavior so a
+        # future fix can intentionally flip it.
+        codes = _ast_codes("import pickle as os\nos.system('echo hi')\n")
+        assert "SEC-003-AST" not in codes
+
+
+# ---------------------------------------------------------------------------
 # Integration: scan_security with strict=True
 # ---------------------------------------------------------------------------
 

@@ -17,6 +17,27 @@
   traceback.  `--json` is kept as a backward-compatible alias for
   `--format=json`; passing both lets `--format` win.
 
+- **Strict-mode AST scanner now resolves `import X as Y` module
+  aliases.**  `import pickle as p; p.loads(data)` — and the multi-dot
+  form `import xml.etree.ElementTree as ET` — now resolve through a
+  parallel alias map symmetric to PR #12's `from`-import handling.
+  The leading segment of an attribute-chain call site is rewritten:
+  `p.loads` → `pickle.loads` so the dispatch table key matches.  Same
+  treatment for `import yaml as y` (with `y.load(...)` and
+  `y.load(..., Loader=...)` variants), `import subprocess as sp`
+  (with `shell=True`), `import os as o`, and `import base64 as b`
+  (with literal-concat).  Plain `import pickle; pickle.loads(x)` is
+  unchanged — the chain was already canonical.  Closes the last
+  honestly-disclosed alias gap from `docs/3-security-audit.md`.
+
+  Mixed shapes (e.g. `from pickle import loads` AND `import marshal
+  as m` in the same file) flag both; the alias maps are independent.
+  Multi-dot module paths (`import xml.etree.ElementTree as ET`) are
+  handled.  The asname-shadows-stdlib case (`import pickle as os;
+  os.system(x)`) is the new honestly-disclosed gap — silent miss
+  because the rewrite turns `os.system` into `pickle.system`,
+  removing the un-aliased reading.
+
 - **Strict-mode AST scanner now resolves `from`-import aliases.**
   `from pickle import loads; loads(data)` — and the `as`-rename form
   `from pickle import loads as P; P(data)` — now fire the same

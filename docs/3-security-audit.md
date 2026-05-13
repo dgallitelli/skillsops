@@ -241,6 +241,7 @@ unchanged.
 | **`os.system` / `os.popen`** | Closed.  AST emits `SEC-003-AST`. |
 | **Base64 string-literal concatenation bypass** (`b64decode("AA" + "BB" + …)`) | Closed for the literal-only shape.  AST emits `SEC-008-AST`.  `b64decode(s + t)` where `s` and `t` are names is **not** flagged — that requires taint analysis, out of scope. |
 | **`from`-import aliasing** (`from pickle import loads; loads(data)`, including `as`-rename) | Closed.  A pre-pass over `ImportFrom` nodes builds a file-wide alias map; bare-name calls are resolved through it before the dispatch.  The same finding fires whether the user wrote `pickle.loads(x)` or `from pickle import loads; loads(x)` (or `from pickle import loads as P; P(x)`).  See note below on the file-wide trade-off. |
+| **`import X as Y` module aliasing** (`import pickle as p; p.loads(data)`) | Closed.  A symmetric pre-pass over `Import` nodes maps `Y → X`; the leading segment of an attribute-chain call site is rewritten through it before the dispatch.  Same coverage extends to `import yaml as y`, `import subprocess as sp`, `import os as o`, and `import base64 as b`.  Multi-dot module paths (`import xml.etree.ElementTree as ET`) are handled. |
 | **Fullwidth / mathematical-alphanumeric homoglyphs** (`ｅｖａｌ`, `𝐞𝐯𝐚𝐥`) | Closed.  Strict mode NFKC-normalises text before regex matching. |
 | **Cyrillic homoglyphs** (`еval` with Cyrillic `е`) | **NOT closed.**  Cyrillic letters are a different Unicode script, not a compatibility variant — NFKC leaves them alone.  Detecting visual confusables requires a different mechanism (e.g. the Unicode `confusables.txt` mapping); this is an honest gap. |
 | **Files exceeding the size cap** | Strict raises the per-file cap from 1 MB to 10 MB.  Files that still exceed it are surfaced via a STR-022 INFO finding so operators can see the audit was incomplete instead of silently truncating coverage. |
@@ -252,11 +253,6 @@ unchanged.
   `eval`).
 - Detection of `getattr(__builtins__, "eval")(...)` style indirection
   — name-based AST matching is the limit.
-- **`import X as Y` aliasing of dangerous *modules***: `import pickle
-  as p; p.loads(x)` produces an attribute chain `"p.loads"` that
-  doesn't match `"pickle.loads"` in the dispatch table.  Closing this
-  would require module-level alias tracking on top of the existing
-  `from`-import alias map.
 - Deeply-namespaced calls (`some_pkg.pickle.loads(...)`) — the chain
   match is exact-string, so `some_pkg.pickle.loads` won't match
   `pickle.loads` in the dispatch table.
@@ -266,17 +262,29 @@ unchanged.
   legitimately re-exports stdlib names through a relative import is
   exotic; the absolute form `from pickle import loads` is still
   caught.
+- **Asname shadows another stdlib**: `import pickle as os; os.system(x)`
+  rewrites the leading `os` segment to `pickle`, producing
+  `pickle.system` (not in the dispatch table, no finding) — and the
+  un-aliased reading "this looks like `os.system`" is silently lost.
+  This is exotic, deliberately-confusing code; closing it would
+  require keeping multiple candidate resolutions per name and
+  flagging if any matches dispatch, which inflates false positives in
+  realistic code.  An `_ast_codes` regression test
+  (`test_import_pickle_as_os_silently_misses_os_system`) locks in
+  current behavior so a future fix can intentionally flip it.
 
-### File-wide alias map (deliberate trade-off)
+### File-wide alias maps (deliberate trade-off)
 
-The `from`-import alias map is collected via `ast.walk`, so imports
-inside function bodies, conditionals, and `try/except` blocks
-contribute to the same file-wide map alongside module-scope imports.
-That's deliberate:
+Both alias maps — the `from`-import map (`from MOD import NAME [as ALIAS]`)
+and the `import`-as map (`import MOD as ALIAS`) — are collected via
+`ast.walk`, so imports inside function bodies, conditionals, and
+`try/except` blocks contribute to the same file-wide maps alongside
+module-scope imports.  That's deliberate:
 
-- **Real-world frequency** of nested `from X import Y` defensive
-  imports (e.g. `try: from foo import bar; except ImportError: bar
-  = None`) is high; restricting to module scope would miss them.
+- **Real-world frequency** of nested defensive imports (e.g. `try:
+  import legacy as L; except ImportError: L = None`, or `try: from
+  foo import bar; except ImportError: bar = None`) is high;
+  restricting to module scope would miss them.
 - **The pathological false-positive** — a file that has both
   `from pickle import loads` (in any scope) AND `def loads(x): ...`
   (in any scope) and then calls `loads(...)` — is itself a footgun
