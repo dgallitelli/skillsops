@@ -124,10 +124,20 @@ def _output_is_machine(args) -> bool:
 
     Suppress human breadcrumbs in those cases so they don't pollute JSON
     pipelines or CI logs.
+
+    A user is asking for machine output when:
+    - ``--json`` is passed (legacy boolean flag),
+    - ``--quiet`` is passed,
+    - ``--format`` is anything other than ``text`` (e.g. ``json``,
+      ``html``, ``github``), or
+    - stdout is not a TTY.
     """
     if getattr(args, "json", False):
         return True
     if getattr(args, "quiet", False):
+        return True
+    fmt = getattr(args, "format", None)
+    if fmt and fmt != "text":
         return True
     return not sys.stdout.isatty()
 
