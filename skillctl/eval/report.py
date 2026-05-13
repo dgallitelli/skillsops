@@ -140,26 +140,53 @@ def _gh_escape_message(value: str) -> str:
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
+def _gh_workflow_line(
+    level: str,
+    *,
+    file: str | None,
+    line: int | None,
+    title: str,
+    body: str,
+) -> str:
+    """Render one GitHub Actions workflow command from raw fields.
+
+    The generic primitive used by both the audit format
+    (:func:`_gh_workflow_command`) and the validate format
+    (:func:`format_github_validation`).
+
+    ``line=`` is emitted only when ``file`` is also set AND ``line``
+    is a positive integer — GitHub silently drops a ``line=``
+    parameter without a ``file=``, and ``line=0`` would point at a
+    non-existent line.  Omitting both keeps the wire format aligned
+    with what the user actually sees.
+    """
+    params: list[str] = []
+    if file:
+        params.append(f"file={_gh_escape_param(file)}")
+        if line is not None and line > 0:
+            params.append(f"line={line}")
+    params.append(f"title={_gh_escape_param(title)}")
+    param_str = ",".join(params)
+    return f"::{level} {param_str}::{_gh_escape_message(body)}"
+
+
 def _gh_workflow_command(level: str, finding: Finding) -> str:
     """Render one workflow command line for *finding*.
 
-    ``line=`` is emitted only when ``file_path`` is also set — GitHub
-    silently drops a ``line=`` parameter without a ``file=``, so omitting
-    it makes the wire format match the actual rendered behaviour.
+    Thin wrapper over :func:`_gh_workflow_line` that pulls fields off a
+    :class:`Finding`.
     """
-    params: list[str] = []
-    if finding.file_path:
-        params.append(f"file={_gh_escape_param(finding.file_path)}")
-        if finding.line_number:
-            params.append(f"line={finding.line_number}")
-    title = _gh_escape_param(f"{finding.code} {finding.title}")
-    params.append(f"title={title}")
+    title = f"{finding.code} {finding.title}"
     body_parts = [finding.detail]
     if finding.fix:
         body_parts.append(f"Fix: {finding.fix}")
-    body = _gh_escape_message(" — ".join(body_parts))
-    param_str = ",".join(params)
-    return f"::{level} {param_str}::{body}"
+    return _gh_workflow_line(
+        level,
+        file=finding.file_path,
+        line=finding.line_number,
+        title=title,
+        body=" — ".join(body_parts),
+    )
 
 
 def format_github_report(
@@ -217,5 +244,77 @@ def format_github_report(
         msg = _gh_escape_message(f"{n} INFO {noun} suppressed ({', '.join(codes)}). Re-run with --verbose to see them.")
         # Single notice line so the cap (10 per level) isn't burned.
         print(f"::notice::{msg}", file=file)
+
+    print("::endgroup::", file=file)
+
+
+# ---------------------------------------------------------------------------
+# GitHub Actions workflow-command format — validate
+# ---------------------------------------------------------------------------
+
+
+def format_github_validation(
+    *,
+    skill_name: str,
+    issues: list[dict],
+    file: TextIO | None = None,
+) -> None:
+    """Emit GitHub Actions workflow commands for ``skillctl validate``.
+
+    Mirrors :func:`format_github_report` but speaks ``ValidationIssue``
+    shape instead of ``Finding`` shape.  Caller is responsible for
+    normalising errors / warnings / load-warnings / cap-warnings into a
+    single homogeneous ``list[dict]`` with these keys:
+
+    - ``severity``: ``"error"`` or ``"warning"`` (the workflow-command level)
+    - ``code``: e.g. ``"VAL-NAME-FORMAT"``
+    - ``message``: short title
+    - ``path``: dot-path into the manifest, or ``""``
+    - ``hint``: suggested fix, or ``""``
+    - ``file``: resolved annotation target (e.g. ``"skill.yaml"`` or
+      ``"SKILL.md"``).  ``None`` is allowed but means the annotation
+      won't bind to a file.
+
+    All formatting decisions are made here; the caller passes raw data.
+    """
+    if file is None:
+        file = sys.stdout
+
+    print(f"::group::Validation: {_gh_escape_message(skill_name)}", file=file)
+
+    n_errors = sum(1 for issue in issues if issue.get("severity") == "error")
+    n_warnings = sum(1 for issue in issues if issue.get("severity") == "warning")
+    status = "INVALID" if n_errors else "VALID"
+    print(
+        f"{status} — {n_errors} error{'' if n_errors == 1 else 's'}, "
+        f"{n_warnings} warning{'' if n_warnings == 1 else 's'}",
+        file=file,
+    )
+
+    for issue in issues:
+        level = issue.get("severity") or "warning"
+        code = issue.get("code") or "VAL-???"
+        message = issue.get("message") or ""
+        path = issue.get("path") or ""
+        hint = issue.get("hint") or ""
+
+        title = f"{code} {message}".strip()
+        body_parts: list[str] = []
+        if path:
+            body_parts.append(f"Path: {path}")
+        if hint:
+            body_parts.append(f"Fix: {hint}")
+        body = " — ".join(body_parts) if body_parts else message
+
+        print(
+            _gh_workflow_line(
+                level,
+                file=issue.get("file"),
+                line=None,
+                title=title,
+                body=body,
+            ),
+            file=file,
+        )
 
     print("::endgroup::", file=file)

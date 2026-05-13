@@ -150,7 +150,17 @@ def main():
     # skillctl validate
     val_p = sub.add_parser("validate", help="Validate a skill manifest")
     val_p.add_argument("path", nargs="?", default=".", help="Path to skill.yaml or directory")
-    val_p.add_argument("--json", action="store_true", help="Output as JSON")
+    val_p.add_argument("--json", action="store_true", help="Output as JSON (alias for --format=json)")
+    val_p.add_argument(
+        "--format",
+        choices=["text", "json", "github"],
+        default=None,
+        help=(
+            "Output format (default: text).  'github' emits Actions "
+            "workflow commands so validation errors / warnings appear "
+            "as inline PR annotations on skill.yaml / SKILL.md."
+        ),
+    )
     val_p.add_argument("--strict", action="store_true", help="Treat warnings as errors")
 
     # skillctl version
@@ -1095,10 +1105,45 @@ def cmd_get_installations(args):
 
 def cmd_validate(args):
     """Validate a skill manifest."""
+    # Resolve effective format: explicit --format wins over the legacy
+    # --json shorthand, which wins over the default text.
+    fmt = getattr(args, "format", None)
+    if fmt is None:
+        fmt = "json" if getattr(args, "json", False) else "text"
+
+    # `--format=github` mode runs in CI, where a malformed YAML PR diff
+    # is the most useful place for a PR annotation.  Wrap the manifest
+    # load so the user sees one ::error:: instead of a Python
+    # traceback.
+    target_path = Path(args.path)
+    skill_yaml = target_path / "skill.yaml" if target_path.is_dir() else target_path
+    skill_md = target_path / "SKILL.md" if target_path.is_dir() else None
+
     loader = ManifestLoader()
     validator = SchemaValidator()
 
-    manifest, load_warnings = loader.load(args.path)
+    if fmt == "github":
+        try:
+            manifest, load_warnings = loader.load(args.path)
+        except Exception as e:
+            from skillctl.eval.report import format_github_validation
+
+            skill_name = target_path.name or "skill"
+            issues = [
+                {
+                    "severity": "error",
+                    "code": "VAL-LOAD",
+                    "message": "Failed to load manifest",
+                    "path": "",
+                    "hint": str(e),
+                    "file": str(skill_yaml) if skill_yaml.exists() else None,
+                }
+            ]
+            format_github_validation(skill_name=skill_name, issues=issues)
+            sys.exit(1)
+    else:
+        manifest, load_warnings = loader.load(args.path)
+
     result = validator.validate(manifest)
 
     # Resolve content for capability check
@@ -1106,12 +1151,13 @@ def cmd_validate(args):
     try:
         content = loader.resolve_content(manifest, base_dir)
     except Exception as e:
-        print(f"Warning: Could not resolve skill content for capability check: {e}", file=sys.stderr)
+        if fmt != "github":
+            print(f"Warning: Could not resolve skill content for capability check: {e}", file=sys.stderr)
         content = ""
 
     cap_warnings = validator.check_capabilities(manifest, content)
 
-    # Merge warnings from all sources
+    # Merge warnings from all sources (preserved for json/text output).
     all_warnings = []
     for w in load_warnings:
         all_warnings.append({"code": w.code, "message": w.message, "hint": w.hint})
@@ -1120,7 +1166,7 @@ def cmd_validate(args):
     for w in cap_warnings:
         all_warnings.append({"code": w.code, "message": w.message, "hint": w.hint})
 
-    if getattr(args, "json", False):
+    if fmt == "json":
         output = {
             "valid": result.valid,
             "errors": [{"code": e.code, "message": e.message, "path": e.path, "hint": e.hint} for e in result.errors],
@@ -1128,7 +1174,68 @@ def cmd_validate(args):
             "strict": getattr(args, "strict", False),
         }
         print(json.dumps(output, indent=2))
+    elif fmt == "github":
+        from skillctl.eval.report import format_github_validation
+
+        # Per-issue file routing: load_warnings come from frontmatter
+        # parsing, so they bind to SKILL.md.  Schema errors / warnings
+        # / capability warnings come from the manifest as a whole, so
+        # they bind to skill.yaml when present, otherwise SKILL.md.
+        manifest_file = (
+            str(skill_yaml) if skill_yaml.exists() else (str(skill_md) if skill_md and skill_md.exists() else None)
+        )
+        skill_md_file = str(skill_md) if skill_md and skill_md.exists() else manifest_file
+
+        issues: list[dict] = []
+        for e in result.errors:
+            issues.append(
+                {
+                    "severity": "error",
+                    "code": e.code,
+                    "message": e.message,
+                    "path": e.path,
+                    "hint": e.hint,
+                    "file": manifest_file,
+                }
+            )
+        for w in load_warnings:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": w.code,
+                    "message": w.message,
+                    "path": "",
+                    "hint": w.hint,
+                    "file": skill_md_file,
+                }
+            )
+        for w in result.warnings:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": w.code,
+                    "message": w.message,
+                    "path": w.path,
+                    "hint": w.hint,
+                    "file": manifest_file,
+                }
+            )
+        for w in cap_warnings:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": w.code,
+                    "message": w.message,
+                    "path": "",
+                    "hint": w.hint,
+                    "file": manifest_file,
+                }
+            )
+
+        skill_name = manifest.metadata.name or target_path.name or "skill"
+        format_github_validation(skill_name=skill_name, issues=issues)
     else:
+        # Default text format.
         if result.errors:
             print("Validation errors:")
             for e in result.errors:
@@ -1146,11 +1253,13 @@ def cmd_validate(args):
         elif result.valid and all_warnings:
             print(f"✓ Valid (with {len(all_warnings)} warning{'s' if len(all_warnings) != 1 else ''})")
 
-        # Breadcrumb on success.
+        # Breadcrumb on success.  ``_output_is_machine`` already returns
+        # True for ``--format != "text"``, so this only fires under the
+        # human-readable text format on a TTY.
         if result.valid and not _output_is_machine(args):
             print(f"\n  Next: skillctl eval audit {args.path}", file=sys.stderr)
 
-    # Determine exit code
+    # Determine exit code (independent of format).
     if result.errors:
         sys.exit(1)
     elif all_warnings and getattr(args, "strict", False):

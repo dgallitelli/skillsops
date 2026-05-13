@@ -218,7 +218,7 @@ audit:
 | `text` (default) | Human-readable, with grade banner and grouped findings. |
 | `json` | Machine-readable; full report including `findings[]`, `metadata`, scores. |
 | `html` | Standalone HTML page; pair with `--output` to save. |
-| `github` | One workflow command per finding (`::error::` / `::warning::` / `::notice::`).  When run inside a GitHub Actions workflow, each finding appears as an inline annotation on the offending file/line in the PR diff. |
+| `github` | One workflow command per finding (`::error::` / `::warning::` / `::notice::`).  When run inside a GitHub Actions workflow, each finding appears as an inline annotation on the offending file/line in the PR diff.  `skillctl validate --format=github` mirrors the same shape for schema/semver/capability errors and warnings — together the two cover the full pre-publish gate as inline PR annotations. |
 
 `--format=github` skips INFO findings unless `--verbose` is also passed
 — GitHub caps inline annotations at 10 per level per workflow run, and

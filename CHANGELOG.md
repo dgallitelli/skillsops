@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Added
+
+- **`skillctl validate --format=github`** — emits GitHub Actions
+  workflow commands for schema/semver/capability errors and warnings,
+  mirroring `eval audit --format=github`.  Together the two cover the
+  full pre-publish gate as inline PR annotations.  Per-issue file
+  routing: `load_warnings` (frontmatter-parsing issues) bind to
+  `SKILL.md`; schema errors / warnings / capability warnings bind to
+  `skill.yaml` (falling back to `SKILL.md` if `skill.yaml` is absent).
+  Catastrophic load failures (unparseable YAML — the most CI-relevant
+  scenario for an annotation) emit a single `::error
+  file=skill.yaml,title=VAL-LOAD::` annotation instead of a Python
+  traceback.  `--json` is kept as a backward-compatible alias for
+  `--format=json`; passing both lets `--format` win.
+
+### Changed
+
+- `_output_is_machine` now also returns True for `--format=<non-text>`
+  values (was: only `--json` / `--quiet` / non-TTY).  Affects
+  breadcrumb suppression in `validate` and `eval audit` so future
+  formats don't have to opt in individually.
+
 ## v0.1.0b5 (2026-05-12)
 
 A capability-and-cleanup release on top of the v0.1.0b4 security
