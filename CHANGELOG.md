@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.1.0b6 (2026-05-13)
+
+A focused follow-up to v0.1.0b5 closing both alias gaps in the
+strict-mode AST scanner — `from X import Y` and `import X as Y` now
+resolve through file-wide alias maps so the scanner catches the same
+dangerous calls regardless of how the user imported the module.  Adds
+`skillctl validate --format=github` so schema/semver/capability errors
+also render as inline PR annotations.
+
 ### Added
 
 - **`skillctl validate --format=github`** — emits GitHub Actions
