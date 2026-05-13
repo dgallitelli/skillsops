@@ -240,6 +240,7 @@ unchanged.
 | **`subprocess.run(..., shell=True)`** with multi-line args | Closed.  AST emits `SEC-003-AST`. |
 | **`os.system` / `os.popen`** | Closed.  AST emits `SEC-003-AST`. |
 | **Base64 string-literal concatenation bypass** (`b64decode("AA" + "BB" + …)`) | Closed for the literal-only shape.  AST emits `SEC-008-AST`.  `b64decode(s + t)` where `s` and `t` are names is **not** flagged — that requires taint analysis, out of scope. |
+| **`from`-import aliasing** (`from pickle import loads; loads(data)`, including `as`-rename) | Closed.  A pre-pass over `ImportFrom` nodes builds a file-wide alias map; bare-name calls are resolved through it before the dispatch.  The same finding fires whether the user wrote `pickle.loads(x)` or `from pickle import loads; loads(x)` (or `from pickle import loads as P; P(x)`).  See note below on the file-wide trade-off. |
 | **Fullwidth / mathematical-alphanumeric homoglyphs** (`ｅｖａｌ`, `𝐞𝐯𝐚𝐥`) | Closed.  Strict mode NFKC-normalises text before regex matching. |
 | **Cyrillic homoglyphs** (`еval` with Cyrillic `е`) | **NOT closed.**  Cyrillic letters are a different Unicode script, not a compatibility variant — NFKC leaves them alone.  Detecting visual confusables requires a different mechanism (e.g. the Unicode `confusables.txt` mapping); this is an honest gap. |
 | **Files exceeding the size cap** | Strict raises the per-file cap from 1 MB to 10 MB.  Files that still exceed it are surfaced via a STR-022 INFO finding so operators can see the audit was incomplete instead of silently truncating coverage. |
@@ -251,16 +252,38 @@ unchanged.
   `eval`).
 - Detection of `getattr(__builtins__, "eval")(...)` style indirection
   — name-based AST matching is the limit.
-- **`from`-import aliasing**: `from pickle import loads; loads(data)`
-  is **not** flagged because `_attr_chain` only matches the literal
-  `pickle.loads` chain.  Same for `from yaml import load`,
-  `from subprocess import run`, etc.  Most code that uses these APIs
-  imports the module rather than the symbol; if your codebase does
-  use `from`-imports for these, supplement with a regex `--ignore`
-  list or a separate linter.
+- **`import X as Y` aliasing of dangerous *modules***: `import pickle
+  as p; p.loads(x)` produces an attribute chain `"p.loads"` that
+  doesn't match `"pickle.loads"` in the dispatch table.  Closing this
+  would require module-level alias tracking on top of the existing
+  `from`-import alias map.
 - Deeply-namespaced calls (`some_pkg.pickle.loads(...)`) — the chain
   match is exact-string, so `some_pkg.pickle.loads` won't match
   `pickle.loads` in the dispatch table.
+- Relative imports (`from .pickle import loads`) are skipped by the
+  alias collector so the scanner doesn't false-positive on local
+  submodules that happen to share a stdlib name.  Code that
+  legitimately re-exports stdlib names through a relative import is
+  exotic; the absolute form `from pickle import loads` is still
+  caught.
+
+### File-wide alias map (deliberate trade-off)
+
+The `from`-import alias map is collected via `ast.walk`, so imports
+inside function bodies, conditionals, and `try/except` blocks
+contribute to the same file-wide map alongside module-scope imports.
+That's deliberate:
+
+- **Real-world frequency** of nested `from X import Y` defensive
+  imports (e.g. `try: from foo import bar; except ImportError: bar
+  = None`) is high; restricting to module scope would miss them.
+- **The pathological false-positive** — a file that has both
+  `from pickle import loads` (in any scope) AND `def loads(x): ...`
+  (in any scope) and then calls `loads(...)` — is itself a footgun
+  the author should fix; over-flagging is the right side of the
+  false-positive/false-negative ledger when the dangerous call is
+  `pickle.loads`.  Suppress per-file with the `audit.ignore` list in
+  `.skilleval.yaml` if you hit a real false positive.
 
 ### Per-skill opt-in via `.skilleval.yaml`
 
