@@ -699,12 +699,89 @@ def _attr_chain(node: ast.AST) -> str | None:
     return ".".join(reversed(parts))
 
 
-def _is_yaml_load_unsafe(call: ast.Call) -> bool:
+def _collect_from_import_aliases(tree: ast.Module) -> dict[str, str]:
+    """Collect ``from MODULE import NAME [as ALIAS]`` bindings.
+
+    Maps each local binding (``alias.asname or alias.name``) to its
+    fully-qualified ``"MODULE.NAME"`` form so :func:`_resolve_call_target`
+    can resolve a bare-name call site against the dispatch tables.
+
+    **Scope trade-off**: this walker uses ``ast.walk`` so it sees
+    imports inside function bodies, conditionals, and ``try/except``
+    blocks too — not just module-scope.  The collected map is therefore
+    *file-wide*, not Python-scope-aware.  This is deliberate:
+
+    - **Real-world frequency** of nested ``from X import Y`` defensive
+      imports (``try: from foo import bar; except ImportError: bar = None``)
+      is high.  Restricting collection to module scope would miss them.
+    - **The pathological false-positive** — a file that has both
+      ``from pickle import loads`` AND ``def loads(x): ...`` and
+      then calls ``loads(...)`` somewhere — is itself a footgun the
+      author should fix; over-flagging is the right side of the
+      false-positive/false-negative ledger when the dangerous call
+      is ``pickle.loads``.
+
+    Bindings introduced by plain ``import X`` or ``import X as Y`` are
+    NOT tracked here — those go through the existing ``_attr_chain``
+    path (or, in the ``import X as Y`` case, are a known gap
+    documented in ``docs/3-security-audit.md``).
+
+    Relative imports (``from . import X``, ``from ..pkg import Y``)
+    are skipped: ``from .pickle import loads`` refers to a *local*
+    submodule, not stdlib ``pickle``, so resolving it to
+    ``"pickle.loads"`` would be a false positive.  Skipping
+    relatives is cheap and safe — code that aliases stdlib through
+    relative imports is exotic, and the absolute form
+    ``from pickle import loads`` is still caught.
+    """
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            # Relative import — local submodule, not the stdlib name
+            # the dispatch table keys on.  Skip to avoid false positives.
+            continue
+        module = node.module or ""
+        for alias in node.names:
+            if alias.name == "*":
+                # `from X import *` — we can't know what was bound.
+                continue
+            local = alias.asname or alias.name
+            full = f"{module}.{alias.name}" if module else alias.name
+            aliases[local] = full
+    return aliases
+
+
+def _resolve_call_target(call: ast.Call, aliases: dict[str, str]) -> str | None:
+    """Resolve the fully-qualified target of *call*.
+
+    Returns the canonical ``"module.name"`` form, or ``None`` if the
+    call site is a bare-name without a matching ``from``-import
+    alias (in which case we deliberately don't flag — would
+    false-positive on local function definitions).
+
+    Examples::
+
+        pickle.loads(x)                    → "pickle.loads"
+        loads(x), aliases={"loads":"pickle.loads"} → "pickle.loads"
+        loads(x), aliases={}               → None  (don't flag)
+        P(x), aliases={"P": "pickle.loads"} → "pickle.loads"
+        os.path.join(...)                  → "os.path.join"  (Attribute chain, no dispatch entry)
+    """
+    if isinstance(call.func, ast.Attribute):
+        return _attr_chain(call.func)
+    if isinstance(call.func, ast.Name):
+        return aliases.get(call.func.id)
+    return None
+
+
+def _is_yaml_load_unsafe(call: ast.Call, aliases: dict[str, str]) -> bool:
     """``yaml.load(s)`` without ``Loader=`` keyword is the unsafe form;
     ``yaml.load(s, Loader=SafeLoader)`` and ``yaml.safe_load(s)`` are
-    safe.  This helper identifies only the unsafe shape."""
-    chain = _attr_chain(call.func)
-    if chain not in {"yaml.load"}:
+    safe.  Resolves through *aliases* so ``from yaml import load;
+    load(s)`` is also caught."""
+    if _resolve_call_target(call, aliases) != "yaml.load":
         return False
     for kw in call.keywords:
         if kw.arg == "Loader":
@@ -712,11 +789,13 @@ def _is_yaml_load_unsafe(call: ast.Call) -> bool:
     return True
 
 
-def _is_subprocess_shell_true(call: ast.Call) -> bool:
+def _is_subprocess_shell_true(call: ast.Call, aliases: dict[str, str]) -> bool:
     """``subprocess.run(..., shell=True)`` etc. — flags any
-    subprocess-module call that explicitly passes ``shell=True``."""
-    chain = _attr_chain(call.func)
-    if not chain or not chain.startswith("subprocess."):
+    subprocess-module call that explicitly passes ``shell=True``.
+    Resolves through *aliases* so ``from subprocess import run;
+    run(..., shell=True)`` is also caught."""
+    target = _resolve_call_target(call, aliases)
+    if not target or not target.startswith("subprocess."):
         return False
     for kw in call.keywords:
         if kw.arg == "shell" and isinstance(kw.value, ast.Constant) and kw.value.value is True:
@@ -724,18 +803,21 @@ def _is_subprocess_shell_true(call: ast.Call) -> bool:
     return False
 
 
-def _is_b64decode_of_concat(call: ast.Call) -> bool:
+def _is_b64decode_of_concat(call: ast.Call, aliases: dict[str, str]) -> bool:
     """``b64decode("AA" + "BB")`` — flags only the
     ``Constant + Constant`` shape (and chains of the same).  Source-level
     string concatenation (``"AA" "BB"``) is folded to a single
     ``Constant`` by the parser, so it's already caught by the existing
     long-string regex.  Variable-fed concat (``b64decode(s + t)``) is
-    NOT flagged here — taint analysis is out of scope."""
-    chain = _attr_chain(call.func) if isinstance(call.func, ast.Attribute) else None
-    is_b64 = chain in {"base64.b64decode", "b64decode"} or (
-        isinstance(call.func, ast.Name) and call.func.id == "b64decode"
-    )
-    if not is_b64 or not call.args:
+    NOT flagged here — taint analysis is out of scope.
+
+    Resolves through *aliases* so ``from base64 import b64decode;
+    b64decode("AA" + "BB")`` is also caught.  Bare-name calls without
+    a matching ``from``-import (e.g. a hand-rolled
+    ``def b64decode(x): ...``) are intentionally NOT flagged — that's
+    the same false-positive trap as the ``def loads(x)`` case."""
+    target = _resolve_call_target(call, aliases)
+    if target != "base64.b64decode" or not call.args:
         return False
     arg = call.args[0]
 
@@ -756,18 +838,30 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
     Catches multi-line / commented / line-continuation bypasses that
     the line-oriented regex pass misses.  Returns an empty list if
     *content* doesn't parse as Python (a ``.py`` extension on a non-
-    Python file is not itself a security finding)."""
+    Python file is not itself a security finding).
+
+    A two-pass walk: first collect ``from X import Y`` aliases so a
+    bare-name call site (``loads(data)`` after
+    ``from pickle import loads``) resolves to the canonical
+    ``"pickle.loads"`` dispatch key.  See
+    :func:`_collect_from_import_aliases` for the scope trade-off."""
     findings: list[Finding] = []
     try:
         tree = ast.parse(content)
     except SyntaxError:
         return findings
 
+    aliases = _collect_from_import_aliases(tree)
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
 
         # Bare-name dangerous builtins: eval, exec, compile, __import__.
+        # The bare-name dispatch is independent of the alias map —
+        # we flag any direct call to these names regardless of how
+        # they were bound, which is the conservative choice for
+        # builtins that are essentially never legitimately rebound.
         if isinstance(node.func, ast.Name) and node.func.id in _AST_DANGEROUS_BUILTINS:
             code, title = _AST_DANGEROUS_BUILTINS[node.func.id]
             findings.append(
@@ -784,10 +878,13 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
             )
             continue
 
-        # Attribute-call dangerous patterns: pickle.loads, os.system, etc.
-        chain = _attr_chain(node.func) if isinstance(node.func, ast.Attribute) else None
-        if chain in _AST_DANGEROUS_CALLS:
-            code, title = _AST_DANGEROUS_CALLS[chain]
+        # Attribute-call OR alias-resolved dangerous patterns:
+        # pickle.loads, os.system, etc.  Resolves through the alias
+        # map so ``from pickle import loads; loads(x)`` matches the
+        # ``pickle.loads`` dispatch key.
+        target = _resolve_call_target(node, aliases)
+        if target in _AST_DANGEROUS_CALLS:
+            code, title = _AST_DANGEROUS_CALLS[target]
             # Tailor the fix-text by category — "use json.loads" is the
             # right hint for pickle/marshal/shelve, but useless for
             # os.system / os.popen.
@@ -803,7 +900,7 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title=title,
-                    detail=f"AST detected a call to {chain}() at this location.",
+                    detail=f"AST detected a call to {target}() at this location.",
                     file_path=str(file_path),
                     line_number=getattr(node, "lineno", None),
                     fix=fix,
@@ -812,7 +909,7 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
             continue
 
         # yaml.load without Loader=
-        if _is_yaml_load_unsafe(node):
+        if _is_yaml_load_unsafe(node, aliases):
             findings.append(
                 Finding(
                     code="SEC-006-AST",
@@ -828,7 +925,7 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
             continue
 
         # subprocess.run(..., shell=True)
-        if _is_subprocess_shell_true(node):
+        if _is_subprocess_shell_true(node, aliases):
             findings.append(
                 Finding(
                     code="SEC-003-AST",
@@ -844,7 +941,7 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
             continue
 
         # b64decode("AA" + "BB" + ...) — base64 string-concat bypass.
-        if _is_b64decode_of_concat(node):
+        if _is_b64decode_of_concat(node, aliases):
             findings.append(
                 Finding(
                     code="SEC-008-AST",

@@ -180,6 +180,152 @@ class TestASTScanner:
 
 
 # ---------------------------------------------------------------------------
+# from-import aliasing — closes the docs-listed gap from PR #8
+# ---------------------------------------------------------------------------
+
+
+class TestFromImportAliasing:
+    """`from MOD import NAME [as ALIAS]; NAME(args)` should resolve
+    through the alias map to ``MOD.NAME`` so the same dispatch rules
+    fire as for the plain ``MOD.NAME(args)`` shape.  Unaliased
+    bare-name calls (e.g. a hand-rolled ``def loads(x)``) must NOT
+    be flagged — that's the false-positive boundary."""
+
+    # ---- Positive cases (aliased dangerous calls are flagged) ----
+
+    def test_from_pickle_import_loads_detected(self):
+        codes = _ast_codes("from pickle import loads\nloads(data)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_from_pickle_import_loads_with_asname_detected(self):
+        codes = _ast_codes("from pickle import loads as P\nP(data)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_from_marshal_import_loads_detected(self):
+        codes = _ast_codes("from marshal import loads\nloads(b)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_from_yaml_import_load_detected(self):
+        codes = _ast_codes("from yaml import load\nload(s)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_from_yaml_import_load_with_safeloader_NOT_detected(self):
+        codes = _ast_codes("from yaml import load, SafeLoader\nload(s, Loader=SafeLoader)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_from_subprocess_import_run_shell_true_detected(self):
+        codes = _ast_codes("from subprocess import run\nrun('ls', shell=True)\n")
+        assert "SEC-003-AST" in codes
+
+    def test_from_subprocess_import_run_no_shell_NOT_detected(self):
+        codes = _ast_codes("from subprocess import run\nrun(['ls'])\n")
+        assert "SEC-003-AST" not in codes
+
+    def test_from_os_import_system_detected(self):
+        codes = _ast_codes("from os import system\nsystem('echo hi')\n")
+        assert "SEC-003-AST" in codes
+
+    def test_from_base64_import_b64decode_concat_detected(self):
+        codes = _ast_codes('from base64 import b64decode\nb64decode("AA" + "BB" + "CC")\n')
+        assert "SEC-008-AST" in codes
+
+    # ---- Negative cases (false-positive boundary) ----
+
+    def test_unaliased_loads_NOT_detected(self):
+        # `loads(data)` with no matching from-import should not fire.
+        # Otherwise the scanner false-positives on every module that
+        # has its own `loads` symbol.
+        codes = _ast_codes("loads(data)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_function_named_loads_NOT_detected(self):
+        # Local function definition called `loads` is unrelated to
+        # pickle.loads.  No `from pickle import loads` happens.
+        codes = _ast_codes(
+            textwrap.dedent("""
+                def loads(x):
+                    return x
+
+                loads(data)
+            """)
+        )
+        assert "SEC-006-AST" not in codes
+
+    def test_function_named_b64decode_NOT_detected(self):
+        # Regression guard: before the alias-map refactor, a bare-name
+        # `b64decode(...)` call would fire SEC-008-AST regardless of
+        # any imports.  With aliases, only `from base64 import
+        # b64decode` (or attribute access) fires; a hand-rolled
+        # local `def b64decode` is left alone.  This locks in the new
+        # boundary.
+        codes = _ast_codes(
+            textwrap.dedent("""
+                def b64decode(x):
+                    return x
+
+                b64decode("AA" + "BB" + "CC")
+            """)
+        )
+        assert "SEC-008-AST" not in codes
+
+    # ---- File-wide alias-map semantics ----
+
+    def test_module_scope_alias_is_detected(self):
+        # The simple, intended case: a module-scope `from X import Y`
+        # followed by a call to Y at module scope fires.
+        codes = _ast_codes("from pickle import loads\n\nloads(blob)\n")
+        assert "SEC-006-AST" in codes
+
+    def test_alias_map_is_file_wide_by_design(self):
+        # Document the deliberate trade-off: a `from`-import inside a
+        # function still pollutes the module-wide alias map.  The
+        # `def loads(x): ...` shadow case is unrealistic in the same
+        # file as a `from pickle import loads`, and over-flagging is
+        # the right side of the false-positive/false-negative ledger
+        # when the dangerous call is `pickle.loads`.  See
+        # `_collect_from_import_aliases` docstring.
+        codes = _ast_codes(
+            textwrap.dedent("""
+                def helper():
+                    from pickle import loads
+                    return loads(trusted_blob)
+
+                # File-wide alias map means the call below ALSO
+                # resolves through the alias.  Over-flagging is
+                # deliberate; see docstring on _collect_from_import_aliases.
+                loads(maybe_untrusted)
+            """)
+        )
+        # Two findings: the call inside ``helper()`` AND the
+        # module-scope call resolve through the file-wide alias map.
+        # The module-scope call is the load-bearing assertion — under
+        # hypothetical module-scope-only collection, only the in-function
+        # call would fire, and the count would be 1.  Asserting == 2
+        # locks in the deliberate file-wide semantic.
+        assert codes.count("SEC-006-AST") == 2
+
+    def test_star_import_does_not_register_aliases(self):
+        # `from X import *` doesn't tell us what was bound; the alias
+        # collector skips it.  An unaliased `loads(x)` after a star
+        # import is still NOT flagged.
+        codes = _ast_codes("from pickle import *\nloads(data)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_relative_import_does_not_register_aliases(self):
+        # `from .pickle import loads` refers to a LOCAL submodule named
+        # `pickle`, not stdlib pickle.  The collector skips relative
+        # imports so we don't false-positive on
+        # ``from .stdlib_alias import loads`` shapes.
+        codes = _ast_codes("from .pickle import loads\nloads(data)\n")
+        assert "SEC-006-AST" not in codes
+
+    def test_dotted_relative_import_does_not_register_aliases(self):
+        # Same logic for multi-dot relative imports.
+        codes = _ast_codes("from ..foo.pickle import loads\nloads(data)\n")
+        assert "SEC-006-AST" not in codes
+
+
+# ---------------------------------------------------------------------------
 # Integration: scan_security with strict=True
 # ---------------------------------------------------------------------------
 

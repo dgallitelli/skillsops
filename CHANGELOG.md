@@ -17,6 +17,35 @@
   traceback.  `--json` is kept as a backward-compatible alias for
   `--format=json`; passing both lets `--format` win.
 
+- **Strict-mode AST scanner now resolves `from`-import aliases.**
+  `from pickle import loads; loads(data)` — and the `as`-rename form
+  `from pickle import loads as P; P(data)` — now fire the same
+  `SEC-006-AST` finding as the bare `pickle.loads(data)` call.  Same
+  treatment for `from yaml import load` (without `Loader=`),
+  `from subprocess import run` (with `shell=True`), `from os import
+  system` / `popen`, and `from base64 import b64decode` (with
+  literal-concat).  Closes a gap that was previously documented as NOT
+  closed in `docs/3-security-audit.md`.  The alias map is collected
+  via `ast.walk` and is therefore file-wide by design — `from`-imports
+  inside function bodies, conditionals, and `try/except` blocks
+  contribute alongside module-scope imports.  Relative imports
+  (`from .pickle import loads`) are deliberately skipped so the
+  scanner doesn't false-positive on local submodules that happen to
+  share a stdlib name.  See the new "File-wide alias map (deliberate
+  trade-off)" section in `docs/3-security-audit.md` for the rationale.
+  `import X as Y` module aliasing (`import pickle as p; p.loads(x)`)
+  remains an honestly-disclosed gap.
+
+  Symmetric tightening: the same alias-map refactor removes the old
+  bare-name `b64decode` fallback.  `b64decode("AA" + "BB" + ...)` is
+  now flagged only when `b64decode` resolves to `base64.b64decode`
+  (via attribute access or `from base64 import b64decode`); a
+  bare-name call against a hand-rolled local `def b64decode(x)` with
+  no matching import is no longer flagged.  Sufficiently-long
+  single-literal payloads (`b64decode("…lots of base64…")`) continue
+  to be caught by the line-oriented `LONG_BASE64_STRING` regex; the
+  AST's job remains the multi-literal-concat bypass.
+
 ### Changed
 
 - `_output_is_machine` now also returns True for `--format=<non-text>`
