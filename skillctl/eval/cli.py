@@ -12,6 +12,7 @@ from skillctl.eval.schemas import AuditReport, Finding, calculate_score, calcula
 from skillctl.eval.audit.structure_check import check_structure
 from skillctl.eval.audit.security_scan import scan_security
 from skillctl.eval.audit.permission_analyzer import analyze_permissions
+from skillctl.eval.audit.quality_check import check_quality
 from skillctl.eval.config import load_config, apply_config
 from skillctl.eval.report import format_github_report, format_json_report, format_text_report
 from skillctl.eval.version import version_info
@@ -84,6 +85,10 @@ def run_audit(
     permission_findings = analyze_permissions(path, frontmatter=frontmatter)
     all_findings.extend(permission_findings)
 
+    # 4. Authoring quality (QLT-*)
+    quality_findings = check_quality(path)
+    all_findings.extend(quality_findings)
+
     # Apply .skilleval.yaml config (ignore codes, severity overrides)
     all_findings = apply_config(all_findings, config)
 
@@ -107,6 +112,7 @@ def run_audit(
             "structure_findings": sum(1 for f in all_findings if f.code.startswith("STR")),
             "security_findings": sum(1 for f in all_findings if f.code.startswith("SEC")),
             "permission_findings": sum(1 for f in all_findings if f.code.startswith("PERM")),
+            "quality_findings": sum(1 for f in all_findings if f.code.startswith("QLT")),
         },
     )
     return report

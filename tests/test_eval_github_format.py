@@ -333,7 +333,9 @@ class TestCliFormatGithubSmoke:
         skill = tmp_path / "clean-skill"
         skill.mkdir()
         (skill / "SKILL.md").write_text(
-            "---\nname: clean-skill\ndescription: A clean skill that does test things consistently\n---\n\nBody.\n"
+            "---\nname: clean-skill\n"
+            "description: Use when running audit smoke tests that verify the github format renderer works correctly\n"
+            "---\n\nBody text explaining how the skill works.\n\n## Example\n\n```\nexample invocation here\n```\n"
         )
         r = subprocess.run(
             [str(SKILLCTL), "eval", "audit", str(skill), "--format=github"],
@@ -367,7 +369,9 @@ class TestCliFormatGithubSmoke:
         skill = tmp_path / "clean"
         skill.mkdir()
         (skill / "SKILL.md").write_text(
-            "---\nname: clean\ndescription: A clean skill that does test things consistently\n---\n\nBody.\n"
+            "---\nname: clean\n"
+            "description: Use when running audit smoke tests that verify the github quiet-mode output routing\n"
+            "---\n\nBody text explaining how the skill works.\n\n## Example\n\n```\nexample invocation here\n```\n"
         )
         r = subprocess.run(
             [str(SKILLCTL), "eval", "audit", str(skill), "--format=github", "--quiet"],

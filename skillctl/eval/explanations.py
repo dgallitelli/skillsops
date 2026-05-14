@@ -47,6 +47,29 @@ RULE_EXPLANATIONS: dict[str, str] = {
         "Oversized instructions can reduce accuracy, increase latency, and crowd out the user's "
         "actual task. Split long content into a concise SKILL.md and a references/ directory."
     ),
+    "QLT-001": (
+        "Descriptions that start with 'Use when ...' put the trigger condition "
+        "first. The model decides whether to invoke a skill from its description, "
+        "so the triggering context belongs at the start."
+    ),
+    "QLT-002": (
+        "Descriptions shorter than 60 characters rarely have enough discriminating "
+        "signal for skill discovery. Other skills with longer, more specific "
+        "descriptions outcompete them."
+    ),
+    "QLT-003": (
+        "Descriptions that summarise the workflow let the model shortcut past "
+        "the body — it thinks it already knows what to do. Descriptions should "
+        "answer 'when does this fire?', not 'how does it work?'."
+    ),
+    "QLT-009": (
+        "Broken links in SKILL.md mean the model will follow a reference that "
+        "doesn't exist. The skill effectively has a missing chapter."
+    ),
+    "QLT-016": (
+        "Template residue ('Insert instructions below', 'TODO: write the skill') "
+        "indicates the skill was scaffolded but never actually written."
+    ),
 }
 
 # Prefix-based explanations for code families
@@ -58,6 +81,11 @@ _PREFIX_EXPLANATIONS: dict[str, str] = {
     "PERM": (
         "Excessive permissions give the skill more power than it needs. The principle of least "
         "privilege means a weather skill should NOT need Bash(*) access \u2014 it only needs to run curl."
+    ),
+    "QLT": (
+        "Authoring-quality rules cover discoverability, maintainability, and "
+        "portability \u2014 the practices that separate a skill that works from a "
+        "skill that works for everyone. Ported from dgallitelli/skill-reviewer."
     ),
 }
 

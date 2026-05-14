@@ -291,3 +291,41 @@ def test_existing_findings_carry_citations(tmp_path):
     str008 = next(f for f in findings if f.code == "STR-008")
     assert str008.citation, "STR-008 must carry a citation"
     assert "spec" in str008.citation.lower() or "agentskills" in str008.citation.lower()
+
+
+def test_run_audit_includes_qlt_findings(tmp_path):
+    """End-to-end: skillctl eval audit emits QLT-* findings."""
+    from skillctl.eval.cli import run_audit
+
+    skill_dir = tmp_path / "minimal-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "---\n"
+        "name: minimal-skill\n"
+        "description: Use when reviewing pull requests for security issues "
+        "across multiple languages and frameworks\n"
+        "---\n"
+        "\nbody\n"
+    )
+    report = run_audit(str(skill_dir), verbose=True)
+    qlt_codes = {f.code for f in report.findings if f.code.startswith("QLT-")}
+    # Should at minimum flag QLT-017 (no examples) on this minimal skill
+    assert "QLT-017" in qlt_codes
+    # Metadata should track quality finding count
+    assert "quality_findings" in report.metadata
+
+
+def test_run_audit_qlt_findings_carry_citations(tmp_path):
+    from skillctl.eval.cli import run_audit
+    skill_dir = tmp_path / "minimal-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: minimal-skill\n"
+        "description: Use when reviewing pull requests for security issues "
+        "across multiple languages and frameworks\n---\n\nbody\n"
+    )
+    report = run_audit(str(skill_dir), verbose=True)
+    qlt = [f for f in report.findings if f.code.startswith("QLT-")]
+    assert qlt, "no QLT findings emitted"
+    for f in qlt:
+        assert f.citation, f"{f.code} missing citation"

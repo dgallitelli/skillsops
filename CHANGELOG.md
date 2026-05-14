@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **`skillctl eval audit` now runs 19 QLT-* authoring-quality checks.**
+  The quality rules ported from dgallitelli/skill-reviewer (Tasks 4–9)
+  are now wired into the main audit pipeline. `skillctl eval audit`
+  runs structure, security, permission, and quality checks in sequence.
+  Quality findings are advisory (INFO/WARNING) and don't block `apply`.
+  The audit report metadata now includes a `quality_findings` count.
+  Educational explanations added for QLT-001, QLT-002, QLT-003,
+  QLT-009, QLT-016, and the QLT prefix family.
+
 ## v0.1.0b6 (2026-05-13)
 
 A focused follow-up to v0.1.0b5 closing both alias gaps in the
