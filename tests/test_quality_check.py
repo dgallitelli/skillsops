@@ -166,3 +166,114 @@ def test_qlt_018_not_emitted_when_body_present(tmp_path):
                  body="Real instructions go here.")
     codes = [f.code for f in check_quality(d)]
     assert "QLT-018" not in codes
+
+
+GOOD_DESC = "Use when handling test cases for the skill workflow checker"
+
+
+# --- QLT-007: no Windows-style backslash paths ----------------------------
+
+def test_qlt_007_emitted_for_backslash_paths(tmp_path):
+    d = tmp_path / "win-paths"
+    _write_skill(d, "win-paths", GOOD_DESC,
+                 body="Run scripts\\helper.py to start.")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-007" in codes
+
+
+def test_qlt_007_not_emitted_for_forward_slashes(tmp_path):
+    d = tmp_path / "unix-paths"
+    _write_skill(d, "unix-paths", GOOD_DESC,
+                 body="Run scripts/helper.py to start.")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-007" not in codes
+
+
+# --- QLT-011: time-sensitive language outside Old Patterns ---------------
+
+def test_qlt_011_emitted_for_dated_language_in_main_section(tmp_path):
+    d = tmp_path / "dated"
+    _write_skill(d, "dated", GOOD_DESC,
+                 body="## How it works\n\nAs of 2024 the API returns JSON.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-011" in codes
+
+
+def test_qlt_011_not_emitted_in_old_patterns_section(tmp_path):
+    d = tmp_path / "ok-dated"
+    _write_skill(d, "ok-dated", GOOD_DESC,
+                 body="## Old patterns\n\nAs of 2024 the API returned JSON.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-011" not in codes
+
+
+# --- QLT-013: MCP tool refs fully qualified ------------------------------
+
+def test_qlt_013_emitted_for_unqualified_mcp(tmp_path):
+    d = tmp_path / "bad-mcp"
+    _write_skill(d, "bad-mcp", GOOD_DESC,
+                 body="Use the `mcp__search` tool to look up records.")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-013" in codes
+
+
+def test_qlt_013_not_emitted_for_qualified_mcp(tmp_path):
+    d = tmp_path / "good-mcp"
+    _write_skill(d, "good-mcp", GOOD_DESC,
+                 body="Use the `mcp__brave__search` tool to look up records.")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-013" not in codes
+
+
+# --- QLT-016: template residue -------------------------------------------
+
+def test_qlt_016_emitted_for_template_residue(tmp_path):
+    d = tmp_path / "residue"
+    _write_skill(d, "residue", GOOD_DESC,
+                 body="# residue\n\nInsert instructions below.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-016" in codes
+
+
+def test_qlt_016_not_emitted_for_real_body(tmp_path):
+    d = tmp_path / "no-residue"
+    _write_skill(d, "no-residue", GOOD_DESC,
+                 body="# Real skill\n\nThis skill does X by running Y.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-016" not in codes
+
+
+# --- QLT-017: at least one fenced block or ## Example section -----------
+
+def test_qlt_017_emitted_when_no_examples(tmp_path):
+    d = tmp_path / "no-examples"
+    _write_skill(d, "no-examples", GOOD_DESC,
+                 body="Just narrative prose with no code or examples.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-017" in codes
+
+
+def test_qlt_017_not_emitted_when_fenced_block_present(tmp_path):
+    d = tmp_path / "with-fence"
+    _write_skill(d, "with-fence", GOOD_DESC,
+                 body="Run this:\n\n```bash\nls\n```\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-017" not in codes
+
+
+# --- QLT-019: consistent terminology -------------------------------------
+
+def test_qlt_019_emitted_for_three_synonyms(tmp_path):
+    d = tmp_path / "synonyms"
+    _write_skill(d, "synonyms", GOOD_DESC,
+                 body="Fill the field, then the box, then the input control.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-019" in codes
+
+
+def test_qlt_019_not_emitted_for_one_term(tmp_path):
+    d = tmp_path / "consistent"
+    _write_skill(d, "consistent", GOOD_DESC,
+                 body="Fill the field. Then fill the next field. Done.\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-019" not in codes
