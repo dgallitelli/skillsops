@@ -187,3 +187,24 @@ def test_finding_citation_defaults_to_none():
     )
     assert f.citation is None
     assert f.to_dict()["citation"] is None
+
+
+def test_apply_config_preserves_citation_through_severity_override():
+    """apply_config must not drop citation when it rebuilds Finding for a severity override."""
+    from skillctl.eval.config import AuditConfig, apply_config
+
+    f = Finding(
+        code="SEC-002",
+        severity=Severity.CRITICAL,
+        category=Category.SECURITY,
+        title="External URL",
+        detail="Skill references an external URL",
+        citation="platform.claude.com agent-skills/security §external-urls",
+    )
+    config = AuditConfig(severity_overrides={"SEC-002": "WARNING"})
+
+    result = apply_config([f], config)
+
+    assert len(result) == 1
+    assert result[0].severity == Severity.WARNING  # override applied
+    assert result[0].citation == "platform.claude.com agent-skills/security §external-urls"
