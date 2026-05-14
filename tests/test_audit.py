@@ -317,6 +317,7 @@ def test_run_audit_includes_qlt_findings(tmp_path):
 
 def test_run_audit_qlt_findings_carry_citations(tmp_path):
     from skillctl.eval.cli import run_audit
+
     skill_dir = tmp_path / "minimal-skill"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text(

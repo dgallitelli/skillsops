@@ -1,4 +1,5 @@
 """Citation rendering in audit reports."""
+
 import io
 
 from skillctl.eval.report import format_text_report, format_github_report
@@ -11,14 +12,16 @@ def _report_with(citation: str | None) -> AuditReport:
         skill_path="/tmp/test",
         score=85,
         grade="B",
-        findings=[Finding(
-            code="QLT-001",
-            severity=Severity.WARNING,
-            category=Category.QUALITY,
-            title="Demo finding",
-            detail="Demo detail",
-            citation=citation,
-        )],
+        findings=[
+            Finding(
+                code="QLT-001",
+                severity=Severity.WARNING,
+                category=Category.QUALITY,
+                title="Demo finding",
+                detail="Demo detail",
+                citation=citation,
+            )
+        ],
     )
 
 

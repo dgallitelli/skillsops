@@ -60,8 +60,20 @@ def _qlt(code: str, severity: Severity, title: str, detail: str, **kwargs) -> Fi
 # --- Name-quality constants -----------------------------------------------
 
 _GENERIC_NAME_WORDS = {
-    "helper", "helpers", "util", "utils", "tools", "tool", "lib",
-    "common", "misc", "stuff", "doc", "docs", "data", "files",
+    "helper",
+    "helpers",
+    "util",
+    "utils",
+    "tools",
+    "tool",
+    "lib",
+    "common",
+    "misc",
+    "stuff",
+    "doc",
+    "docs",
+    "data",
+    "files",
 }
 
 
@@ -83,9 +95,7 @@ _TIME_SENSITIVE_RE = re.compile(
     r"deprecated\s+in\s+(?:19|20)\d{2})\b",
     re.IGNORECASE,
 )
-_OLD_PATTERNS_HEADING_RE = re.compile(
-    r"\b(?:old patterns|history|deprecated|legacy)\b", re.IGNORECASE
-)
+_OLD_PATTERNS_HEADING_RE = re.compile(r"\b(?:old patterns|history|deprecated|legacy)\b", re.IGNORECASE)
 _MCP_BARE_TOOL_RE = re.compile(r"`mcp__[a-z0-9_-]+`")
 _TEMPLATE_MARKERS = (
     "insert instructions below",
@@ -113,84 +123,99 @@ _TOC_DETECT_RE = re.compile(
 _REF_TOC_LINE_THRESHOLD = 100
 
 
-def _check_description_style(frontmatter: dict, skill_md: Path,
-                              findings: list[Finding]) -> None:
+def _check_description_style(frontmatter: dict, skill_md: Path, findings: list[Finding]) -> None:
     desc = frontmatter.get("description")
     if not isinstance(desc, str) or not desc.strip():
         return  # STR-009 already flags this
 
     if not _USE_WHEN_RE.match(desc):
-        findings.append(_qlt(
-            "QLT-001", Severity.INFO,
-            "Description does not start with 'Use when ...'",
-            "Community convention is to begin descriptions with 'Use when ...' "
-            "so the trigger condition is the first thing a model sees.",
-            file_path=str(skill_md),
-            fix="Rewrite the description to start with 'Use when <triggering condition>'.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-001",
+                Severity.INFO,
+                "Description does not start with 'Use when ...'",
+                "Community convention is to begin descriptions with 'Use when ...' "
+                "so the trigger condition is the first thing a model sees.",
+                file_path=str(skill_md),
+                fix="Rewrite the description to start with 'Use when <triggering condition>'.",
+            )
+        )
 
     desc_len = len(desc.strip())
     if desc_len < _MIN_DESCRIPTION_CHARS:
-        findings.append(_qlt(
-            "QLT-002", Severity.WARNING,
-            f"Description is shorter than {_MIN_DESCRIPTION_CHARS} chars",
-            f"The description is {desc_len} chars; short descriptions don't "
-            "discriminate well during skill discovery and lose to longer competitors.",
-            file_path=str(skill_md),
-            fix="Add specific trigger phrases and the kind of input/output the skill handles.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-002",
+                Severity.WARNING,
+                f"Description is shorter than {_MIN_DESCRIPTION_CHARS} chars",
+                f"The description is {desc_len} chars; short descriptions don't "
+                "discriminate well during skill discovery and lose to longer competitors.",
+                file_path=str(skill_md),
+                fix="Add specific trigger phrases and the kind of input/output the skill handles.",
+            )
+        )
 
     workflow_hits = len(_WORKFLOW_VERB_RE.findall(desc))
     if workflow_hits >= _WORKFLOW_VERB_THRESHOLD:
-        findings.append(_qlt(
-            "QLT-003", Severity.WARNING,
-            "Description appears to summarise the workflow",
-            f"Found {workflow_hits} step-language matches in the description. "
-            "Models can shortcut past the body when descriptions describe HOW "
-            "instead of WHEN to invoke the skill.",
-            file_path=str(skill_md),
-            fix="Move workflow steps into the SKILL.md body. The description should "
-            "answer 'when does this fire?', not 'what does it do?'.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-003",
+                Severity.WARNING,
+                "Description appears to summarise the workflow",
+                f"Found {workflow_hits} step-language matches in the description. "
+                "Models can shortcut past the body when descriptions describe HOW "
+                "instead of WHEN to invoke the skill.",
+                file_path=str(skill_md),
+                fix="Move workflow steps into the SKILL.md body. The description should "
+                "answer 'when does this fire?', not 'what does it do?'.",
+            )
+        )
 
 
-def _check_name_quality(frontmatter: dict, skill_path: Path, skill_md: Path,
-                       findings: list[Finding]) -> None:
+def _check_name_quality(frontmatter: dict, skill_path: Path, skill_md: Path, findings: list[Finding]) -> None:
     name = frontmatter.get("name")
     if isinstance(name, str) and name:
         parts = re.split(r"-+", name.lower())
         if any(p in _GENERIC_NAME_WORDS for p in parts):
-            findings.append(_qlt(
-                "QLT-004", Severity.INFO,
-                f"Skill name '{name}' contains a generic word",
-                "Generic words like 'helper', 'utils', 'tools', 'data' don't "
-                "describe what the skill actually does and hurt discoverability.",
-                file_path=str(skill_md),
-                fix="Rename to a verb-first or domain-specific name "
+            findings.append(
+                _qlt(
+                    "QLT-004",
+                    Severity.INFO,
+                    f"Skill name '{name}' contains a generic word",
+                    "Generic words like 'helper', 'utils', 'tools', 'data' don't "
+                    "describe what the skill actually does and hurt discoverability.",
+                    file_path=str(skill_md),
+                    fix="Rename to a verb-first or domain-specific name "
                     "(e.g., 'csv-deduplicator' instead of 'data-helpers').",
-            ))
+                )
+            )
 
     if "_" in skill_path.name:
-        findings.append(_qlt(
-            "QLT-005", Severity.INFO,
-            f"Directory name '{skill_path.name}' contains an underscore",
-            "The Agent Skills spec requires skill names to use hyphens, not underscores. "
-            "If the frontmatter `name` is hyphenated, the directory should match.",
-            file_path=str(skill_path),
-            fix=f"Rename the directory using hyphens: {skill_path.name.replace('_', '-')!r}.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-005",
+                Severity.INFO,
+                f"Directory name '{skill_path.name}' contains an underscore",
+                "The Agent Skills spec requires skill names to use hyphens, not underscores. "
+                "If the frontmatter `name` is hyphenated, the directory should match.",
+                file_path=str(skill_path),
+                fix=f"Rename the directory using hyphens: {skill_path.name.replace('_', '-')!r}.",
+            )
+        )
 
 
 def _check_body_present(body: str, skill_md: Path, findings: list[Finding]) -> None:
     if not body.strip():
-        findings.append(_qlt(
-            "QLT-018", Severity.WARNING,
-            "SKILL.md has no body content (frontmatter only)",
-            "A skill consisting only of frontmatter has no instructions for the model "
-            "to follow once invoked.",
-            file_path=str(skill_md),
-            fix="Write the skill body — what to do, examples, and any references.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-018",
+                Severity.WARNING,
+                "SKILL.md has no body content (frontmatter only)",
+                "A skill consisting only of frontmatter has no instructions for the model to follow once invoked.",
+                file_path=str(skill_md),
+                fix="Write the skill body — what to do, examples, and any references.",
+            )
+        )
 
 
 def _strip_code(text: str) -> str:
@@ -203,13 +228,16 @@ def _strip_code(text: str) -> str:
 
 def _check_paths_in_body(body: str, skill_md: Path, findings: list[Finding]) -> None:
     if _WINDOWS_PATH_RE.search(body):
-        findings.append(_qlt(
-            "QLT-007", Severity.WARNING,
-            "SKILL.md references Windows-style backslash paths",
-            "Backslash paths break on macOS and Linux Claude clients.",
-            file_path=str(skill_md),
-            fix="Use forward slashes for all paths.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-007",
+                Severity.WARNING,
+                "SKILL.md references Windows-style backslash paths",
+                "Backslash paths break on macOS and Linux Claude clients.",
+                file_path=str(skill_md),
+                fix="Use forward slashes for all paths.",
+            )
+        )
 
 
 def _check_time_sensitive(body: str, skill_md: Path, findings: list[Finding]) -> None:
@@ -221,13 +249,16 @@ def _check_time_sensitive(body: str, skill_md: Path, findings: list[Finding]) ->
         if _OLD_PATTERNS_HEADING_RE.search(first_line):
             continue
         if _TIME_SENSITIVE_RE.search(sec):
-            findings.append(_qlt(
-                "QLT-011", Severity.WARNING,
-                f"Section '{first_line.strip()}' contains time-sensitive language",
-                "Phrases like 'as of 2024' rot quickly. The body section will outlive its claim.",
-                file_path=str(skill_md),
-                fix="Move dated claims to a '## Old patterns' or '## History' section.",
-            ))
+            findings.append(
+                _qlt(
+                    "QLT-011",
+                    Severity.WARNING,
+                    f"Section '{first_line.strip()}' contains time-sensitive language",
+                    "Phrases like 'as of 2024' rot quickly. The body section will outlive its claim.",
+                    file_path=str(skill_md),
+                    fix="Move dated claims to a '## Old patterns' or '## History' section.",
+                )
+            )
             return  # one per skill is enough
 
 
@@ -235,46 +266,52 @@ def _check_mcp_qualification(body: str, skill_md: Path, findings: list[Finding])
     matches = _MCP_BARE_TOOL_RE.findall(body)
     bare = [m for m in matches if m.count("__") < 2]
     if bare:
-        findings.append(_qlt(
-            "QLT-013", Severity.INFO,
-            "MCP tool references are not fully qualified",
-            f"Found unqualified references: {', '.join(bare[:3])}. "
-            "Qualified MCP tool names are unambiguous and survive server renames.",
-            file_path=str(skill_md),
-            fix="Use the form `mcp__<server>__<tool>` for every MCP tool reference.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-013",
+                Severity.INFO,
+                "MCP tool references are not fully qualified",
+                f"Found unqualified references: {', '.join(bare[:3])}. "
+                "Qualified MCP tool names are unambiguous and survive server renames.",
+                file_path=str(skill_md),
+                fix="Use the form `mcp__<server>__<tool>` for every MCP tool reference.",
+            )
+        )
 
 
 def _check_template_residue(body: str, skill_md: Path, findings: list[Finding]) -> None:
     lower = _strip_code(body).lower()
     for marker in _TEMPLATE_MARKERS:
         if marker in lower:
-            findings.append(_qlt(
-                "QLT-016", Severity.WARNING,
-                "SKILL.md body still contains template placeholder text",
-                f"Template marker '{marker}' is still present — the skill was scaffolded but not filled in.",
-                file_path=str(skill_md),
-                fix="Replace template placeholders with the actual skill content.",
-            ))
+            findings.append(
+                _qlt(
+                    "QLT-016",
+                    Severity.WARNING,
+                    "SKILL.md body still contains template placeholder text",
+                    f"Template marker '{marker}' is still present — the skill was scaffolded but not filled in.",
+                    file_path=str(skill_md),
+                    fix="Replace template placeholders with the actual skill content.",
+                )
+            )
             return
 
 
 def _check_concrete_examples(body: str, skill_md: Path, findings: list[Finding]) -> None:
     has_fence = "```" in body
-    has_example_section = re.search(
-        r"^#+\s*(?:example|examples)\b", body, re.IGNORECASE | re.MULTILINE
-    ) is not None
+    has_example_section = re.search(r"^#+\s*(?:example|examples)\b", body, re.IGNORECASE | re.MULTILINE) is not None
     if not (has_fence or has_example_section):
-        findings.append(_qlt(
-            "QLT-017", Severity.INFO,
-            "No concrete examples found in SKILL.md body",
-            "No fenced code blocks or `## Example` section detected. Examples improve "
-            "both discovery (model knows what triggers the skill) and correctness "
-            "(model knows the expected shape of the answer).",
-            file_path=str(skill_md),
-            fix="Add at least one fenced code block showing real input/output, "
-                "or a `## Example` section.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-017",
+                Severity.INFO,
+                "No concrete examples found in SKILL.md body",
+                "No fenced code blocks or `## Example` section detected. Examples improve "
+                "both discovery (model knows what triggers the skill) and correctness "
+                "(model knows the expected shape of the answer).",
+                file_path=str(skill_md),
+                fix="Add at least one fenced code block showing real input/output, or a `## Example` section.",
+            )
+        )
 
 
 def _check_consistent_terminology(body: str, skill_md: Path, findings: list[Finding]) -> None:
@@ -282,19 +319,21 @@ def _check_consistent_terminology(body: str, skill_md: Path, findings: list[Find
     for group in _NEAR_SYNONYM_GROUPS:
         present = [w for w in group if re.search(rf"\b{re.escape(w)}\b", lower)]
         if len(present) >= 3:
-            findings.append(_qlt(
-                "QLT-019", Severity.INFO,
-                "Multiple near-synonyms used together",
-                f"Found {', '.join(present)} in the same body. Inconsistent terminology "
-                "makes the skill harder to follow.",
-                file_path=str(skill_md),
-                fix=f"Pick one term from {{{', '.join(present)}}} and use it throughout.",
-            ))
+            findings.append(
+                _qlt(
+                    "QLT-019",
+                    Severity.INFO,
+                    "Multiple near-synonyms used together",
+                    f"Found {', '.join(present)} in the same body. Inconsistent terminology "
+                    "makes the skill harder to follow.",
+                    file_path=str(skill_md),
+                    fix=f"Pick one term from {{{', '.join(present)}}} and use it throughout.",
+                )
+            )
             return
 
 
-def _check_referenced_files(body: str, skill_path: Path, skill_md: Path,
-                            findings: list[Finding]) -> None:
+def _check_referenced_files(body: str, skill_path: Path, skill_md: Path, findings: list[Finding]) -> None:
     skill_root = skill_path.resolve()
     referenced: list[Path] = []
     for link in _MARKDOWN_LINK_RE.findall(body):
@@ -309,23 +348,29 @@ def _check_referenced_files(body: str, skill_path: Path, skill_md: Path,
         except ValueError:
             continue  # outside the skill dir; not our problem
         if not candidate.exists():
-            findings.append(_qlt(
-                "QLT-009", Severity.WARNING,
-                f"Broken link to {target!r}",
-                f"SKILL.md links to '{target}' but the file does not exist.",
-                file_path=str(skill_md),
-                fix="Create the file or remove/fix the link.",
-            ))
+            findings.append(
+                _qlt(
+                    "QLT-009",
+                    Severity.WARNING,
+                    f"Broken link to {target!r}",
+                    f"SKILL.md links to '{target}' but the file does not exist.",
+                    file_path=str(skill_md),
+                    fix="Create the file or remove/fix the link.",
+                )
+            )
             continue
         referenced.append(candidate)
         if len(rel.parts) > 2:
-            findings.append(_qlt(
-                "QLT-006", Severity.WARNING,
-                f"Reference '{target}' is more than one directory deep",
-                "Deeper references force the model to traverse multiple hops to reach content.",
-                file_path=str(skill_md),
-                fix="Flatten the reference hierarchy — keep referenced files one level below SKILL.md.",
-            ))
+            findings.append(
+                _qlt(
+                    "QLT-006",
+                    Severity.WARNING,
+                    f"Reference '{target}' is more than one directory deep",
+                    "Deeper references force the model to traverse multiple hops to reach content.",
+                    file_path=str(skill_md),
+                    fix="Flatten the reference hierarchy — keep referenced files one level below SKILL.md.",
+                )
+            )
 
     for cand in referenced:
         if cand.suffix.lower() != ".md":
@@ -338,33 +383,37 @@ def _check_referenced_files(body: str, skill_path: Path, skill_md: Path,
         if line_count > _REF_TOC_LINE_THRESHOLD:
             head = "\n".join(text.splitlines()[:50])
             if not _TOC_DETECT_RE.search(head):
-                findings.append(_qlt(
-                    "QLT-008", Severity.INFO,
-                    f"Reference {cand.name} is {line_count} lines but has no Table of Contents",
-                    "Long reference files without a ToC force the model to skim the whole "
-                    "file to find what it needs.",
-                    file_path=str(cand),
-                    fix="Add a `## Table of Contents` section near the top.",
-                ))
+                findings.append(
+                    _qlt(
+                        "QLT-008",
+                        Severity.INFO,
+                        f"Reference {cand.name} is {line_count} lines but has no Table of Contents",
+                        "Long reference files without a ToC force the model to skim the whole "
+                        "file to find what it needs.",
+                        file_path=str(cand),
+                        fix="Add a `## Table of Contents` section near the top.",
+                    )
+                )
 
 
 def _check_generic_filenames(skill_path: Path, findings: list[Finding]) -> None:
     for path in skill_path.rglob("*"):
         if path.is_file() and _GENERIC_FILENAME_RE.match(path.name):
-            findings.append(_qlt(
-                "QLT-010", Severity.INFO,
-                f"Generic filename '{path.name}'",
-                "Filenames like doc1.md, notes.md, tmp.py don't describe their contents.",
-                file_path=str(path),
-                fix="Rename to something descriptive of the file's actual contents.",
-            ))
+            findings.append(
+                _qlt(
+                    "QLT-010",
+                    Severity.INFO,
+                    f"Generic filename '{path.name}'",
+                    "Filenames like doc1.md, notes.md, tmp.py don't describe their contents.",
+                    file_path=str(path),
+                    fix="Rename to something descriptive of the file's actual contents.",
+                )
+            )
 
 
 # --- QLT-012/014/015 constants --------------------------------------------
 
-_VOODOO_LINE_RE = re.compile(
-    r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[-+]?(\d+)(?:\.\d+)?\s*(?:#(.*))?$"
-)
+_VOODOO_LINE_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[-+]?(\d+)(?:\.\d+)?\s*(?:#(.*))?$")
 _SELF_EXPLAINING_NAME_RE = re.compile(
     r"(?:(?:^|_)(?:MAX|MIN|DEFAULT|LIMIT|TIMEOUT|SIZE|LENGTH|COUNT|"
     r"THRESHOLD|MAGIC|VERSION|RETRIES|DEPTH|PORT|EXIT)_"
@@ -373,15 +422,25 @@ _SELF_EXPLAINING_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 _EXPLAIN_WORDS = {
-    "why", "because", "reason", "so", "to avoid", "chosen",
-    "required", "empirical", "empirically", "measured", "tuned", "spec",
-    "rfc", "limit", "fits",
+    "why",
+    "because",
+    "reason",
+    "so",
+    "to avoid",
+    "chosen",
+    "required",
+    "empirical",
+    "empirically",
+    "measured",
+    "tuned",
+    "spec",
+    "rfc",
+    "limit",
+    "fits",
 }
 # An allowed-tools entry is either a Claude Code-style capitalised tool name
 # (Read, Write, Bash(git:*)) or an MCP tool reference (mcp__server__tool).
-_ALLOWED_TOOLS_ENTRY_RE = re.compile(
-    r"^(?:[A-Z][\w-]*(?:\([^)]+\))?|mcp__[a-z0-9_-]+__[a-z0-9_-]+)$"
-)
+_ALLOWED_TOOLS_ENTRY_RE = re.compile(r"^(?:[A-Z][\w-]*(?:\([^)]+\))?|mcp__[a-z0-9_-]+__[a-z0-9_-]+)$")
 _EXAMPLE_GLOB = "example*"
 _CODE_SUFFIXES = {".py", ".js", ".ts", ".go", ".rb", ".java", ".rs"}
 
@@ -403,21 +462,23 @@ def _check_voodoo_constants(skill_path: Path, findings: list[Finding]) -> None:
                 continue
             if any(word in comment.lower() for word in _EXPLAIN_WORDS):
                 continue
-            findings.append(_qlt(
-                "QLT-012", Severity.INFO,
-                f"Possible voodoo constant in {path.name}:{i}",
-                f"Line `{line.strip()[:80]}` has a magic number with no why-comment "
-                "and a non-self-explaining name.",
-                file_path=str(path),
-                line_number=i,
-                fix="Add a comment explaining why this number was chosen, or rename "
+            findings.append(
+                _qlt(
+                    "QLT-012",
+                    Severity.INFO,
+                    f"Possible voodoo constant in {path.name}:{i}",
+                    f"Line `{line.strip()[:80]}` has a magic number with no why-comment "
+                    "and a non-self-explaining name.",
+                    file_path=str(path),
+                    line_number=i,
+                    fix="Add a comment explaining why this number was chosen, or rename "
                     "the constant so it's self-explaining (MAX_*, TIMEOUT_*, ...).",
-            ))
+                )
+            )
             return  # one per skill is enough; user can find the others
 
 
-def _check_allowed_tools(frontmatter: dict, skill_md: Path,
-                         findings: list[Finding]) -> None:
+def _check_allowed_tools(frontmatter: dict, skill_md: Path, findings: list[Finding]) -> None:
     val = frontmatter.get("allowed-tools")
     if val is None:
         return
@@ -426,24 +487,29 @@ def _check_allowed_tools(frontmatter: dict, skill_md: Path,
     elif isinstance(val, str):
         items = val.split()
     else:
-        findings.append(_qlt(
-            "QLT-014", Severity.WARNING,
-            "'allowed-tools' must be a string or list of strings",
-            f"Got {type(val).__name__}.",
-            file_path=str(skill_md),
-            fix="Set allowed-tools to either a space-separated string or a YAML list.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-014",
+                Severity.WARNING,
+                "'allowed-tools' must be a string or list of strings",
+                f"Got {type(val).__name__}.",
+                file_path=str(skill_md),
+                fix="Set allowed-tools to either a space-separated string or a YAML list.",
+            )
+        )
         return
     bad = [item for item in items if not _ALLOWED_TOOLS_ENTRY_RE.match(item)]
     if bad:
-        findings.append(_qlt(
-            "QLT-014", Severity.WARNING,
-            "'allowed-tools' contains entries that don't look like tool specs",
-            f"Bad entries: {bad}. Each entry should be 'Name' or 'Name(spec)' "
-            "(e.g., 'Read', 'Bash(git:*)').",
-            file_path=str(skill_md),
-            fix="Rewrite each entry as Name or Name(scope).",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-014",
+                Severity.WARNING,
+                "'allowed-tools' contains entries that don't look like tool specs",
+                f"Bad entries: {bad}. Each entry should be 'Name' or 'Name(spec)' (e.g., 'Read', 'Bash(git:*)').",
+                file_path=str(skill_md),
+                fix="Rewrite each entry as Name or Name(scope).",
+            )
+        )
 
 
 def _check_multilang_examples(skill_path: Path, findings: list[Finding]) -> None:
@@ -451,15 +517,17 @@ def _check_multilang_examples(skill_path: Path, findings: list[Finding]) -> None
     suffixes = {p.suffix.lower() for p in examples if p.is_file()}
     code_suffixes = suffixes & _CODE_SUFFIXES
     if len(code_suffixes) >= 3:
-        findings.append(_qlt(
-            "QLT-015", Severity.INFO,
-            f"Examples found in {len(code_suffixes)} languages",
-            f"Languages: {', '.join(sorted(code_suffixes))}. One excellent example "
-            "beats many mediocre translations.",
-            file_path=str(skill_path),
-            fix="Pick the most representative language for the skill's domain "
-                "and remove the others.",
-        ))
+        findings.append(
+            _qlt(
+                "QLT-015",
+                Severity.INFO,
+                f"Examples found in {len(code_suffixes)} languages",
+                f"Languages: {', '.join(sorted(code_suffixes))}. One excellent example "
+                "beats many mediocre translations.",
+                file_path=str(skill_path),
+                fix="Pick the most representative language for the skill's domain and remove the others.",
+            )
+        )
 
 
 def check_quality(skill_path: str | Path) -> list[Finding]:
