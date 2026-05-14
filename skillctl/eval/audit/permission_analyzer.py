@@ -13,6 +13,14 @@ from typing import Optional
 from skillctl.eval.audit.structure_check import _parse_frontmatter
 from skillctl.eval.schemas import Finding, Severity, Category
 
+_PERM_CITATIONS = {
+    "PERM-001": "code.claude.com/docs/en/skills §allowed-tools",
+    "PERM-002": "platform.claude.com agent-skills/best-practices",
+    "PERM-003": "platform.claude.com agent-skills/best-practices",
+    "PERM-004": "platform.claude.com agent-skills/best-practices",
+    "PERM-005": "platform.claude.com agent-skills/best-practices",
+}
+
 
 # Tool categories and their risk levels
 TOOL_RISK_LEVELS = {
@@ -125,6 +133,7 @@ def analyze_permissions(
                     f"This allows the skill to execute arbitrary system commands.",
                     file_path=str(skill_md),
                     fix="Scope Bash to specific commands, e.g., 'Bash(python3:*) Bash(git:*)' instead of 'Bash(*)'.",
+                    citation=_PERM_CITATIONS["PERM-001"],
                 )
             )
         elif high_risk_tools:
@@ -136,6 +145,7 @@ def analyze_permissions(
                     title=f"High-risk tools declared: {', '.join(high_risk_tools)}",
                     detail="The skill declares high-risk tools in allowed-tools. Ensure these are necessary for the skill's function.",
                     file_path=str(skill_md),
+                    citation=_PERM_CITATIONS["PERM-002"],
                 )
             )
 
@@ -150,6 +160,7 @@ def analyze_permissions(
                     detail="Many declared tools may indicate over-privilege. Skills should request only the tools they need.",
                     file_path=str(skill_md),
                     fix="Review each tool and remove any not required for the skill's core function.",
+                    citation=_PERM_CITATIONS["PERM-003"],
                 )
             )
 
@@ -213,6 +224,7 @@ def _check_implicit_permissions(content: str, skill_md: Path, findings: list[Fin
                         detail=f"{detail}. Line: {line.strip()[:100]}",
                         file_path=str(skill_md),
                         line_number=line_num,
+                        citation=_PERM_CITATIONS["PERM-004"],
                     )
                 )
 
@@ -244,5 +256,6 @@ def _check_file_access_patterns(content: str, skill_md: Path, findings: list[Fin
                     file_path=str(skill_md),
                     line_number=line_num,
                     fix="Skills should operate within the workspace directory. Avoid absolute system paths.",
+                    citation=_PERM_CITATIONS["PERM-005"],
                 )
             )

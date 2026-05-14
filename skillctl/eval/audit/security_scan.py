@@ -21,6 +21,24 @@ from pathlib import Path
 
 from skillctl.eval.schemas import Category, Finding, Severity
 
+_SEC_CITATIONS = {
+    "SEC-001": "OWASP Top 10 — A07 (Identification and Authentication Failures)",
+    "SEC-002": "OWASP Top 10 — A10 (SSRF / data exfiltration surface)",
+    "SEC-003": "OWASP Top 10 — A03 (Injection)",
+    "SEC-004": "OWASP Top 10 — A06 (Vulnerable and Outdated Components)",
+    "SEC-005": "OWASP LLM Top 10 — LLM01 (Prompt Injection)",
+    "SEC-006": "OWASP Top 10 — A08 (Software and Data Integrity Failures)",
+    "SEC-007": "OWASP Top 10 — A03 (Injection)",
+    "SEC-008": "OWASP Top 10 — A08 (Software and Data Integrity Failures)",
+    "SEC-009": "platform.claude.com mcp/best-practices",
+    "STR-022": "skillctl audit — file-size cap",
+}
+
+
+def _sec_finding(code: str, **kwargs) -> Finding:
+    return Finding(code=code, citation=_SEC_CITATIONS.get(code, ""), **kwargs)
+
+
 # Default file-size cap for scanning.  Files larger than this are
 # skipped with a STR-022 INFO finding so operators can see the audit
 # is incomplete rather than silently truncating coverage.
@@ -299,8 +317,8 @@ def _scan_file_for_secrets(file_path: Path, content: str) -> list[Finding]:
                     continue
 
                 findings.append(
-                    Finding(
-                        code="SEC-001",
+                    _sec_finding(
+                        "SEC-001",
                         severity=Severity.CRITICAL,
                         category=Category.SECURITY,
                         title=f"Secret detected: {pattern_name}",
@@ -355,8 +373,8 @@ def _scan_file_for_urls(file_path: Path, content: str, extra_safe_domains: set[s
                 severity = Severity.INFO
 
             findings.append(
-                Finding(
-                    code="SEC-002",
+                _sec_finding(
+                    "SEC-002",
                     severity=severity,
                     category=Category.SECURITY,
                     title=f"External URL: {domain}",
@@ -388,8 +406,8 @@ def _scan_file_for_subprocess(file_path: Path, content: str) -> list[Finding]:
                 )
 
                 findings.append(
-                    Finding(
-                        code="SEC-003",
+                    _sec_finding(
+                        "SEC-003",
                         severity=severity,
                         category=Category.SECURITY,
                         title=f"Subprocess pattern: {pattern_name}",
@@ -425,8 +443,8 @@ def _scan_file_for_installs(file_path: Path, content: str) -> list[Finding]:
                 severity = Severity.CRITICAL if is_pipe_shell else Severity.WARNING
 
                 findings.append(
-                    Finding(
-                        code="SEC-004",
+                    _sec_finding(
+                        "SEC-004",
                         severity=severity,
                         category=Category.SECURITY,
                         title=f"Unsafe install: {pattern_name}",
@@ -461,8 +479,8 @@ def _scan_file_for_deserialization(file_path: Path, content: str) -> list[Findin
                 severity = Severity.CRITICAL if sev_str == "CRITICAL" else Severity.WARNING
 
                 findings.append(
-                    Finding(
-                        code="SEC-006",
+                    _sec_finding(
+                        "SEC-006",
                         severity=severity,
                         category=Category.SECURITY,
                         title=f"Unsafe deserialization: {pattern_name}",
@@ -487,8 +505,8 @@ def _scan_file_for_dynamic_imports(file_path: Path, content: str) -> list[Findin
         for pattern_name, pattern, description in DYNAMIC_IMPORT_PATTERNS:
             if pattern.search(line):
                 findings.append(
-                    Finding(
-                        code="SEC-007",
+                    _sec_finding(
+                        "SEC-007",
                         severity=Severity.WARNING,
                         category=Category.SECURITY,
                         title=f"Dynamic import/codegen: {pattern_name}",
@@ -525,8 +543,8 @@ def _scan_file_for_base64_payloads(file_path: Path, content: str) -> list[Findin
                     detail = f"{description}. Line: {line.strip()[:100]}"
 
                 findings.append(
-                    Finding(
-                        code="SEC-008",
+                    _sec_finding(
+                        "SEC-008",
                         severity=severity,
                         category=Category.SECURITY,
                         title=f"Base64 payload: {pattern_name}",
@@ -545,8 +563,8 @@ def _scan_file_for_base64_payloads(file_path: Path, content: str) -> list[Findin
             context = "\n".join(lines[context_start:context_end])
             if EVAL_EXEC_PATTERN.search(context):
                 findings.append(
-                    Finding(
-                        code="SEC-008",
+                    _sec_finding(
+                        "SEC-008",
                         severity=Severity.CRITICAL,
                         category=Category.SECURITY,
                         title="Base64 payload: long encoded string with eval/exec",
@@ -570,8 +588,8 @@ def _scan_file_for_mcp_references(file_path: Path, content: str) -> list[Finding
                 severity = Severity.CRITICAL if sev_str == "CRITICAL" else Severity.WARNING
 
                 findings.append(
-                    Finding(
-                        code="SEC-009",
+                    _sec_finding(
+                        "SEC-009",
                         severity=severity,
                         category=Category.SECURITY,
                         title=f"MCP server reference: {pattern_name}",
@@ -604,8 +622,8 @@ def _scan_skill_md_for_eval_exec(skill_md: Path, content: str) -> list[Finding]:
 
         if in_code_block and EVAL_EXEC_PATTERN.search(line):
             findings.append(
-                Finding(
-                    code="SEC-005",
+                _sec_finding(
+                    "SEC-005",
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title="Injection surface: eval/exec in SKILL.md code block",
@@ -627,8 +645,8 @@ def _scan_skill_md_for_injection(skill_md: Path, content: str) -> list[Finding]:
         for pattern_name, pattern, description, fix in INJECTION_SURFACE_PATTERNS:
             if pattern.search(line):
                 findings.append(
-                    Finding(
-                        code="SEC-005",
+                    _sec_finding(
+                        "SEC-005",
                         severity=Severity.WARNING,
                         category=Category.SECURITY,
                         title=f"Injection surface: {pattern_name}",
@@ -952,8 +970,8 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
         if isinstance(node.func, ast.Name) and node.func.id in _AST_DANGEROUS_BUILTINS:
             code, title = _AST_DANGEROUS_BUILTINS[node.func.id]
             findings.append(
-                Finding(
-                    code=code,
+                _sec_finding(
+                    code,
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title=title,
@@ -983,8 +1001,8 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
             else:
                 fix = "Use a safer alternative."
             findings.append(
-                Finding(
-                    code=code,
+                _sec_finding(
+                    code,
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title=title,
@@ -999,8 +1017,8 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
         # yaml.load without Loader=
         if _is_yaml_load_unsafe(node, from_aliases, import_aliases):
             findings.append(
-                Finding(
-                    code="SEC-006-AST",
+                _sec_finding(
+                    "SEC-006-AST",
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title="Unsafe deserialization: yaml.load without Loader=",
@@ -1015,8 +1033,8 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
         # subprocess.run(..., shell=True)
         if _is_subprocess_shell_true(node, from_aliases, import_aliases):
             findings.append(
-                Finding(
-                    code="SEC-003-AST",
+                _sec_finding(
+                    "SEC-003-AST",
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title="Subprocess with shell=True",
@@ -1031,8 +1049,8 @@ def _ast_scan_python(file_path: Path, content: str) -> list[Finding]:
         # b64decode("AA" + "BB" + ...) — base64 string-concat bypass.
         if _is_b64decode_of_concat(node, from_aliases, import_aliases):
             findings.append(
-                Finding(
-                    code="SEC-008-AST",
+                _sec_finding(
+                    "SEC-008-AST",
                     severity=Severity.WARNING,
                     category=Category.SECURITY,
                     title="Base64 decode of literal-concatenation",
@@ -1208,8 +1226,8 @@ def scan_security(
     # didn't actually fail anything.
     for skipped in skipped_for_size:
         findings.append(
-            Finding(
-                code="STR-022",
+            _sec_finding(
+                "STR-022",
                 severity=Severity.INFO,
                 category=Category.STRUCTURE,
                 title="File exceeds audit size cap — skipped",
