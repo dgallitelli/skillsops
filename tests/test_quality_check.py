@@ -48,3 +48,61 @@ def test_check_quality_returns_empty_for_missing_skill_md(tmp_path: Path):
     d.mkdir()
     findings = check_quality(d)
     assert findings == []
+
+
+# --- QLT-001: description starts with "Use when ..." ----------------------
+
+def test_qlt_001_emitted_when_description_lacks_use_when_prefix(tmp_path):
+    d = tmp_path / "skill-no-prefix"
+    _write_skill(d, name="skill-no-prefix",
+                 description="Reviews pull requests for security issues "
+                             "across multiple languages and frameworks")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-001" in codes
+
+
+def test_qlt_001_not_emitted_when_description_starts_with_use_when(tmp_path):
+    d = tmp_path / "skill-with-prefix"
+    _write_skill(d, name="skill-with-prefix",
+                 description="Use when reviewing pull requests for security issues "
+                             "across multiple languages and frameworks")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-001" not in codes
+
+
+# --- QLT-002: description >=60 chars --------------------------------------
+
+def test_qlt_002_emitted_for_short_description(tmp_path):
+    d = tmp_path / "short-desc"
+    _write_skill(d, name="short-desc", description="Use when something happens")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-002" in codes
+
+
+def test_qlt_002_not_emitted_for_60_plus_char_description(tmp_path):
+    d = tmp_path / "long-desc"
+    _write_skill(d, name="long-desc",
+                 description="Use when reviewing PRs across multiple languages "
+                             "and frameworks for security issues")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-002" not in codes
+
+
+# --- QLT-003: description doesn't summarise workflow ----------------------
+
+def test_qlt_003_emitted_when_description_summarises_workflow(tmp_path):
+    d = tmp_path / "workflow-desc"
+    _write_skill(d, name="workflow-desc",
+                 description="First runs the linter, then formats the output, "
+                             "and finally writes a report to disk")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-003" in codes
+
+
+def test_qlt_003_not_emitted_for_when_focused_description(tmp_path):
+    d = tmp_path / "when-desc"
+    _write_skill(d, name="when-desc",
+                 description="Use when reviewing pull requests for security issues "
+                             "across multiple languages and frameworks")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-003" not in codes

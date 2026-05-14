@@ -57,6 +57,58 @@ def _qlt(code: str, severity: Severity, title: str, detail: str, **kwargs) -> Fi
     )
 
 
+# --- Regex constants ------------------------------------------------------
+
+_USE_WHEN_RE = re.compile(r"^\s*Use when\b", re.IGNORECASE)
+_WORKFLOW_VERB_RE = re.compile(
+    r"\b(?:then|next|first|after|before|finally|step\s*\d|"
+    r"runs?|executes?|formats?|writes?|generates?|outputs?)\b",
+    re.IGNORECASE,
+)
+_MIN_DESCRIPTION_CHARS = 60
+_WORKFLOW_VERB_THRESHOLD = 3
+
+
+def _check_description_style(frontmatter: dict, skill_md: Path,
+                              findings: list[Finding]) -> None:
+    desc = frontmatter.get("description")
+    if not isinstance(desc, str) or not desc.strip():
+        return  # STR-009 already flags this
+
+    if not _USE_WHEN_RE.match(desc):
+        findings.append(_qlt(
+            "QLT-001", Severity.INFO,
+            "Description does not start with 'Use when ...'",
+            "Community convention is to begin descriptions with 'Use when ...' "
+            "so the trigger condition is the first thing a model sees.",
+            file_path=str(skill_md),
+            fix="Rewrite the description to start with 'Use when <triggering condition>'.",
+        ))
+
+    if len(desc.strip()) < _MIN_DESCRIPTION_CHARS:
+        findings.append(_qlt(
+            "QLT-002", Severity.WARNING,
+            f"Description is shorter than {_MIN_DESCRIPTION_CHARS} chars",
+            f"The description is {len(desc)} chars; short descriptions don't "
+            "discriminate well during skill discovery and lose to longer competitors.",
+            file_path=str(skill_md),
+            fix="Add specific trigger phrases and the kind of input/output the skill handles.",
+        ))
+
+    workflow_hits = len(_WORKFLOW_VERB_RE.findall(desc))
+    if workflow_hits >= _WORKFLOW_VERB_THRESHOLD:
+        findings.append(_qlt(
+            "QLT-003", Severity.WARNING,
+            "Description appears to summarise the workflow",
+            f"Found {workflow_hits} step-language matches in the description. "
+            "Models can shortcut past the body when descriptions describe HOW "
+            "instead of WHEN to invoke the skill.",
+            file_path=str(skill_md),
+            fix="Move workflow steps into the SKILL.md body. The description should "
+            "answer 'when does this fire?', not 'what does it do?'.",
+        ))
+
+
 def _strip_code(text: str) -> str:
     """Remove fenced code blocks and inline-code spans so style checks
     don't trip on legitimate references to the very patterns they flag."""
@@ -89,5 +141,6 @@ def check_quality(skill_path: str | Path) -> list[Finding]:
 
     body = "\n".join(content.split("\n")[body_start:])
 
-    # Individual rule checks will be added in Tasks 5-8.
+    _check_description_style(frontmatter, skill_md, findings)
+
     return findings
