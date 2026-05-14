@@ -57,6 +57,14 @@ def _qlt(code: str, severity: Severity, title: str, detail: str, **kwargs) -> Fi
     )
 
 
+# --- Name-quality constants -----------------------------------------------
+
+_GENERIC_NAME_WORDS = {
+    "helper", "helpers", "util", "utils", "tools", "tool", "lib",
+    "common", "misc", "stuff", "doc", "docs", "data", "files",
+}
+
+
 # --- Regex constants ------------------------------------------------------
 
 _USE_WHEN_RE = re.compile(r"^\s*Use when\b", re.IGNORECASE)
@@ -110,6 +118,45 @@ def _check_description_style(frontmatter: dict, skill_md: Path,
         ))
 
 
+def _check_name_quality(frontmatter: dict, skill_path: Path, skill_md: Path,
+                       findings: list[Finding]) -> None:
+    name = frontmatter.get("name")
+    if isinstance(name, str) and name:
+        parts = re.split(r"-+", name.lower())
+        if any(p in _GENERIC_NAME_WORDS for p in parts):
+            findings.append(_qlt(
+                "QLT-004", Severity.INFO,
+                f"Skill name '{name}' contains a generic word",
+                "Generic words like 'helper', 'utils', 'tools', 'data' don't "
+                "describe what the skill actually does and hurt discoverability.",
+                file_path=str(skill_md),
+                fix="Rename to a verb-first or domain-specific name "
+                    "(e.g., 'csv-deduplicator' instead of 'data-helpers').",
+            ))
+
+    if "_" in skill_path.name:
+        findings.append(_qlt(
+            "QLT-005", Severity.INFO,
+            f"Directory name '{skill_path.name}' contains an underscore",
+            "The Agent Skills spec requires skill names to use hyphens, not underscores. "
+            "If the frontmatter `name` is hyphenated, the directory should match.",
+            file_path=str(skill_path),
+            fix=f"Rename the directory using hyphens: {skill_path.name.replace('_', '-')!r}.",
+        ))
+
+
+def _check_body_present(body: str, skill_md: Path, findings: list[Finding]) -> None:
+    if not body.strip():
+        findings.append(_qlt(
+            "QLT-018", Severity.WARNING,
+            "SKILL.md has no body content (frontmatter only)",
+            "A skill consisting only of frontmatter has no instructions for the model "
+            "to follow once invoked.",
+            file_path=str(skill_md),
+            fix="Write the skill body — what to do, examples, and any references.",
+        ))
+
+
 def _strip_code(text: str) -> str:
     """Remove fenced code blocks and inline-code spans so style checks
     don't trip on legitimate references to the very patterns they flag."""
@@ -143,5 +190,7 @@ def check_quality(skill_path: str | Path) -> list[Finding]:
     body = "\n".join(content.split("\n")[body_start:])
 
     _check_description_style(frontmatter, skill_md, findings)
+    _check_name_quality(frontmatter, skill_path, skill_md, findings)
+    _check_body_present(body, skill_md, findings)
 
     return findings

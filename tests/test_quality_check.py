@@ -106,3 +106,63 @@ def test_qlt_003_not_emitted_for_when_focused_description(tmp_path):
                              "across multiple languages and frameworks")
     codes = [f.code for f in check_quality(d)]
     assert "QLT-003" not in codes
+
+
+# --- QLT-004: name avoids generic words -----------------------------------
+
+def test_qlt_004_emitted_for_generic_name(tmp_path):
+    d = tmp_path / "data-helpers"
+    _write_skill(d, name="data-helpers",
+                 description="Use when munging data files for downstream tools and pipelines")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-004" in codes
+
+
+def test_qlt_004_not_emitted_for_specific_name(tmp_path):
+    d = tmp_path / "csv-deduplicator"
+    _write_skill(d, name="csv-deduplicator",
+                 description="Use when removing duplicate rows from CSV files based on primary key")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-004" not in codes
+
+
+# --- QLT-005: directory uses hyphens, not underscores ---------------------
+
+def test_qlt_005_emitted_for_underscore_directory(tmp_path):
+    d = tmp_path / "my_skill"
+    # Write SKILL.md by hand so the name field doesn't conflict with directory
+    d.mkdir()
+    (d / "SKILL.md").write_text(
+        "---\nname: my-skill\ndescription: Use when handling test cases for the skill workflow checker\n---\n\nbody\n"
+    )
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-005" in codes
+
+
+def test_qlt_005_not_emitted_for_hyphen_directory(tmp_path):
+    d = tmp_path / "my-skill"
+    _write_skill(d, name="my-skill",
+                 description="Use when handling test cases for the skill workflow checker")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-005" not in codes
+
+
+# --- QLT-018: SKILL.md has body content -----------------------------------
+
+def test_qlt_018_emitted_for_frontmatter_only_skill(tmp_path):
+    d = tmp_path / "empty-body"
+    d.mkdir()
+    (d / "SKILL.md").write_text(
+        "---\nname: empty-body\ndescription: Use when needing to check edge cases for empty bodies\n---\n"
+    )
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-018" in codes
+
+
+def test_qlt_018_not_emitted_when_body_present(tmp_path):
+    d = tmp_path / "with-body"
+    _write_skill(d, name="with-body",
+                 description="Use when handling test cases for the skill workflow checker",
+                 body="Real instructions go here.")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-018" not in codes
