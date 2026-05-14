@@ -314,7 +314,7 @@ def _check_referenced_files(body: str, skill_path: Path, skill_md: Path,
                 f"Broken link to {target!r}",
                 f"SKILL.md links to '{target}' but the file does not exist.",
                 file_path=str(skill_md),
-                fix=f"Create the file or remove/fix the link.",
+                fix="Create the file or remove/fix the link.",
             ))
             continue
         referenced.append(candidate)

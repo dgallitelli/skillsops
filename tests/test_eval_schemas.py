@@ -1,4 +1,5 @@
-"""Tests for eval dataclass schemas — to_dict/from_dict round-trips."""
+"""Tests for eval dataclass schemas — to_dict/from_dict round-trips, plus
+Finding citation field round-trips and apply_config propagation."""
 
 import json
 
@@ -14,6 +15,7 @@ from skillctl.eval.eval_schemas import (
     TriggerQueryResult,
     TriggerReport,
 )
+from skillctl.eval.schemas import Category, Finding, Severity
 
 
 class TestEvalCase:
@@ -160,8 +162,6 @@ class TestCompareReport:
 # ---------------------------------------------------------------------------
 # Finding citation field tests
 # ---------------------------------------------------------------------------
-"""Schema tests for Finding citation field."""
-from skillctl.eval.schemas import Finding, Severity, Category
 
 
 def test_finding_carries_citation_in_to_dict():
