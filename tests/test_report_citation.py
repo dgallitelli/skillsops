@@ -31,7 +31,7 @@ def test_text_report_renders_citation_when_present():
 def test_text_report_omits_citation_line_when_absent():
     buf = io.StringIO()
     format_text_report(_report_with(None), file=buf)
-    assert "cite" not in buf.getvalue().lower() or "Agent Skills" not in buf.getvalue()
+    assert "Source:" not in buf.getvalue()
 
 
 def test_github_report_includes_citation_in_body():
