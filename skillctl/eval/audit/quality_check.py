@@ -85,11 +85,12 @@ def _check_description_style(frontmatter: dict, skill_md: Path,
             fix="Rewrite the description to start with 'Use when <triggering condition>'.",
         ))
 
-    if len(desc.strip()) < _MIN_DESCRIPTION_CHARS:
+    desc_len = len(desc.strip())
+    if desc_len < _MIN_DESCRIPTION_CHARS:
         findings.append(_qlt(
             "QLT-002", Severity.WARNING,
             f"Description is shorter than {_MIN_DESCRIPTION_CHARS} chars",
-            f"The description is {len(desc)} chars; short descriptions don't "
+            f"The description is {desc_len} chars; short descriptions don't "
             "discriminate well during skill discovery and lose to longer competitors.",
             file_path=str(skill_md),
             fix="Add specific trigger phrases and the kind of input/output the skill handles.",
