@@ -155,3 +155,35 @@ class TestCompareReport:
         obj = CompareReport(skill_a_name="a", skill_a_path="/a", skill_b_name="b", skill_b_path="/b")
         assert obj.eval_count == 0
         assert obj.winner == "tie"
+
+
+# ---------------------------------------------------------------------------
+# Finding citation field tests
+# ---------------------------------------------------------------------------
+"""Schema tests for Finding citation field."""
+from skillctl.eval.schemas import Finding, Severity, Category
+
+
+def test_finding_carries_citation_in_to_dict():
+    f = Finding(
+        code="QLT-001",
+        severity=Severity.INFO,
+        category=Category.QUALITY,
+        title="t",
+        detail="d",
+        citation="Agent Skills spec §required-fields",
+    )
+    d = f.to_dict()
+    assert d["citation"] == "Agent Skills spec §required-fields"
+
+
+def test_finding_citation_defaults_to_none():
+    f = Finding(
+        code="STR-001",
+        severity=Severity.CRITICAL,
+        category=Category.STRUCTURE,
+        title="t",
+        detail="d",
+    )
+    assert f.citation is None
+    assert f.to_dict()["citation"] is None
