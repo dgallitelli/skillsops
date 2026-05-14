@@ -376,3 +376,85 @@ def test_qlt_010_not_emitted_for_descriptive_filenames(tmp_path):
     (refs / "api-reference.md").write_text("# api\n")
     codes = [f.code for f in check_quality(d)]
     assert "QLT-010" not in codes
+
+
+# --- QLT-012: voodoo constants in scripts --------------------------------
+
+def test_qlt_012_emitted_for_unexplained_constant(tmp_path):
+    d = tmp_path / "voodoo"
+    _write_skill(d, "voodoo", GOOD_DESC, body="body")
+    scripts = d / "scripts"
+    scripts.mkdir()
+    (scripts / "run.py").write_text("#!/usr/bin/env python3\nLIMIT = 47\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-012" in codes
+
+
+def test_qlt_012_not_emitted_when_constant_explained(tmp_path):
+    d = tmp_path / "explained"
+    _write_skill(d, "explained", GOOD_DESC, body="body")
+    scripts = d / "scripts"
+    scripts.mkdir()
+    (scripts / "run.py").write_text(
+        "#!/usr/bin/env python3\nLIMIT = 47  # chosen empirically — fits within rate limit\n"
+    )
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-012" not in codes
+
+
+def test_qlt_012_not_emitted_for_self_explaining_name(tmp_path):
+    d = tmp_path / "self-explaining"
+    _write_skill(d, "self-explaining", GOOD_DESC, body="body")
+    scripts = d / "scripts"
+    scripts.mkdir()
+    (scripts / "run.py").write_text("#!/usr/bin/env python3\nMAX_RETRIES = 47\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-012" not in codes
+
+
+# --- QLT-014: allowed-tools syntax ---------------------------------------
+
+def test_qlt_014_emitted_for_invalid_allowed_tools(tmp_path):
+    d = tmp_path / "bad-tools"
+    d.mkdir()
+    (d / "SKILL.md").write_text(
+        f"---\nname: bad-tools\ndescription: {GOOD_DESC}\n"
+        "allowed-tools: 'this is not a tool spec'\n---\n\nbody\n"
+    )
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-014" in codes
+
+
+def test_qlt_014_not_emitted_for_valid_allowed_tools(tmp_path):
+    d = tmp_path / "good-tools"
+    d.mkdir()
+    (d / "SKILL.md").write_text(
+        f"---\nname: good-tools\ndescription: {GOOD_DESC}\n"
+        "allowed-tools: Read Bash(git:*) Write\n---\n\nbody\n"
+    )
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-014" not in codes
+
+
+# --- QLT-015: multi-language example dilution ---------------------------
+
+def test_qlt_015_emitted_for_three_languages(tmp_path):
+    d = tmp_path / "polyglot"
+    _write_skill(d, "polyglot", GOOD_DESC, body="body")
+    examples = d / "examples"
+    examples.mkdir()
+    (examples / "example.py").write_text("print(1)\n")
+    (examples / "example.js").write_text("console.log(1)\n")
+    (examples / "example.go").write_text("package main\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-015" in codes
+
+
+def test_qlt_015_not_emitted_for_single_language(tmp_path):
+    d = tmp_path / "monolang"
+    _write_skill(d, "monolang", GOOD_DESC, body="body")
+    examples = d / "examples"
+    examples.mkdir()
+    (examples / "example.py").write_text("print(1)\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-015" not in codes

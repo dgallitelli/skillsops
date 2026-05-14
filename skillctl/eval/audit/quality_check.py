@@ -360,6 +360,104 @@ def _check_generic_filenames(skill_path: Path, findings: list[Finding]) -> None:
             ))
 
 
+# --- QLT-012/014/015 constants --------------------------------------------
+
+_VOODOO_LINE_RE = re.compile(
+    r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[-+]?(\d+)(?:\.\d+)?\s*(?:#(.*))?$"
+)
+_SELF_EXPLAINING_NAME_RE = re.compile(
+    r"(?:(?:^|_)(?:MAX|MIN|DEFAULT|LIMIT|TIMEOUT|SIZE|LENGTH|COUNT|"
+    r"THRESHOLD|MAGIC|VERSION|RETRIES|DEPTH|PORT|EXIT)_"
+    r"|_(?:MAX|MIN|DEFAULT|LIMIT|TIMEOUT|SIZE|LENGTH|COUNT|"
+    r"THRESHOLD|MAGIC|VERSION|RETRIES|DEPTH|PORT|EXIT)(?:_|$))",
+    re.IGNORECASE,
+)
+_EXPLAIN_WORDS = {
+    "why", "because", "reason", "so", "to avoid", "chosen",
+    "required", "empirical", "empirically", "measured", "tuned", "spec",
+    "rfc", "limit", "fits",
+}
+_ALLOWED_TOOLS_ENTRY_RE = re.compile(r"^[A-Z][\w-]*(?:\([^)]+\))?$")
+_EXAMPLE_GLOB = "example*"
+_CODE_SUFFIXES = {".py", ".js", ".ts", ".go", ".rb", ".java", ".rs"}
+
+
+def _check_voodoo_constants(skill_path: Path, findings: list[Finding]) -> None:
+    for path in skill_path.rglob("*.py"):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for i, line in enumerate(text.splitlines(), start=1):
+            m = _VOODOO_LINE_RE.match(line)
+            if not m:
+                continue
+            varname, number, comment = m.group(1), m.group(2), (m.group(3) or "")
+            if len(number) < 2:
+                continue  # 0..9 are rarely magic
+            if _SELF_EXPLAINING_NAME_RE.search(varname):
+                continue
+            if any(word in comment.lower() for word in _EXPLAIN_WORDS):
+                continue
+            findings.append(_qlt(
+                "QLT-012", Severity.INFO,
+                f"Possible voodoo constant in {path.name}:{i}",
+                f"Line `{line.strip()[:80]}` has a magic number with no why-comment "
+                "and a non-self-explaining name.",
+                file_path=str(path),
+                line_number=i,
+                fix="Add a comment explaining why this number was chosen, or rename "
+                    "the constant so it's self-explaining (MAX_*, TIMEOUT_*, ...).",
+            ))
+            return  # one per skill is enough; user can find the others
+
+
+def _check_allowed_tools(frontmatter: dict, skill_md: Path,
+                         findings: list[Finding]) -> None:
+    val = frontmatter.get("allowed-tools")
+    if val is None:
+        return
+    if isinstance(val, list):
+        items = [str(x) for x in val]
+    elif isinstance(val, str):
+        items = val.split()
+    else:
+        findings.append(_qlt(
+            "QLT-014", Severity.WARNING,
+            "'allowed-tools' must be a string or list of strings",
+            f"Got {type(val).__name__}.",
+            file_path=str(skill_md),
+            fix="Set allowed-tools to either a space-separated string or a YAML list.",
+        ))
+        return
+    bad = [item for item in items if not _ALLOWED_TOOLS_ENTRY_RE.match(item)]
+    if bad:
+        findings.append(_qlt(
+            "QLT-014", Severity.WARNING,
+            "'allowed-tools' contains entries that don't look like tool specs",
+            f"Bad entries: {bad}. Each entry should be 'Name' or 'Name(spec)' "
+            "(e.g., 'Read', 'Bash(git:*)').",
+            file_path=str(skill_md),
+            fix="Rewrite each entry as Name or Name(scope).",
+        ))
+
+
+def _check_multilang_examples(skill_path: Path, findings: list[Finding]) -> None:
+    examples = list(skill_path.rglob(_EXAMPLE_GLOB))
+    suffixes = {p.suffix.lower() for p in examples if p.is_file()}
+    code_suffixes = suffixes & _CODE_SUFFIXES
+    if len(code_suffixes) >= 3:
+        findings.append(_qlt(
+            "QLT-015", Severity.INFO,
+            f"Examples found in {len(code_suffixes)} languages",
+            f"Languages: {', '.join(sorted(code_suffixes))}. One excellent example "
+            "beats many mediocre translations.",
+            file_path=str(skill_path),
+            fix="Pick the most representative language for the skill's domain "
+                "and remove the others.",
+        ))
+
+
 def check_quality(skill_path: str | Path) -> list[Finding]:
     """Run all QLT-* authoring-quality checks on a skill directory.
 
@@ -395,5 +493,8 @@ def check_quality(skill_path: str | Path) -> list[Finding]:
     _check_consistent_terminology(body, skill_md, findings)
     _check_referenced_files(body, skill_path, skill_md, findings)
     _check_generic_filenames(skill_path, findings)
+    _check_voodoo_constants(skill_path, findings)
+    _check_allowed_tools(frontmatter, skill_md, findings)
+    _check_multilang_examples(skill_path, findings)
 
     return findings
