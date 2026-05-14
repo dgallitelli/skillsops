@@ -37,6 +37,7 @@ class Finding:
     file_path: Optional[str] = None  # File where the issue was found
     line_number: Optional[int] = None  # Line number (1-indexed)
     fix: Optional[str] = None  # Suggested remediation
+    citation: Optional[str] = None  # Upstream rule source (e.g., "platform.claude.com agent-skills/best-practices")
 
     def to_dict(self) -> dict:
         d = asdict(self)

@@ -1,4 +1,5 @@
-"""Tests for eval dataclass schemas — to_dict/from_dict round-trips."""
+"""Tests for eval dataclass schemas — to_dict/from_dict round-trips, plus
+Finding citation field round-trips and apply_config propagation."""
 
 import json
 
@@ -14,6 +15,7 @@ from skillctl.eval.eval_schemas import (
     TriggerQueryResult,
     TriggerReport,
 )
+from skillctl.eval.schemas import Category, Finding, Severity
 
 
 class TestEvalCase:
@@ -155,3 +157,54 @@ class TestCompareReport:
         obj = CompareReport(skill_a_name="a", skill_a_path="/a", skill_b_name="b", skill_b_path="/b")
         assert obj.eval_count == 0
         assert obj.winner == "tie"
+
+
+# ---------------------------------------------------------------------------
+# Finding citation field tests
+# ---------------------------------------------------------------------------
+
+
+def test_finding_carries_citation_in_to_dict():
+    f = Finding(
+        code="QLT-001",
+        severity=Severity.INFO,
+        category=Category.QUALITY,
+        title="t",
+        detail="d",
+        citation="Agent Skills spec §required-fields",
+    )
+    d = f.to_dict()
+    assert d["citation"] == "Agent Skills spec §required-fields"
+
+
+def test_finding_citation_defaults_to_none():
+    f = Finding(
+        code="STR-001",
+        severity=Severity.CRITICAL,
+        category=Category.STRUCTURE,
+        title="t",
+        detail="d",
+    )
+    assert f.citation is None
+    assert f.to_dict()["citation"] is None
+
+
+def test_apply_config_preserves_citation_through_severity_override():
+    """apply_config must not drop citation when it rebuilds Finding for a severity override."""
+    from skillctl.eval.config import AuditConfig, apply_config
+
+    f = Finding(
+        code="SEC-002",
+        severity=Severity.CRITICAL,
+        category=Category.SECURITY,
+        title="External URL",
+        detail="Skill references an external URL",
+        citation="platform.claude.com agent-skills/security §external-urls",
+    )
+    config = AuditConfig(severity_overrides={"SEC-002": "WARNING"})
+
+    result = apply_config([f], config)
+
+    assert len(result) == 1
+    assert result[0].severity == Severity.WARNING  # override applied
+    assert result[0].citation == "platform.claude.com agent-skills/security §external-urls"

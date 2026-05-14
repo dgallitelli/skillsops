@@ -229,6 +229,7 @@ def apply_config(
                 file_path=f.file_path,
                 line_number=f.line_number,
                 fix=f.fix,
+                citation=f.citation,
             )
 
         result.append(f)

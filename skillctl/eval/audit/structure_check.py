@@ -24,6 +24,33 @@ import yaml
 from skillctl.eval.schemas import Finding, Severity, Category
 
 
+# Citations for STR-* findings. Format mirrors skill-reviewer's
+# references/rules.md so users can cross-reference upstream.
+_STR_CITATIONS = {
+    "STR-001": "agentskills.io/specification §directory-structure",
+    "STR-002": "agentskills.io/specification §directory-structure",
+    "STR-003": "agentskills.io/specification §frontmatter",
+    "STR-004": "agentskills.io/specification §frontmatter",
+    "STR-005": "agentskills.io/specification §required-fields",
+    "STR-006": "agentskills.io/specification §name; skills-ref MAX_SKILL_NAME_LENGTH=64",
+    "STR-007": "agentskills.io/specification §name",
+    "STR-008": "agentskills.io/specification §name",
+    "STR-009": "agentskills.io/specification §required-fields",
+    "STR-010": "agentskills.io/specification §description; skills-ref MAX_DESCRIPTION_LENGTH=1024",
+    "STR-011": "platform.claude.com agent-skills/best-practices",
+    "STR-012": "skills-ref MAX_COMPATIBILITY_LENGTH=500",
+    "STR-013": "agentskills.io/specification §metadata",
+    "STR-014": "platform.claude.com agent-skills/best-practices",
+    "STR-015": "platform.claude.com agent-skills/overview",
+    "STR-016": "platform.claude.com agent-skills/overview",
+    "STR-017": "platform.claude.com agent-skills/best-practices",
+    "STR-018": "agentskills.io/specification §name",
+    "STR-019": "platform.claude.com agent-skills/best-practices",
+    "STR-020": "platform.claude.com agent-skills/best-practices",
+    "STR-021": "platform.claude.com agent-skills/best-practices",
+}
+
+
 # --- Name validation ---
 
 _NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
@@ -96,6 +123,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 title="Skill path is not a directory",
                 detail=f"Expected a directory at '{skill_path}', but it doesn't exist or isn't a directory.",
                 file_path=str(skill_path),
+                citation=_STR_CITATIONS["STR-001"],
             )
         )
         return findings, None, 0  # Can't continue without the directory
@@ -114,6 +142,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 detail="Every skill must have a SKILL.md file at its root. This is the only required file.",
                 file_path=str(skill_md),
                 fix="Create a SKILL.md with YAML frontmatter (name, description) and markdown instructions.",
+                citation=_STR_CITATIONS["STR-002"],
             )
         )
         return findings, None, 0  # Can't continue without SKILL.md
@@ -130,6 +159,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 title="Cannot read SKILL.md",
                 detail=f"Failed to read SKILL.md: {e}",
                 file_path=str(skill_md),
+                citation=_STR_CITATIONS["STR-003"],
             )
         )
         return findings, None, 0
@@ -147,6 +177,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 file_path=str(skill_md),
                 line_number=1,
                 fix="SKILL.md must start with --- followed by YAML key-value pairs and a closing ---.",
+                citation=_STR_CITATIONS["STR-004"],
             )
         )
         return findings, None, 0
@@ -165,6 +196,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 file_path=str(skill_md),
                 line_number=1,
                 fix="Add 'name: your-skill-name' to the frontmatter.",
+                citation=_STR_CITATIONS["STR-005"],
             )
         )
     elif isinstance(name, str):
@@ -179,6 +211,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     detail=f"The name '{name}' exceeds the {_MAX_NAME_LEN}-character limit.",
                     file_path=str(skill_md),
                     fix=f"Shorten the name to {_MAX_NAME_LEN} characters or fewer.",
+                    citation=_STR_CITATIONS["STR-006"],
                 )
             )
 
@@ -207,6 +240,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     detail=detail,
                     file_path=str(skill_md),
                     fix="Name must be 1-64 lowercase alphanumeric characters and hyphens, not starting/ending with hyphen.",
+                    citation=_STR_CITATIONS["STR-007"],
                 )
             )
 
@@ -221,6 +255,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     detail=f"Frontmatter name '{name}' doesn't match directory name '{dir_name}'.",
                     file_path=str(skill_md),
                     fix=f"Either rename the directory to '{name}/' or change the name field to '{dir_name}'.",
+                    citation=_STR_CITATIONS["STR-008"],
                 )
             )
 
@@ -238,6 +273,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                         f"Names must not contain 'anthropic' or 'claude'.",
                         file_path=str(skill_md),
                         fix=f"Remove '{reserved}' from the skill name. Use a descriptive name for what the skill does instead.",
+                        citation=_STR_CITATIONS["STR-018"],
                     )
                 )
                 break  # One finding is enough
@@ -255,6 +291,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 file_path=str(skill_md),
                 line_number=1,
                 fix='Quote the name value in YAML: name: "my-skill".',
+                citation=_STR_CITATIONS["STR-005"],
             )
         )
 
@@ -271,6 +308,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 file_path=str(skill_md),
                 line_number=1,
                 fix="Add 'description: What it does and when to use it' to the frontmatter.",
+                citation=_STR_CITATIONS["STR-009"],
             )
         )
     elif isinstance(desc, str):
@@ -284,6 +322,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     detail=f"The description exceeds the {_MAX_DESC_LEN}-character limit.",
                     file_path=str(skill_md),
                     fix=f"Shorten the description to {_MAX_DESC_LEN} characters. Move details to the body.",
+                    citation=_STR_CITATIONS["STR-010"],
                 )
             )
 
@@ -297,6 +336,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     detail=f"The description '{desc}' is very short ({len(desc)} chars). It should describe what the skill does AND when to use it.",
                     file_path=str(skill_md),
                     fix="Include both what the skill does and specific trigger contexts/phrases.",
+                    citation=_STR_CITATIONS["STR-011"],
                 )
             )
 
@@ -312,6 +352,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     "XML tags in the description can interfere with system prompt injection.",
                     file_path=str(skill_md),
                     fix="Remove all XML/HTML tags from the description. Use plain text only.",
+                    citation=_STR_CITATIONS["STR-019"],
                 )
             )
 
@@ -340,6 +381,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     f"or second person ('You can use this'). Inconsistent point-of-view can cause discovery problems.",
                     file_path=str(skill_md),
                     fix="Rewrite the description in third person: 'Analyzes data...' instead of 'I analyze data...'.",
+                    citation=_STR_CITATIONS["STR-020"],
                 )
             )
     else:
@@ -353,6 +395,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 file_path=str(skill_md),
                 line_number=1,
                 fix='Quote the description value in YAML: description: "..."',
+                citation=_STR_CITATIONS["STR-009"],
             )
         )
 
@@ -367,6 +410,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 title=f"Compatibility field too long ({len(compat)} chars, max {_MAX_COMPAT_LEN})",
                 detail=f"The compatibility field exceeds {_MAX_COMPAT_LEN} characters.",
                 file_path=str(skill_md),
+                citation=_STR_CITATIONS["STR-012"],
             )
         )
 
@@ -388,6 +432,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                             title="metadata field should be a mapping",
                             detail=f"The metadata field should be a YAML mapping (key: value pairs). Parsed JSON is {type(parsed).__name__}.",
                             file_path=str(skill_md),
+                            citation=_STR_CITATIONS["STR-013"],
                         )
                     )
             except (json.JSONDecodeError, Exception):
@@ -399,6 +444,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                         title="metadata field should be a mapping",
                         detail="The metadata field should be a YAML mapping (key: value pairs), got string that isn't valid JSON.",
                         file_path=str(skill_md),
+                        citation=_STR_CITATIONS["STR-013"],
                     )
                 )
         else:
@@ -410,6 +456,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     title="metadata field should be a mapping",
                     detail=f"The metadata field should be a YAML mapping (key: value pairs), got {type(metadata).__name__}.",
                     file_path=str(skill_md),
+                    citation=_STR_CITATIONS["STR-013"],
                 )
             )
 
@@ -429,6 +476,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 detail=f"The spec recommends keeping SKILL.md under {_RECOMMENDED_MAX_LINES} lines for efficient context usage.",
                 file_path=str(skill_md),
                 fix="Move detailed reference material to separate files in references/ or scripts/.",
+                citation=_STR_CITATIONS["STR-014"],
             )
         )
 
@@ -444,6 +492,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 detail="Large SKILL.md files consume significant context when activated. The spec recommends <5000 tokens for the instructions body.",
                 file_path=str(skill_md),
                 fix="Use progressive disclosure: move detailed content to references/ files loaded on demand.",
+                citation=_STR_CITATIONS["STR-015"],
             )
         )
 
@@ -459,6 +508,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                 detail="Some agents may confuse README.md with SKILL.md. The skill entry point should be SKILL.md only.",
                 file_path=str(readme),
                 fix="Consider removing README.md or clearly differentiating it from SKILL.md.",
+                citation=_STR_CITATIONS["STR-016"],
             )
         )
 
@@ -483,6 +533,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                     ),
                     file_path=str(skill_path / "SKILL.md"),
                     fix="Move detailed checklists or specifications to a references/ directory",
+                    citation=_STR_CITATIONS["STR-021"],
                 )
             )
 
@@ -505,6 +556,7 @@ def check_structure(skill_path: str | Path) -> tuple[list[Finding], Optional[dic
                                 file_path=str(script_file),
                                 line_number=1,
                                 fix="Add '#!/usr/bin/env python3' (or appropriate) as the first line.",
+                                citation=_STR_CITATIONS["STR-017"],
                             )
                         )
                 except Exception:

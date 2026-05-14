@@ -81,6 +81,9 @@ def format_text_report(
             if finding.fix:
                 print(f"     Fix: {finding.fix}", file=file)
 
+            if finding.citation:
+                print(f"     Source: {finding.citation}", file=file)
+
             if explain:
                 explanation = get_explanation(finding.code)
                 if explanation:
@@ -180,6 +183,8 @@ def _gh_workflow_command(level: str, finding: Finding) -> str:
     body_parts = [finding.detail]
     if finding.fix:
         body_parts.append(f"Fix: {finding.fix}")
+    if finding.citation:
+        body_parts.append(f"Source: {finding.citation}")
     return _gh_workflow_line(
         level,
         file=finding.file_path,
