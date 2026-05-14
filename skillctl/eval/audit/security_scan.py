@@ -36,7 +36,7 @@ _SEC_CITATIONS = {
 
 
 def _sec_finding(code: str, **kwargs) -> Finding:
-    return Finding(code=code, citation=_SEC_CITATIONS.get(code, ""), **kwargs)
+    return Finding(code=code, citation=_SEC_CITATIONS.get(code), **kwargs)
 
 
 # Default file-size cap for scanning.  Files larger than this are
