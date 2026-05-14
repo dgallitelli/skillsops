@@ -436,6 +436,18 @@ def test_qlt_014_not_emitted_for_valid_allowed_tools(tmp_path):
     assert "QLT-014" not in codes
 
 
+def test_qlt_014_accepts_mcp_tool_entries(tmp_path):
+    """MCP tool entries (mcp__server__tool) are valid `allowed-tools` values."""
+    d = tmp_path / "mcp-tools"
+    d.mkdir()
+    (d / "SKILL.md").write_text(
+        f"---\nname: mcp-tools\ndescription: {GOOD_DESC}\n"
+        "allowed-tools: Read mcp__filesystem__read_file mcp__github__list_issues\n---\n\nbody\n"
+    )
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-014" not in codes
+
+
 # --- QLT-015: multi-language example dilution ---------------------------
 
 def test_qlt_015_emitted_for_three_languages(tmp_path):

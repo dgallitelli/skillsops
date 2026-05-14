@@ -377,7 +377,11 @@ _EXPLAIN_WORDS = {
     "required", "empirical", "empirically", "measured", "tuned", "spec",
     "rfc", "limit", "fits",
 }
-_ALLOWED_TOOLS_ENTRY_RE = re.compile(r"^[A-Z][\w-]*(?:\([^)]+\))?$")
+# An allowed-tools entry is either a Claude Code-style capitalised tool name
+# (Read, Write, Bash(git:*)) or an MCP tool reference (mcp__server__tool).
+_ALLOWED_TOOLS_ENTRY_RE = re.compile(
+    r"^(?:[A-Z][\w-]*(?:\([^)]+\))?|mcp__[a-z0-9_-]+__[a-z0-9_-]+)$"
+)
 _EXAMPLE_GLOB = "example*"
 _CODE_SUFFIXES = {".py", ".js", ".ts", ".go", ".rb", ".java", ".rs"}
 
