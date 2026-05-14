@@ -22,6 +22,7 @@ Run `skillctl_eval_audit` and examine the findings. Each finding has a code, sev
 | STR-*  | Structure | Missing SKILL.md, bad directory layout, missing frontmatter |
 | SEC-*  | Security | Hardcoded secrets, URL injection, unsafe shell commands, data exfiltration patterns |
 | PERM-* | Permissions | Overly broad allowed-tools, undeclared capabilities, dangerous tool combinations |
+| QLT-*  | Quality | Authoring best-practices: description quality, broken links, template residue, voodoo constants, MCP qualification |
 
 ### Severity levels
 
@@ -36,6 +37,10 @@ Run `skillctl_eval_audit` and examine the findings. Each finding has a code, sev
 **PERM-001 (overly broad tools)**: Narrow `allowed-tools` to specific patterns like `Bash(git *)` instead of `Bash(*)`.
 **STR-001 (missing SKILL.md)**: Create the file — every skill needs it.
 **STR-017 (no frontmatter)**: Add YAML frontmatter with at least a `description` field.
+**QLT-001 (description doesn't start with "Use when ...")**: Rewrite the description to begin with "Use when <triggering context>".
+**QLT-003 (description summarises the workflow)**: Move workflow steps to the SKILL.md body — descriptions should describe WHEN to invoke, not HOW it works.
+**QLT-009 (broken link)**: Either create the missing file or fix the link path.
+**QLT-016 (template residue)**: Replace template placeholders ("Insert instructions below", "your-skill-name", etc.) with real content.
 
 ## Diagnosing functional eval failures
 

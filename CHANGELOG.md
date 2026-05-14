@@ -3,15 +3,14 @@
 ## Unreleased
 
 ### Added
-
-- **`skillctl eval audit` now runs 19 QLT-* authoring-quality checks.**
-  The quality rules ported from dgallitelli/skill-reviewer (Tasks 4–9)
-  are now wired into the main audit pipeline. `skillctl eval audit`
-  runs structure, security, permission, and quality checks in sequence.
-  Quality findings are advisory (INFO/WARNING) and don't block `apply`.
-  The audit report metadata now includes a `quality_findings` count.
-  Educational explanations added for QLT-001, QLT-002, QLT-003,
-  QLT-009, QLT-016, and the QLT prefix family.
+- `eval audit` now runs 19 authoring-quality checks (`QLT-001` … `QLT-019`)
+  ported from [`dgallitelli/skill-reviewer`](https://github.com/dgallitelli/skill-reviewer).
+  Covers description quality, reference-file structure, body content,
+  bundled scripts, `allowed-tools` syntax, and MCP tool qualification.
+  All QLT findings are advisory (INFO/WARNING) — they don't block `apply`.
+- Every audit `Finding` now carries a `citation` field naming the rule's
+  upstream source. Visible in text, JSON, and GitHub Actions report output.
+- `diagnose-skill` plugin skill now documents the `QLT-*` finding family.
 
 ## v0.1.0b6 (2026-05-13)
 

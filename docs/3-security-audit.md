@@ -319,3 +319,55 @@ budget.
 | `skillctl/eval/audit/permission_analyzer.py` | All PERM-001 through PERM-005 checks |
 | `skillctl/eval/schemas.py` | `Finding`, `Severity`, `Category` types |
 | `skillctl/eval/cli.py` | Audit orchestration, `.skilleval.yaml` config application, scoring |
+
+---
+
+## QLT-* Authoring Quality Rules
+
+The QLT-* family covers discoverability, maintainability, and portability
+practices. These checks are advisory (INFO and WARNING only — never CRITICAL),
+so they don't block `skillctl apply` — only spec-mandated CRITICAL findings do.
+
+The rule set was ported from [`dgallitelli/skill-reviewer`](https://github.com/dgallitelli/skill-reviewer),
+which itself distills from the Agent Skills specification, Anthropic's
+platform best-practices documentation, the Claude Code skills documentation,
+the `anthropics/skills` reference repo, and the `obra/superpowers`
+`writing-skills` skill.
+
+| Code | Severity | Rule | Source |
+|---|---|---|---|
+| QLT-001 | INFO | description starts with "Use when ..." | obra/superpowers writing-skills |
+| QLT-002 | WARNING | description ≥60 chars | platform.claude.com agent-skills/best-practices |
+| QLT-003 | WARNING | description doesn't summarise the workflow | obra/superpowers writing-skills |
+| QLT-004 | INFO | name avoids generic words | platform.claude.com agent-skills/best-practices |
+| QLT-005 | INFO | directory uses hyphens, not underscores | agentskills.io/specification §name |
+| QLT-006 | WARNING | reference files at most one level deep | platform.claude.com agent-skills/best-practices |
+| QLT-007 | WARNING | no Windows-style backslash paths | platform.claude.com agent-skills/best-practices |
+| QLT-008 | INFO | reference files >100 lines have a ToC | platform.claude.com agent-skills/best-practices |
+| QLT-009 | WARNING | markdown links resolve | general correctness |
+| QLT-010 | INFO | no generic filenames | platform.claude.com agent-skills/best-practices |
+| QLT-011 | WARNING | no time-sensitive language outside "Old patterns" | platform.claude.com agent-skills/best-practices |
+| QLT-012 | INFO | no voodoo constants in scripts | platform.claude.com agent-skills/best-practices |
+| QLT-013 | INFO | MCP tool refs fully qualified | platform.claude.com agent-skills/best-practices |
+| QLT-014 | WARNING | `allowed-tools` syntax is `Name` or `Name(spec)` | code.claude.com/docs/en/skills §allowed-tools |
+| QLT-015 | INFO | no multi-language example dilution | obra/superpowers writing-skills |
+| QLT-016 | WARNING | SKILL.md not unmodified template residue | anthropics/skills template |
+| QLT-017 | INFO | at least one fenced code block or `## Example` section | platform.claude.com agent-skills/best-practices |
+| QLT-018 | WARNING | SKILL.md has body content | agentskills.io/specification §body |
+| QLT-019 | INFO | consistent terminology — avoid 3+ near-synonyms | platform.claude.com agent-skills/best-practices |
+
+Every QLT-* finding carries a `citation` field pointing back to the rule's
+upstream source — visible in text, JSON, and GitHub Actions output.
+
+### Suppressing QLT findings
+
+QLT findings respect the standard `.skilleval.yaml` ignore / severity-override
+mechanism:
+
+```yaml
+audit:
+  ignore:
+    - QLT-013    # We use unqualified MCP refs intentionally
+  severity_overrides:
+    QLT-002: INFO    # We don't want short descriptions to fail CI as warnings
+```
