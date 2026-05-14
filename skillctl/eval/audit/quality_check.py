@@ -101,6 +101,17 @@ _NEAR_SYNONYM_GROUPS = (
     ("delete", "remove", "drop"),
 )
 
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+_GENERIC_FILENAME_RE = re.compile(
+    r"^(?:doc|notes|file|tmp|test|untitled)\d*\.(?:md|py|js|ts|sh)$",
+    re.IGNORECASE,
+)
+_TOC_DETECT_RE = re.compile(
+    r"(?:table of contents|^#+\s*(?:contents|toc)\b)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_REF_TOC_LINE_THRESHOLD = 100
+
 
 def _check_description_style(frontmatter: dict, skill_md: Path,
                               findings: list[Finding]) -> None:
@@ -282,6 +293,73 @@ def _check_consistent_terminology(body: str, skill_md: Path, findings: list[Find
             return
 
 
+def _check_referenced_files(body: str, skill_path: Path, skill_md: Path,
+                            findings: list[Finding]) -> None:
+    skill_root = skill_path.resolve()
+    referenced: list[Path] = []
+    for link in _MARKDOWN_LINK_RE.findall(body):
+        if link.startswith(("http://", "https://", "mailto:", "#")):
+            continue
+        target = link.split("#", 1)[0].split("?", 1)[0]
+        if not target:
+            continue
+        candidate = (skill_root / target).resolve()
+        try:
+            rel = candidate.relative_to(skill_root)
+        except ValueError:
+            continue  # outside the skill dir; not our problem
+        if not candidate.exists():
+            findings.append(_qlt(
+                "QLT-009", Severity.WARNING,
+                f"Broken link to {target!r}",
+                f"SKILL.md links to '{target}' but the file does not exist.",
+                file_path=str(skill_md),
+                fix=f"Create the file or remove/fix the link.",
+            ))
+            continue
+        referenced.append(candidate)
+        if len(rel.parts) > 2:
+            findings.append(_qlt(
+                "QLT-006", Severity.WARNING,
+                f"Reference '{target}' is more than one directory deep",
+                "Deeper references force the model to traverse multiple hops to reach content.",
+                file_path=str(skill_md),
+                fix="Flatten the reference hierarchy — keep referenced files one level below SKILL.md.",
+            ))
+
+    for cand in referenced:
+        if cand.suffix.lower() != ".md":
+            continue
+        try:
+            text = cand.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        line_count = text.count("\n")
+        if line_count > _REF_TOC_LINE_THRESHOLD:
+            head = "\n".join(text.splitlines()[:50])
+            if not _TOC_DETECT_RE.search(head):
+                findings.append(_qlt(
+                    "QLT-008", Severity.INFO,
+                    f"Reference {cand.name} is {line_count} lines but has no Table of Contents",
+                    "Long reference files without a ToC force the model to skim the whole "
+                    "file to find what it needs.",
+                    file_path=str(cand),
+                    fix="Add a `## Table of Contents` section near the top.",
+                ))
+
+
+def _check_generic_filenames(skill_path: Path, findings: list[Finding]) -> None:
+    for path in skill_path.rglob("*"):
+        if path.is_file() and _GENERIC_FILENAME_RE.match(path.name):
+            findings.append(_qlt(
+                "QLT-010", Severity.INFO,
+                f"Generic filename '{path.name}'",
+                "Filenames like doc1.md, notes.md, tmp.py don't describe their contents.",
+                file_path=str(path),
+                fix="Rename to something descriptive of the file's actual contents.",
+            ))
+
+
 def check_quality(skill_path: str | Path) -> list[Finding]:
     """Run all QLT-* authoring-quality checks on a skill directory.
 
@@ -315,5 +393,7 @@ def check_quality(skill_path: str | Path) -> list[Finding]:
     _check_template_residue(body, skill_md, findings)
     _check_concrete_examples(body, skill_md, findings)
     _check_consistent_terminology(body, skill_md, findings)
+    _check_referenced_files(body, skill_path, skill_md, findings)
+    _check_generic_filenames(skill_path, findings)
 
     return findings

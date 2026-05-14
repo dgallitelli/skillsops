@@ -277,3 +277,102 @@ def test_qlt_019_not_emitted_for_one_term(tmp_path):
                  body="Fill the field. Then fill the next field. Done.\n")
     codes = [f.code for f in check_quality(d)]
     assert "QLT-019" not in codes
+
+
+# --- QLT-006: refs at most one level deep --------------------------------
+
+def test_qlt_006_emitted_for_deep_reference(tmp_path):
+    d = tmp_path / "deep-ref"
+    _write_skill(d, "deep-ref", GOOD_DESC,
+                 body="See [extra](references/sub/dir/extra.md).")
+    nested = d / "references" / "sub" / "dir"
+    nested.mkdir(parents=True)
+    (nested / "extra.md").write_text("# extra\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-006" in codes
+
+
+def test_qlt_006_not_emitted_for_one_level_reference(tmp_path):
+    d = tmp_path / "shallow-ref"
+    _write_skill(d, "shallow-ref", GOOD_DESC,
+                 body="See [extra](references/extra.md).")
+    refs = d / "references"
+    refs.mkdir()
+    (refs / "extra.md").write_text("# extra\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-006" not in codes
+
+
+# --- QLT-008: long ref files have ToC ------------------------------------
+
+def test_qlt_008_emitted_for_long_ref_without_toc(tmp_path):
+    d = tmp_path / "no-toc"
+    _write_skill(d, "no-toc", GOOD_DESC,
+                 body="See [big](references/big.md).")
+    refs = d / "references"
+    refs.mkdir()
+    (refs / "big.md").write_text("# big\n\n" + "filler line\n" * 150)
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-008" in codes
+
+
+def test_qlt_008_not_emitted_when_toc_present(tmp_path):
+    d = tmp_path / "with-toc"
+    _write_skill(d, "with-toc", GOOD_DESC,
+                 body="See [big](references/big.md).")
+    refs = d / "references"
+    refs.mkdir()
+    (refs / "big.md").write_text("# big\n\n## Table of Contents\n\n" + "line\n" * 150)
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-008" not in codes
+
+
+# --- QLT-009: markdown links resolve -------------------------------------
+
+def test_qlt_009_emitted_for_broken_link(tmp_path):
+    d = tmp_path / "broken-link"
+    _write_skill(d, "broken-link", GOOD_DESC,
+                 body="See [missing](references/does-not-exist.md).")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-009" in codes
+
+
+def test_qlt_009_not_emitted_for_valid_link(tmp_path):
+    d = tmp_path / "valid-link"
+    _write_skill(d, "valid-link", GOOD_DESC,
+                 body="See [target](references/target.md).")
+    refs = d / "references"
+    refs.mkdir()
+    (refs / "target.md").write_text("# target\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-009" not in codes
+
+
+def test_qlt_009_ignores_external_urls(tmp_path):
+    d = tmp_path / "external-link"
+    _write_skill(d, "external-link", GOOD_DESC,
+                 body="See [docs](https://example.com/docs).")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-009" not in codes
+
+
+# --- QLT-010: no generic filenames ---------------------------------------
+
+def test_qlt_010_emitted_for_generic_filename(tmp_path):
+    d = tmp_path / "generic-files"
+    _write_skill(d, "generic-files", GOOD_DESC, body="body")
+    refs = d / "references"
+    refs.mkdir()
+    (refs / "doc1.md").write_text("# generic\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-010" in codes
+
+
+def test_qlt_010_not_emitted_for_descriptive_filenames(tmp_path):
+    d = tmp_path / "named-files"
+    _write_skill(d, "named-files", GOOD_DESC, body="body")
+    refs = d / "references"
+    refs.mkdir()
+    (refs / "api-reference.md").write_text("# api\n")
+    codes = [f.code for f in check_quality(d)]
+    assert "QLT-010" not in codes
