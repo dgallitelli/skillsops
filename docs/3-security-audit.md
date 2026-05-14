@@ -338,8 +338,8 @@ the `anthropics/skills` reference repo, and the `obra/superpowers`
 |---|---|---|---|
 | QLT-001 | INFO | description starts with "Use when ..." | obra/superpowers writing-skills |
 | QLT-002 | WARNING | description ≥60 chars | platform.claude.com agent-skills/best-practices |
-| QLT-003 | WARNING | description doesn't summarise the workflow | obra/superpowers writing-skills |
-| QLT-004 | INFO | name avoids generic words | platform.claude.com agent-skills/best-practices |
+| QLT-003 | WARNING | description doesn't summarise the workflow | obra/superpowers writing-skills (empirical finding) |
+| QLT-004 | INFO | name avoids generic words | obra/superpowers writing-skills; platform.claude.com agent-skills/best-practices |
 | QLT-005 | INFO | directory uses hyphens, not underscores | agentskills.io/specification §name |
 | QLT-006 | WARNING | reference files at most one level deep | platform.claude.com agent-skills/best-practices |
 | QLT-007 | WARNING | no Windows-style backslash paths | platform.claude.com agent-skills/best-practices |
