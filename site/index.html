@@ -1,506 +1,719 @@
-<!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkillsOps — Governance for Agent Skills</title>
-  <meta name="description" content="Validate, evaluate, optimize, and distribute agent skills across every IDE. One CLI for the full skill lifecycle.">
-  <meta property="og:title" content="SkillsOps — Governance for Agent Skills">
-  <meta property="og:description" content="One CLI to validate, evaluate, optimize, and distribute agent skills across Claude Code, Cursor, Windsurf, Copilot, and Kiro.">
-  <meta property="og:type" content="website">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { DEFAULT: '#60a5fa', dark: '#3b82f6', light: '#93c5fd' },
-            accent: { DEFAULT: '#818cf8', dark: '#6366f1' },
-            surface: {
-              950: '#030711',
-              900: '#0a101e',
-              800: '#111a2e',
-              700: '#1a2540',
-              600: '#243352'
-            },
-          },
-          fontFamily: {
-            display: ['"Syne"', 'sans-serif'],
-            body: ['"DM Sans"', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
-          },
-        }
-      }
-    }
-  </script>
-
-  <style>
-    html { scroll-padding-top: 80px; }
-    body { font-family: 'DM Sans', sans-serif; }
-    .font-display, h1, h2, h3 { font-family: 'Syne', sans-serif; }
-    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
-
-    .bg-grid {
-      background-image:
-        linear-gradient(to right, rgba(96, 165, 250, 0.025) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(96, 165, 250, 0.025) 1px, transparent 1px);
-      background-size: 64px 64px;
-    }
-
-    .text-gradient {
-      background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #c084fc 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .glass {
-      background: rgba(17, 26, 46, 0.6);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(96, 165, 250, 0.08);
-    }
-    .glass-strong {
-      background: rgba(17, 26, 46, 0.8);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(96, 165, 250, 0.12);
-    }
-
-    .glow { box-shadow: 0 0 60px rgba(96, 165, 250, 0.1), 0 0 120px rgba(129, 140, 248, 0.05); }
-    .glow-lg { box-shadow: 0 0 80px rgba(96, 165, 250, 0.15), 0 0 160px rgba(129, 140, 248, 0.08); }
-
-    @keyframes orb-1 {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(40px, -60px) scale(1.05); }
-      66% { transform: translate(-30px, 30px) scale(0.95); }
-    }
-    @keyframes orb-2 {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(-50px, 40px) scale(0.92); }
-      66% { transform: translate(35px, -45px) scale(1.08); }
-    }
-    @keyframes orb-3 {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(25px, 55px) scale(1.1); }
-      66% { transform: translate(-45px, -25px) scale(0.9); }
-    }
-    .orb-1 { animation: orb-1 18s ease-in-out infinite; }
-    .orb-2 { animation: orb-2 22s ease-in-out infinite; }
-    .orb-3 { animation: orb-3 20s ease-in-out infinite; }
-
-    @keyframes flow {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    .pipeline-flow {
-      background: linear-gradient(90deg,
-        rgba(96, 165, 250, 0.1) 0%,
-        rgba(96, 165, 250, 0.5) 20%,
-        rgba(129, 140, 248, 0.7) 50%,
-        rgba(96, 165, 250, 0.5) 80%,
-        rgba(96, 165, 250, 0.1) 100%
-      );
-      background-size: 200% 100%;
-      animation: flow 4s linear infinite;
-    }
-
-    .reveal {
-      opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-    .stagger-1 { transition-delay: 0.05s; }
-    .stagger-2 { transition-delay: 0.1s; }
-    .stagger-3 { transition-delay: 0.15s; }
-    .stagger-4 { transition-delay: 0.2s; }
-    .stagger-5 { transition-delay: 0.25s; }
-    .stagger-6 { transition-delay: 0.3s; }
-    .stagger-7 { transition-delay: 0.35s; }
-
-    .nav-float {
-      background: transparent;
-      border-bottom: 1px solid transparent;
-      transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
-    }
-    .nav-float.scrolled {
-      background: rgba(3, 7, 17, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom-color: rgba(96, 165, 250, 0.08);
-    }
-
-    .card-hover { transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
-    .card-hover:hover {
-      border-color: rgba(96, 165, 250, 0.2);
-      box-shadow: 0 0 40px rgba(96, 165, 250, 0.06);
-      transform: translateY(-2px);
-    }
-
-    .copy-btn { transition: transform 0.15s; }
-    .copy-btn:active { transform: scale(0.9); }
-
-    .pipeline-node { transition: transform 0.3s, box-shadow 0.3s; }
-    .pipeline-node:hover {
-      transform: scale(1.1);
-      box-shadow: 0 0 20px rgba(96, 165, 250, 0.2);
-    }
-
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4); }
-      50% { box-shadow: 0 0 0 8px rgba(96, 165, 250, 0); }
-    }
-    .pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SkillsOps — Governance for Agent Skills</title>
+<meta name="description" content="The governed lifecycle for SKILL.md. Author with a typed scaffold, audit with static + functional checks, version in a content-addressed registry, and consume across every IDE — with one chain of custody across all four stages." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper:   '#fafaf9',
+          ink:     '#1c1917',
+          muted:   '#57534e',
+          subtle:  '#78716c',
+          line:    '#e7e5e4',
+          'line-strong': '#d6d3d1',
+          accent:  '#047857',
+          'accent-soft': '#ecfdf5',
+          'accent-line': '#a7f3d0',
+        },
+        fontFamily: {
+          display: ['Inter Tight', 'system-ui', 'sans-serif'],
+          sans:    ['Inter', 'system-ui', 'sans-serif'],
+          mono:    ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html { background: #fafaf9; }
+  body {
+    background: #fafaf9;
+    color: #1c1917;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  .display { font-family: 'Inter Tight', system-ui, sans-serif; letter-spacing: -0.022em; }
+  .display-tight { font-family: 'Inter Tight', system-ui, sans-serif; letter-spacing: -0.035em; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #78716c;
+  }
+  .hairline { border-color: #e7e5e4; }
+  ::selection { background: #a7f3d0; color: #064e3b; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #fafaf9; }
+  ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+  .reveal { opacity: 0; transform: translateY(12px); transition: opacity 600ms cubic-bezier(0.16,1,0.3,1), transform 600ms cubic-bezier(0.16,1,0.3,1); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .stagger-1 { transition-delay: 40ms; }
+  .stagger-2 { transition-delay: 80ms; }
+  .stagger-3 { transition-delay: 120ms; }
+  .stagger-4 { transition-delay: 160ms; }
+  .nav-scrolled { background: rgba(250,250,249,0.85); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid #e7e5e4; }
+  .card-hover { transition: border-color 200ms ease, background-color 200ms ease; }
+  .card-hover:hover { border-color: #d6d3d1; background-color: #ffffff; }
+  .stroke-line { stroke: #d6d3d1; }
+  .stroke-accent { stroke: #047857; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
 </head>
+<body>
 
-<body class="bg-surface-950 text-gray-400 font-body antialiased overflow-x-hidden">
+<!-- ──────────────────── NAV ──────────────────── -->
+<nav id="nav" class="fixed top-0 inset-x-0 z-50 transition-colors duration-200">
+  <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+    <a href="#top" class="flex items-baseline gap-1.5">
+      <span class="display font-semibold text-[15px] tracking-tight text-ink">skillctl</span>
+      <span class="mono text-[11px] text-subtle tnum">v0.1.0b1</span>
+    </a>
+    <div class="hidden md:flex items-center gap-7 text-[13.5px] text-muted">
+      <a href="#problem" class="hover:text-ink transition-colors">Why</a>
+      <a href="#journey" class="hover:text-ink transition-colors">Journey</a>
+      <a href="#governance" class="hover:text-ink transition-colors">Governance</a>
+      <a href="#lifecycle" class="hover:text-ink transition-colors">Lifecycle</a>
+      <a href="#capabilities" class="hover:text-ink transition-colors">Capabilities</a>
+      <a href="#quickstart" class="hover:text-ink transition-colors">Quickstart</a>
+      <a href="https://github.com/dgallitelli/skillsops" class="hover:text-ink transition-colors">GitHub ↗</a>
+    </div>
+    <a href="#quickstart" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[13px] font-medium text-white bg-ink hover:bg-stone-800 transition-colors">
+      Get started
+    </a>
+  </div>
+</nav>
 
-  <!-- Navigation -->
-  <nav id="nav" class="nav-float fixed top-0 left-0 right-0 z-50">
-    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-2 text-white font-display font-bold text-lg">
-        <span class="text-xl">⚡</span>
-        Skills<span class="text-brand">Ops</span>
-      </a>
-      <div class="hidden md:flex items-center gap-8">
-        <a href="https://github.com/dgallitelli/skillsops/blob/main/docs/1-skill-format.md" class="text-sm text-gray-400 hover:text-white transition-colors">Docs</a>
-        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="text-sm text-gray-400 hover:text-white transition-colors">Blog</a>
-        <a href="https://github.com/dgallitelli/skillsops" class="text-sm text-gray-400 hover:text-white transition-colors">GitHub</a>
-      </div>
-      <a href="#quickstart" class="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand/10 text-brand text-sm font-medium hover:bg-brand/20 border border-brand/20 transition-all">
-        Get started
+<!-- ──────────────────── HERO ──────────────────── -->
+<section id="top" class="pt-32 md:pt-40 pb-20 md:pb-28">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="reveal">
+      <a href="https://github.com/dgallitelli/skillsops/releases" class="inline-flex items-center gap-2 mono text-[11px] text-muted hover:text-ink transition-colors">
+        <span class="inline-block h-1.5 w-1.5 rounded-full bg-accent"></span>
+        v0.1.0b1 — public beta
+        <span class="text-line-strong">·</span>
+        <span class="underline decoration-line-strong underline-offset-2 hover:decoration-ink">read the changelog</span>
       </a>
     </div>
-  </nav>
 
-  <!-- Hero -->
-  <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
-    <div class="absolute inset-0 bg-grid"></div>
-    <div class="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-brand/15 rounded-full blur-[160px] orb-1"></div>
-    <div class="absolute top-[5%] right-[15%] w-[400px] h-[400px] bg-accent/12 rounded-full blur-[140px] orb-2"></div>
-    <div class="absolute bottom-[10%] left-[40%] w-[350px] h-[350px] bg-purple-500/10 rounded-full blur-[130px] orb-3"></div>
-    <div class="absolute inset-0" style="background: radial-gradient(ellipse at center, transparent 40%, #030711 100%)"></div>
-    <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-surface-950 to-transparent"></div>
+    <h1 class="reveal stagger-1 display-tight font-semibold text-5xl sm:text-6xl md:text-[88px] md:leading-[0.96] mt-7 max-w-4xl">
+      Governance for<br class="hidden sm:block" />
+      agent skills.
+    </h1>
 
-    <div class="relative max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
-      <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full glass text-sm text-gray-400 mb-10 reveal">
-        <span class="relative flex h-2 w-2">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-        </span>
-        v0.1.0b2 — Second beta
+    <p class="reveal stagger-2 mt-7 max-w-2xl text-[18px] md:text-[19px] leading-[1.55] text-muted">
+      One chain of custody from the moment a skill is written to the moment an agent runs it.
+      <span class="text-ink">Author</span> with a typed scaffold,
+      <span class="text-ink">audit</span> with static + functional checks,
+      <span class="text-ink">register</span> in a content-addressed store, and
+      <span class="text-ink">consume</span> across every IDE — without losing the trail.
+    </p>
+
+    <div class="reveal stagger-3 mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="inline-flex items-center gap-2 pl-4 pr-2 py-2 bg-white hairline border rounded-lg max-w-full">
+        <span class="mono text-accent text-[13.5px] select-none">$</span>
+        <code class="mono text-[14px] text-ink truncate">pip install skillsops</code>
+        <button data-copy="pip install skillsops" class="copy-btn ml-1 inline-flex items-center justify-center h-7 w-7 rounded-md text-subtle hover:text-ink hover:bg-stone-100 transition-colors" aria-label="Copy install command">
+          <svg class="copy-icon w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <a href="#quickstart" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-ink hover:bg-stone-800 text-white rounded-lg text-[14px] font-medium transition-colors">
+        60-second tour
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </a>
+      <a href="https://github.com/dgallitelli/skillsops" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hairline border hover:border-line-strong text-ink rounded-lg text-[14px] font-medium transition-colors">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+
+    <!-- Hero diagram: the governance journey — Author → Audit → Registry → Consumption -->
+    <div id="journey" class="reveal stagger-4 mt-20 md:mt-24">
+      <!-- Spine label -->
+      <div class="hidden md:flex items-center gap-3 mb-4">
+        <span class="mono text-[10.5px] text-accent uppercase tracking-widest">Governance</span>
+        <span class="flex-1 h-px bg-accent-line"></span>
+        <span class="mono text-[10.5px] text-subtle uppercase tracking-widest">one chain of custody</span>
       </div>
 
-      <h1 class="font-display text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-tight mb-6 reveal stagger-1">
-        <span class="text-white">Skills</span><span class="text-gradient">Ops</span>
-      </h1>
+      <!-- 4-stage track -->
+      <div class="hairline border rounded-lg bg-white overflow-hidden">
+        <!-- Stage headers -->
+        <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-line">
+          <!-- AUTHOR -->
+          <div class="p-5 md:p-6 relative">
+            <div class="flex items-center gap-2">
+              <span class="mono text-[10.5px] text-subtle tnum tracking-widest">01</span>
+              <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Author</span>
+            </div>
+            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">A typed scaffold replaces a folder somebody copied. Manifest, capabilities, semver — declared on day one.</p>
+            <div class="mt-5 space-y-1.5">
+              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">skillctl create skill</code>
+              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">skillctl validate</code>
+            </div>
+            <p class="mt-5 mono text-[10.5px] text-subtle">Inputs: SKILL.md · skill.yaml</p>
+          </div>
 
-      <p class="text-xl md:text-2xl text-gray-300 font-display font-semibold mb-4 reveal stagger-2">
-        Governance for agent skills
+          <!-- AUDIT -->
+          <div class="p-5 md:p-6 relative">
+            <div class="flex items-center gap-2">
+              <span class="mono text-[10.5px] text-subtle tnum tracking-widest">02</span>
+              <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Audit</span>
+            </div>
+            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">Static checks for prompt injection, secrets, unsafe tools. Functional checks via LLM-as-judge. Grade gates the next step.</p>
+            <div class="mt-5 space-y-1.5">
+              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">eval audit · 9·35·70</code>
+              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">eval functional</code>
+            </div>
+            <p class="mt-5 mono text-[10.5px] text-subtle">Output: grade · findings</p>
+          </div>
+
+          <!-- REGISTRY -->
+          <div class="p-5 md:p-6 relative bg-accent-soft/40">
+            <div class="flex items-center gap-2">
+              <span class="mono text-[10.5px] text-accent tnum tracking-widest">03</span>
+              <span class="mono text-[10.5px] text-accent uppercase tracking-widest font-medium">Registry</span>
+            </div>
+            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">Content-addressed storage with a hash-chained log. Run on GitHub, in your cloud, or self-hosted — same contract.</p>
+            <div class="mt-5 space-y-1.5">
+              <code class="mono text-[11px] text-emerald-900 bg-white hairline border border-accent-line rounded px-2 py-1 block break-all">apply · bump · diff</code>
+              <code class="mono text-[11px] text-emerald-900 bg-white hairline border border-accent-line rounded px-2 py-1 block break-all">sha256 · semver · log</code>
+            </div>
+            <p class="mt-5 mono text-[10.5px] text-accent/80">Artifact: my-org/code-reviewer@0.1.0</p>
+          </div>
+
+          <!-- CONSUMPTION -->
+          <div class="p-5 md:p-6 relative">
+            <div class="flex items-center gap-2">
+              <span class="mono text-[10.5px] text-subtle tnum tracking-widest">04</span>
+              <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Consume</span>
+            </div>
+            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">Developers, agents (via MCP), and pipelines pull pinned digests. The same artifact, governed end to end.</p>
+            <div class="mt-5 space-y-1.5">
+              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">install --target all</code>
+              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">pin @sha256:…</code>
+            </div>
+            <p class="mt-5 mono text-[10.5px] text-subtle">Targets: 5 IDEs · MCP · CI</p>
+          </div>
+        </div>
+
+        <!-- Chain-of-custody footer — one bar across all four stages -->
+        <div class="border-t hairline bg-paper px-5 py-3.5 flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
+          <span class="mono text-[10.5px] text-subtle uppercase tracking-widest whitespace-nowrap">Chain of custody</span>
+          <div class="flex-1 h-px bg-line relative">
+            <div class="absolute inset-0 h-px bg-accent"></div>
+            <div class="absolute left-[6.5%]  -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Author"></div>
+            <div class="absolute left-[37.5%] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Audit"></div>
+            <div class="absolute left-[62.5%] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Registry"></div>
+            <div class="absolute left-[93.5%] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Consume"></div>
+          </div>
+          <span class="mono text-[10.5px] text-muted tnum whitespace-nowrap">sha-256 · audit log · semver</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── PROBLEM ──────────────────── -->
+<section id="problem" class="border-t hairline">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+    <div class="reveal max-w-3xl">
+      <p class="eyebrow">The gap</p>
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
+        Four stages. <span class="text-muted">Zero governance between them.</span>
+      </h2>
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted max-w-2xl">
+        Authoring lives in a folder, audit lives in someone's head, the "registry" is a Slack thread, consumption is copy-paste. Each stage is fine in isolation. The chain between them is what's missing.
       </p>
+    </div>
 
-      <p class="text-base md:text-lg text-gray-500 max-w-lg mx-auto mb-12 reveal stagger-3">
-        Validate, evaluate, optimize, and distribute skills across
-        Claude Code, Cursor, Windsurf, Copilot, and Kiro.
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-px bg-line mt-14 hairline border rounded-lg overflow-hidden">
+      <div class="reveal stagger-1 bg-paper p-6">
+        <div class="flex items-center gap-2">
+          <span class="mono text-[11px] text-subtle tnum">01</span>
+          <span class="eyebrow !text-[10.5px]">Author</span>
+        </div>
+        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">Schema drift goes unnoticed.</h3>
+        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
+          Manifests fall out of sync. Capabilities get bumped without semver. No <span class="mono text-[12px] text-ink">CI</span> step fails on a malformed skill.
+        </p>
+      </div>
+      <div class="reveal stagger-2 bg-paper p-6">
+        <div class="flex items-center gap-2">
+          <span class="mono text-[11px] text-subtle tnum">02</span>
+          <span class="eyebrow !text-[10.5px]">Audit</span>
+        </div>
+        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">Prompt injection ships by default.</h3>
+        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
+          Without a static audit, sensitive instructions, secret-leakage patterns, and unsafe tool calls land in production skills that nobody reviewed.
+        </p>
+      </div>
+      <div class="reveal stagger-3 bg-paper p-6">
+        <div class="flex items-center gap-2">
+          <span class="mono text-[11px] text-subtle tnum">03</span>
+          <span class="eyebrow !text-[10.5px]">Registry</span>
+        </div>
+        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">No identity, no rollback.</h3>
+        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
+          Skills land in folders, not artifacts. There is no digest to pin, no audit log to replay, no rollback when a release goes wrong.
+        </p>
+      </div>
+      <div class="reveal stagger-4 bg-paper p-6">
+        <div class="flex items-center gap-2">
+          <span class="mono text-[11px] text-subtle tnum">04</span>
+          <span class="eyebrow !text-[10.5px]">Consume</span>
+        </div>
+        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">Five copies, five paths.</h3>
+        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
+          Claude, Cursor, Windsurf, Copilot, Kiro — each wants its own format. The same skill drifts five different ways within a week.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── GOVERNANCE PILLARS ──────────────────── -->
+<section id="governance" class="border-t hairline bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+    <div class="reveal flex flex-col md:flex-row md:items-end md:justify-between gap-6 max-w-5xl">
+      <div>
+        <p class="eyebrow text-accent">Governance</p>
+        <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
+          One contract. <span class="text-muted">Every stage of the journey.</span>
+        </h2>
+      </div>
+      <p class="text-[15.5px] text-muted max-w-md">
+        Each stage produces a verifiable artifact. The next stage refuses to accept anything else.
       </p>
+    </div>
 
-      <div class="inline-flex items-center gap-4 glass-strong rounded-2xl px-7 py-5 glow-lg mb-10 reveal stagger-4">
-        <span class="text-gray-600 text-sm font-mono">$</span>
-        <code class="text-brand text-lg font-mono font-medium" id="install-cmd">pip install skillsops</code>
-        <button onclick="copyInstall()" class="copy-btn ml-1 text-gray-500 hover:text-white transition-colors" title="Copy to clipboard">
-          <svg id="copy-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          <svg id="check-icon" class="w-5 h-5 hidden text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+    <!-- 4 stage guarantees, equal weight -->
+    <div class="reveal mt-12 grid grid-cols-1 md:grid-cols-4 gap-px bg-line hairline border rounded-lg overflow-hidden">
+      <div class="bg-paper p-6 card-hover">
+        <div class="flex items-center justify-between">
+          <span class="mono text-[10.5px] text-subtle tnum tracking-widest uppercase">01 · author</span>
+          <span class="mono text-[10.5px] text-subtle">guarantee</span>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Typed at birth.</h3>
+        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
+          A scaffolded skill is a manifest, not a folder. Schema, semver, and declared capabilities are required to leave this stage.
+        </p>
+        <p class="mt-5 mono text-[10.5px] text-accent">→ schema-valid SKILL.md</p>
+      </div>
+
+      <div class="bg-paper p-6 card-hover">
+        <div class="flex items-center justify-between">
+          <span class="mono text-[10.5px] text-subtle tnum tracking-widest uppercase">02 · audit</span>
+          <span class="mono text-[10.5px] text-subtle">guarantee</span>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Graded before it ships.</h3>
+        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
+          9 categories · 35 codes · 70 patterns of static checks, plus LLM-as-judge functional eval. Grade gates the registry push.
+        </p>
+        <p class="mt-5 mono text-[10.5px] text-accent">→ grade · findings report</p>
+      </div>
+
+      <div class="bg-paper p-6 card-hover bg-accent-soft/40">
+        <div class="flex items-center justify-between">
+          <span class="mono text-[10.5px] text-accent tnum tracking-widest uppercase">03 · registry</span>
+          <span class="mono text-[10.5px] text-accent">guarantee</span>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Identity by hash.</h3>
+        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
+          SHA-256 content addressing, semver + structural diff, and a hash-chained audit log — tamper-evident across hosts.
+        </p>
+        <p class="mt-5 mono text-[10.5px] text-accent">→ <span class="text-emerald-900">@sha256:8a2f1c…</span></p>
+      </div>
+
+      <div class="bg-paper p-6 card-hover">
+        <div class="flex items-center justify-between">
+          <span class="mono text-[10.5px] text-subtle tnum tracking-widest uppercase">04 · consume</span>
+          <span class="mono text-[10.5px] text-subtle">guarantee</span>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Pinned, never copied.</h3>
+        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
+          Developers, agents (via 14 MCP tools), and CI all install by digest. Rollback is one command. Every install lands in the audit log.
+        </p>
+        <p class="mt-5 mono text-[10.5px] text-accent">→ install --target all</p>
+      </div>
+    </div>
+
+    <!-- Hosting note — secondary, not the headline -->
+    <div class="reveal mt-10 hairline border rounded-lg bg-paper">
+      <div class="px-6 py-4 border-b hairline flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div class="flex items-center gap-3">
+          <span class="eyebrow">Where the registry lives</span>
+          <span class="mono text-[11px] text-subtle">— same contract, your boundary</span>
+        </div>
+        <span class="mono text-[11px] text-subtle">3 hosting modes</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line">
+        <div class="p-5">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">GitHub-backed</span>
+            <span class="mono text-[10px] text-accent bg-accent-soft border border-accent-line px-1.5 py-[1px] rounded">recommended</span>
+          </div>
+          <p class="mt-3 text-[12.5px] leading-[1.55] text-muted">Tags become versions, commits become the audit log, PR review is the gate.</p>
+          <code class="mono text-[11px] text-ink bg-white hairline border rounded mt-4 block px-2 py-1.5 break-all">skillctl config registry github://my-org/skills</code>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Cloud-hosted</span>
+            <span class="mono text-[10px] text-subtle">soon</span>
+          </div>
+          <p class="mt-3 text-[12.5px] leading-[1.55] text-muted">HTTPS endpoint, SSO, scoped tokens, org-private namespaces.</p>
+          <code class="mono text-[11px] text-ink bg-white hairline border rounded mt-4 block px-2 py-1.5 break-all">skillctl login registry.skillsops.dev</code>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Self-hosted</span>
+            <span class="mono text-[10px] text-subtle">stable</span>
+          </div>
+          <p class="mt-3 text-[12.5px] leading-[1.55] text-muted">Single binary: FastAPI + SQLite with FTS5. Air-gap friendly.</p>
+          <code class="mono text-[11px] text-ink bg-white hairline border rounded mt-4 block px-2 py-1.5 break-all">skillctl serve --hmac-key "$KEY"</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── LIFECYCLE ──────────────────── -->
+<section id="lifecycle" class="border-t hairline">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+    <div class="reveal flex flex-col md:flex-row md:items-end md:justify-between gap-6 max-w-4xl">
+      <div>
+        <p class="eyebrow">Lifecycle</p>
+        <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
+          The four stages, broken into seven verbs.
+        </h2>
+      </div>
+      <p class="text-[15.5px] text-muted max-w-md">
+        <span class="text-ink">Author</span> · <span class="text-ink">audit</span> · <span class="text-ink">register</span> · <span class="text-ink">consume</span>. Each verb is a checkpoint with a verifiable artifact behind it.
+      </p>
+    </div>
+
+    <div class="reveal mt-14 hairline border rounded-lg bg-white overflow-hidden">
+      <div class="grid grid-cols-2 md:grid-cols-7">
+        <div class="p-5 border-r border-b md:border-b-0 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">01</span>
+            <span class="mono text-[10.5px] text-subtle">stable</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">create</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Scaffold a typed skill from a template.</p>
+        </div>
+        <div class="p-5 border-r border-b md:border-b-0 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">02</span>
+            <span class="mono text-[10.5px] text-subtle">stable</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">validate</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Schema, semver, capability checks.</p>
+        </div>
+        <div class="p-5 border-r border-b md:border-b-0 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">03</span>
+            <span class="mono text-[10.5px] text-subtle">stable</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">eval audit</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">9 categories · 35 codes · 70 patterns.</p>
+        </div>
+        <div class="p-5 border-r border-b md:border-b-0 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">04</span>
+            <span class="mono text-[10.5px] text-subtle">beta</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">eval functional</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">LLM-as-judge behavioural eval.</p>
+        </div>
+        <div class="p-5 border-r border-b md:border-b-0 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">05</span>
+            <span class="mono text-[10.5px] text-subtle">stable</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">bump · diff</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Semver + content diff between versions.</p>
+        </div>
+        <div class="p-5 border-r md:border-b-0 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">06</span>
+            <span class="mono text-[10.5px] text-subtle">stable</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">apply</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Push to local or self-hosted registry.</p>
+        </div>
+        <div class="p-5 hairline">
+          <div class="flex items-center justify-between">
+            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">07</span>
+            <span class="mono text-[10.5px] text-accent font-medium">deploy</span>
+          </div>
+          <div class="mt-6 mono text-[13.5px] text-ink font-medium">install</div>
+          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Five IDE targets. One command.</p>
+        </div>
+      </div>
+
+      <div class="border-t hairline bg-paper px-5 py-3.5 flex items-center justify-between">
+        <span class="mono text-[11px] text-subtle">artifact graph</span>
+        <div class="flex-1 mx-5 h-px bg-line relative">
+          <div class="absolute left-0 top-0 h-px bg-accent" style="width: 86%"></div>
+          <div class="absolute right-[14%] top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-accent ring-2 ring-paper"></div>
+        </div>
+        <span class="mono text-[11px] text-muted tnum">7 stages · sha-256 chain</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── CAPABILITIES ──────────────────── -->
+<section id="capabilities" class="border-t hairline">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+    <div class="reveal max-w-3xl">
+      <p class="eyebrow">Capabilities</p>
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
+        The plumbing behind each stage.
+      </h2>
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted max-w-2xl">
+        What it actually takes to make the journey enforceable — typed authoring, real audit, content-addressed storage, and pinned consumption across every IDE.
+      </p>
+    </div>
+
+    <div class="reveal mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-line hairline border rounded-lg overflow-hidden">
+      <div class="bg-paper p-6 md:p-7 card-hover">
+        <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></svg>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Static security audit</h3>
+        <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
+          <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">eval audit</span> covers 9 categories with 35 finding codes and 70 regex patterns. <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">--strict</span> adds an AST pass for Python.
+        </p>
+      </div>
+      <div class="bg-paper p-6 md:p-7 card-hover">
+        <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19V6l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Multi-IDE install</h3>
+        <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
+          One command, five targets. <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">--target all</span> deploys to Claude, Cursor, Windsurf, Copilot, Kiro — each in its native format.
+        </p>
+      </div>
+      <div class="bg-paper p-6 md:p-7 card-hover">
+        <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Content-addressed store</h3>
+        <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
+          <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">apply</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">get</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">describe</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">diff</span>. Every version is a SHA-256 blob with a stable identity.
+        </p>
+      </div>
+      <div class="bg-paper p-6 md:p-7 card-hover">
+        <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Provenance &amp; rollback</h3>
+        <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
+          Every push appends to a hash-chained audit log. <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">install @sha256:…</span> pins to an exact digest; rollback is one command.
+        </p>
+      </div>
+      <div class="bg-paper p-6 md:p-7 card-hover">
+        <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Export &amp; import</h3>
+        <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
+          Portable archives. Move skills between registries, branches, and environments without losing version history.
+        </p>
+      </div>
+      <div class="bg-paper p-6 md:p-7 card-hover">
+        <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <h3 class="display font-semibold text-[18px] mt-5">Claude Code MCP plugin</h3>
+        <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
+          14 MCP tools and 3 first-class skills give Claude Code a direct line into the registry — list, validate, install, audit.
+        </p>
+      </div>
+    </div>
+
+    <div class="reveal mt-12 hairline border rounded-lg bg-white px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <span class="mono text-[11px] text-subtle tracking-widest uppercase">Targets</span>
+      <div class="flex flex-wrap items-center gap-x-7 gap-y-2 text-[14px] text-muted">
+        <span class="text-ink font-medium">Claude Code</span>
+        <span class="text-ink font-medium">Cursor</span>
+        <span class="text-ink font-medium">Windsurf</span>
+        <span class="text-ink font-medium">GitHub Copilot</span>
+        <span class="text-ink font-medium">Kiro</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── QUICKSTART ──────────────────── -->
+<section id="quickstart" class="border-t hairline">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+    <div class="reveal max-w-3xl">
+      <p class="eyebrow">Quickstart</p>
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
+        Sixty seconds, end to end.
+      </h2>
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted">
+        Real commands. <span class="mono text-[14.5px] text-ink">skillctl</span> doesn't do anything fancy — it just does the boring lifecycle work for you.
+      </p>
+    </div>
+
+    <div class="reveal mt-14 hairline border rounded-lg bg-white overflow-hidden">
+      <div class="flex items-center gap-3 px-4 py-3 border-b hairline bg-paper">
+        <div class="flex items-center gap-1.5">
+          <span class="block h-3 w-3 rounded-full bg-stone-300"></span>
+          <span class="block h-3 w-3 rounded-full bg-stone-300"></span>
+          <span class="block h-3 w-3 rounded-full bg-stone-300"></span>
+        </div>
+        <div class="flex-1 text-center mono text-[11.5px] text-subtle">~/projects/my-org-skills</div>
+        <button data-copy="pip install skillsops
+skillctl create skill my-org/code-reviewer
+skillctl validate
+skillctl eval audit .
+skillctl apply
+skillctl install my-org/code-reviewer@0.1.0 --target all" class="copy-btn inline-flex items-center gap-1 mono text-[11px] text-muted hover:text-ink transition-colors" aria-label="Copy all commands">
+          <svg class="copy-icon w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          copy
         </button>
       </div>
 
-      <div class="flex flex-wrap justify-center gap-4 reveal stagger-5">
-        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand/20 to-accent/20 text-white hover:from-brand/30 hover:to-accent/30 border border-brand/20 transition-all font-medium text-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-          Read the blog
-        </a>
-        <a href="https://github.com/dgallitelli/skillsops" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl glass text-gray-300 hover:text-white transition-all font-medium text-sm card-hover">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
-          Star on GitHub
-        </a>
+      <pre class="mono text-[13px] md:text-[13.5px] leading-[1.85] text-ink p-6 md:p-8 overflow-x-auto"><span class="text-subtle"># 1. Install the CLI</span>
+<span class="text-accent">$</span> pip install skillsops
+
+<span class="text-subtle"># 2. Scaffold a typed skill</span>
+<span class="text-accent">$</span> skillctl create skill <span class="text-muted">my-org/code-reviewer</span>
+<span class="text-accent">✓</span> <span class="text-muted">created skill.yaml, SKILL.md, README.md</span>
+
+<span class="text-subtle"># 3. Validate the manifest, capabilities, semver</span>
+<span class="text-accent">$</span> skillctl validate
+<span class="text-accent">✓</span> <span class="text-muted">schema · 0 errors    semver · OK    capabilities · 4 declared</span>
+
+<span class="text-subtle"># 4. Run the static security audit</span>
+<span class="text-accent">$</span> skillctl eval audit <span class="text-muted">.</span>
+<span class="text-accent">✓</span> <span class="text-muted">9 categories · 0 findings · grade </span><span class="text-ink font-medium">A</span>
+
+<span class="text-subtle"># 5. Push to the content-addressed store</span>
+<span class="text-accent">$</span> skillctl apply
+<span class="text-accent">✓</span> <span class="text-muted">my-org/code-reviewer@0.1.0  sha256:8a2f1c…</span>
+
+<span class="text-subtle"># 6. Deploy to every IDE in one command</span>
+<span class="text-accent">$</span> skillctl install <span class="text-muted">my-org/code-reviewer@0.1.0</span> <span class="text-stone-500">--target all</span>
+<span class="text-accent">✓</span> <span class="text-muted">claude · cursor · windsurf · copilot · kiro</span><span class="inline-block w-1.5 h-3.5 align-middle bg-ink ml-1 animate-pulse"></span></pre>
+    </div>
+
+    <div class="reveal grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
+      <div class="hairline border bg-white rounded-lg px-4 py-3">
+        <p class="mono text-[10.5px] text-subtle uppercase tracking-widest">CI audit</p>
+        <code class="mono text-[12.5px] text-ink mt-1.5 block break-all">skillctl eval audit ./skills/ --fail-on-warning --format=github</code>
+      </div>
+      <div class="hairline border bg-white rounded-lg px-4 py-3">
+        <p class="mono text-[10.5px] text-subtle uppercase tracking-widest">Self-hosted registry</p>
+        <code class="mono text-[12.5px] text-ink mt-1.5 block break-all">skillctl serve --hmac-key "$SKILLCTL_HMAC_KEY"</code>
+      </div>
+      <div class="hairline border bg-white rounded-lg px-4 py-3">
+        <p class="mono text-[10.5px] text-subtle uppercase tracking-widest">Version diff</p>
+        <code class="mono text-[12.5px] text-ink mt-1.5 block break-all">skillctl diff my-org/x@1.2.0 my-org/x@1.3.0</code>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- IDE Support Bar -->
-  <section class="relative border-y border-white/[0.04] py-10">
-    <div class="max-w-5xl mx-auto px-6">
-      <p class="text-center text-xs uppercase tracking-widest text-gray-600 mb-6 font-medium">Works with your IDE</p>
-      <div class="flex flex-wrap justify-center items-center gap-6 md:gap-12">
-        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Claude Code</span>
-        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Cursor</span>
-        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Windsurf</span>
-        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">GitHub Copilot</span>
-        <span class="text-sm text-gray-500 font-medium hover:text-gray-300 transition-colors">Kiro</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Problem -->
-  <section class="max-w-5xl mx-auto px-6 py-24">
-    <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">The problem</p>
-    <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-14 reveal stagger-1">
-      Skills are ungoverned
-    </h2>
-
-    <div class="grid md:grid-cols-3 gap-5">
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-2">
-        <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold text-lg mb-2">No quality gate</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">Skills with hardcoded secrets, prompt injection, or data exfiltration patterns reach production unchecked.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold text-lg mb-2">No evaluation data</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">"Does this skill actually help?" is answered by gut feeling, not measurement. No baselines, no regression detection.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-4">
-        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold text-lg mb-2">Copy-pasted across IDEs</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">The same skill maintained in 5 places — Claude Code, Cursor, Windsurf, Copilot, Kiro. Changes drift. Versions diverge.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Lifecycle -->
-  <section class="py-24 overflow-hidden">
-    <div class="max-w-5xl mx-auto px-6">
-      <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">The lifecycle</p>
-      <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-16 reveal stagger-1">
-        One pipeline, every stage
+<!-- ──────────────────── CTA ──────────────────── -->
+<section class="border-t hairline">
+  <div class="max-w-6xl mx-auto px-6 py-24 md:py-32">
+    <div class="reveal max-w-3xl">
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl leading-[1.05]">
+        Author. Audit. Register. Consume.<br />
+        <span class="text-muted">All in one chain of custody.</span>
       </h2>
-
-      <div class="relative reveal stagger-2">
-        <div class="hidden md:block absolute top-7 left-[7%] right-[7%] h-[2px] rounded-full pipeline-flow"></div>
-
-        <div class="grid grid-cols-2 md:grid-cols-7 gap-y-10 gap-x-4 md:gap-3">
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
-              <span class="text-xl">✏️</span>
-            </div>
-            <span class="text-sm font-display font-bold text-white mt-3">create</span>
-            <span class="text-xs text-gray-500 mt-0.5">scaffold</span>
-          </div>
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
-              <span class="text-xl">✅</span>
-            </div>
-            <span class="text-sm font-display font-bold text-white mt-3">validate</span>
-            <span class="text-xs text-gray-500 mt-0.5">schema</span>
-          </div>
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
-              <span class="text-xl">🛡️</span>
-            </div>
-            <span class="text-sm font-display font-bold text-white mt-3">audit</span>
-            <span class="text-xs text-gray-500 mt-0.5">A-F grade</span>
-          </div>
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
-              <span class="text-xl">⚡</span>
-            </div>
-            <span class="text-sm font-display font-bold text-white mt-3">eval</span>
-            <span class="text-xs text-gray-500 mt-0.5">measure</span>
-          </div>
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
-              <span class="text-xl">🧬</span>
-            </div>
-            <span class="text-sm font-display font-bold text-white mt-3">optimize</span>
-            <span class="text-xs text-gray-500 mt-0.5">LLM loop</span>
-          </div>
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full glass flex items-center justify-center relative z-10 cursor-default">
-              <span class="text-xl">📦</span>
-            </div>
-            <span class="text-sm font-display font-bold text-white mt-3">publish</span>
-            <span class="text-xs text-gray-500 mt-0.5">governed</span>
-          </div>
-          <div class="flex flex-col items-center text-center">
-            <div class="pipeline-node w-14 h-14 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center relative z-10 cursor-default pulse-glow">
-              <span class="text-xl">🚀</span>
-            </div>
-            <span class="text-sm font-display font-bold text-brand mt-3">install</span>
-            <span class="text-xs text-gray-500 mt-0.5">every IDE</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Features -->
-  <section class="max-w-5xl mx-auto px-6 py-24">
-    <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">Capabilities</p>
-    <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-14 reveal stagger-1">
-      Everything you need
-    </h2>
-
-    <div class="grid md:grid-cols-3 gap-5">
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-2">
-        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold mb-2">Security scanning</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">9 threat categories, ~70 pattern detectors. A-F grading. Critical findings block publishing. Customize with <code class="text-brand/70 text-xs">.skilleval.yaml</code>.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-3">
-        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold mb-2">Multi-IDE install</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">One command distributes to Claude Code, Cursor, Windsurf, GitHub Copilot, and Kiro. Frontmatter auto-translated to each IDE's format.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-4">
-        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold mb-2">SKILL.md first-class</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">Works with bare SKILL.md files — no <code class="text-brand/70 text-xs">skill.yaml</code> required. Add a <code class="text-brand/70 text-xs">skillctl:</code> block for governance metadata that IDEs ignore.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-5">
-        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold mb-2">Automated optimization</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">LLM-driven iterative loop: evaluate &rarr; identify weaknesses &rarr; generate variants &rarr; promote the best. Any model via LiteLLM.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-6">
-        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold mb-2">Export &amp; import</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">Portable skill archives (tar.gz/zip). Export from one machine, import on another. Filter by namespace or tag.</p>
-      </div>
-
-      <div class="glass rounded-2xl p-7 card-hover reveal stagger-7">
-        <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
-          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg>
-        </div>
-        <h3 class="text-white font-display font-bold mb-2">Claude Code plugin</h3>
-        <p class="text-gray-400 text-sm leading-relaxed">14 MCP tools + 3 skills. Claude can validate, audit, optimize, and install skills as part of its workflow.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Quickstart -->
-  <section id="quickstart" class="max-w-3xl mx-auto px-6 py-24">
-    <p class="text-xs uppercase tracking-widest text-brand/80 font-semibold text-center mb-3 reveal">Quickstart</p>
-    <h2 class="font-display text-3xl md:text-4xl font-bold text-white text-center mb-14 reveal stagger-1">
-      Up and running in 60 seconds
-    </h2>
-
-    <div class="glass-strong rounded-2xl overflow-hidden glow reveal stagger-2">
-      <div class="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.04]">
-        <div class="flex gap-2">
-          <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
-          <div class="w-3 h-3 rounded-full bg-[#febc2e]"></div>
-          <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
-        </div>
-        <span class="text-xs text-gray-600 font-mono ml-3">~/projects</span>
-      </div>
-      <pre class="p-6 text-sm leading-loose overflow-x-auto"><code><span class="text-gray-600">$</span> <span class="text-brand">pip install</span> <span class="text-gray-300">skillsops</span>
-
-<span class="text-gray-600">$</span> <span class="text-brand">skillctl create skill</span> <span class="text-gray-300">my-org/code-reviewer</span>
-<span class="text-emerald-400">✓ Skill scaffolded: skill.yaml + SKILL.md</span>
-
-<span class="text-gray-600">$</span> <span class="text-brand">skillctl eval audit</span> <span class="text-gray-300">.</span>
-<span class="text-emerald-400">Grade: A (95/100) — 0 critical, 1 warning</span>
-
-<span class="text-gray-600">$</span> <span class="text-brand">skillctl apply</span>
-<span class="text-emerald-400">✓ Pushed my-org/code-reviewer@0.1.0 (hash: a3f7c2...)</span>
-
-<span class="text-gray-600">$</span> <span class="text-brand">skillctl install</span> <span class="text-gray-300">my-org/code-reviewer@0.1.0</span> <span class="text-accent">--target all</span>
-<span class="text-emerald-400">  ✓ claude: .claude/skills/code-reviewer/SKILL.md</span>
-<span class="text-emerald-400">  ✓ cursor: .cursor/rules/code-reviewer.mdc</span>
-<span class="text-emerald-400">  ✓ kiro:   .kiro/steering/code-reviewer.md</span></code></pre>
-    </div>
-  </section>
-
-  <!-- Final CTA -->
-  <section class="relative py-24 overflow-hidden">
-    <div class="absolute inset-0 bg-grid opacity-50"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-brand/10 rounded-full blur-[120px]"></div>
-
-    <div class="relative max-w-2xl mx-auto px-6 text-center">
-      <h2 class="font-display text-3xl md:text-4xl font-bold text-white mb-4 reveal">
-        Ready to govern your skills?
-      </h2>
-      <p class="text-gray-400 mb-10 reveal stagger-1">
-        One install. One command. Every IDE.
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted max-w-xl">
+        Free and open source under MPL-2.0. Public beta — feedback issues get a same-week reply.
       </p>
-      <div class="inline-flex items-center gap-4 glass-strong rounded-2xl px-7 py-5 glow reveal stagger-2">
-        <span class="text-gray-600 text-sm font-mono">$</span>
-        <code class="text-brand text-lg font-mono font-medium">pip install skillsops</code>
+
+      <div class="mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="inline-flex items-center gap-2 pl-4 pr-2 py-2 bg-white hairline border rounded-lg">
+          <span class="mono text-accent text-[13.5px] select-none">$</span>
+          <code class="mono text-[14px] text-ink">pip install skillsops</code>
+          <button data-copy="pip install skillsops" class="copy-btn ml-1 inline-flex items-center justify-center h-7 w-7 rounded-md text-subtle hover:text-ink hover:bg-stone-100 transition-colors" aria-label="Copy install command">
+            <svg class="copy-icon w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <a href="https://github.com/dgallitelli/skillsops" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-ink hover:bg-stone-800 text-white rounded-lg text-[14px] font-medium transition-colors">
+          Read the docs on GitHub
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+        </a>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- Footer -->
-  <footer class="border-t border-white/[0.04]">
-    <div class="max-w-5xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-6">
-      <div class="flex items-center gap-2 text-sm">
-        <span class="text-lg">⚡</span>
-        <span class="text-white font-display font-bold">SkillsOps</span>
-        <span class="text-gray-600">&mdash;</span>
-        <span class="text-gray-500">MPL-2.0</span>
-      </div>
-      <div class="flex items-center gap-8 text-sm">
-        <a href="https://pypi.org/project/skillsops/" class="text-gray-500 hover:text-white transition-colors">PyPI</a>
-        <a href="https://github.com/dgallitelli/skillsops" class="text-gray-500 hover:text-white transition-colors">GitHub</a>
-        <a href="https://dgallitelli.github.io/blog/posts/writing-your-first-agent-skill/" class="text-gray-500 hover:text-white transition-colors">Blog</a>
-        <a href="https://github.com/dgallitelli/skillsops/blob/main/docs/1-skill-format.md" class="text-gray-500 hover:text-white transition-colors">Docs</a>
-      </div>
+<!-- ──────────────────── FOOTER ──────────────────── -->
+<footer class="border-t hairline bg-paper">
+  <div class="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+    <div class="flex items-baseline gap-2">
+      <span class="display font-semibold text-[14px] text-ink">skillctl</span>
+      <span class="mono text-[11px] text-subtle">·</span>
+      <span class="mono text-[11px] text-muted">MPL-2.0</span>
+      <span class="mono text-[11px] text-subtle">·</span>
+      <span class="mono text-[11px] text-muted">v0.1.0b1</span>
     </div>
-  </footer>
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted">
+      <a href="https://pypi.org/project/skillsops/" class="hover:text-ink transition-colors">PyPI ↗</a>
+      <a href="https://github.com/dgallitelli/skillsops" class="hover:text-ink transition-colors">GitHub ↗</a>
+      <a href="https://github.com/dgallitelli/skillsops#readme" class="hover:text-ink transition-colors">Docs ↗</a>
+      <a href="https://github.com/dgallitelli/skillsops/issues" class="hover:text-ink transition-colors">Issues ↗</a>
+    </div>
+  </div>
+</footer>
 
-  <script>
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) entry.target.classList.add('visible');
-      });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+<script>
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    if (window.scrollY > 16) nav.classList.add('nav-scrolled');
+    else nav.classList.remove('nav-scrolled');
+  };
+  document.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
 
-    const nav = document.getElementById('nav');
-    window.addEventListener('scroll', () => {
-      nav.classList.toggle('scrolled', window.scrollY > 40);
-    }, { passive: true });
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
-    function copyInstall() {
-      navigator.clipboard.writeText('pip install skillsops').then(() => {
-        document.getElementById('copy-icon').classList.add('hidden');
-        document.getElementById('check-icon').classList.remove('hidden');
-        setTimeout(() => {
-          document.getElementById('copy-icon').classList.remove('hidden');
-          document.getElementById('check-icon').classList.add('hidden');
-        }, 2000);
-      });
-    }
-  </script>
+  document.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = btn.getAttribute('data-copy') || '';
+      try { await navigator.clipboard.writeText(text); } catch (_) {}
+      const icon = btn.querySelector('.copy-icon');
+      if (!icon) return;
+      const originalHTML = icon.outerHTML;
+      icon.outerHTML = '<svg class="copy-icon w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      setTimeout(() => {
+        const cur = btn.querySelector('.copy-icon');
+        if (cur) cur.outerHTML = originalHTML;
+      }, 2000);
+    });
+  });
+</script>
 
 </body>
 </html>
