@@ -69,14 +69,14 @@ Self-hostable FastAPI server. Start with `skillctl serve`.
 
 | Module | Purpose |
 |--------|---------|
-| `server.py` | App factory. Wires DB, storage, auth, audit, and API router with lifespan management. |
+| `server.py` | App factory. Wires DB, storage, auth, audit, and API router with lifespan management. Enforces one process owner per data directory. |
 | `api.py` | REST endpoints for draft creation, publish/unpublish, search, content/artifact download, delete, eval attachment, auth/RBAC, and health. |
 | `db.py` | SQLite with WAL mode, bounded writer waits, and atomic lifecycle compare-and-set. Skills, FTS5, token, identity, namespace, and authorization metadata. |
 | `migrations.py` | Ordered, transactional SQLite migrations shared by registry and RBAC persistence. Upgrade state is recorded in `schema_migrations`. |
 | `storage.py` | Content-addressed blob storage on filesystem. Atomic writes and corruption repair, hash validation on read, and non-destructive consistency inventory at startup. |
 | `auth.py` | Legacy-token compatibility and hierarchical permission validation. All decisions flow through RBAC middleware. |
 | `audit.py` | Append-only JSONL audit log with HMAC signatures for tamper detection. |
-| `github_backend.py` | Git-backed storage that syncs the registry to a GitHub repo for distributed deployments. |
+| `github_backend.py` | Git-backed storage that syncs one registry to a GitHub repo, with bounded non-fast-forward retries and clean rollback on rejected/conflicting pushes. |
 | `config.py` | Environment-variable-based server configuration. |
 
 ### Eval Suite (`skillctl/eval/`)

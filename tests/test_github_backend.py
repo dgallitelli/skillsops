@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
+from skillctl.errors import SkillctlError
 from skillctl.registry.db import MetadataDB
 from skillctl.registry.github_backend import GitHubBackend
 from skillctl.registry.storage import NotFoundError
@@ -126,6 +128,67 @@ def test_store_creates_git_commit(git_repo: GitHubBackend):
         text=True,
     )
     assert "publish: my-org/hello@1.0.0" in log.stdout
+
+
+def test_non_fast_forward_push_rebases_and_retries(git_repo: GitHubBackend, tmp_path):
+    second = GitHubBackend(
+        repo_url=git_repo._repo_url,
+        clone_dir=tmp_path / "second-clone",
+        branch="main",
+    )
+    second.setup()
+
+    git_repo.store_skill("my-org/first", "1.0.0", MANIFEST, b"first", {})
+    second.store_skill("my-org/second", "1.0.0", MANIFEST, b"second", {})
+
+    git_repo.pull()
+    assert git_repo.get_skill_content("my-org/first", "1.0.0") == b"first"
+    assert git_repo.get_skill_content("my-org/second", "1.0.0") == b"second"
+
+
+def test_conflicting_remote_push_fails_cleanly_and_restores_clone(git_repo: GitHubBackend, tmp_path):
+    second = GitHubBackend(
+        repo_url=git_repo._repo_url,
+        clone_dir=tmp_path / "second-clone",
+        branch="main",
+    )
+    second.setup()
+
+    git_repo.store_skill("my-org/conflict", "1.0.0", MANIFEST, b"first writer", {})
+    with pytest.raises(SkillctlError) as exc_info:
+        second.store_skill("my-org/conflict", "1.0.0", MANIFEST, b"second writer", {})
+
+    assert exc_info.value.code == "E_GIT_CONFLICT"
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=second._clone_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert status.stdout == ""
+    assert second.get_skill_content("my-org/conflict", "1.0.0") == b"first writer"
+
+
+def test_rejected_push_is_structured_and_rolls_back(git_repo: GitHubBackend):
+    hook = Path(git_repo._repo_url) / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\necho 'policy rejected update' >&2\nexit 1\n")
+    hook.chmod(0o755)
+
+    with pytest.raises(SkillctlError) as exc_info:
+        git_repo.store_skill("my-org/rejected", "1.0.0", MANIFEST, b"rejected", {})
+
+    assert exc_info.value.code == "E_GIT_PUSH_REJECTED"
+    assert "policy rejected" in exc_info.value.why
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=git_repo._clone_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert status.stdout == ""
+    assert not (git_repo._skills_dir / "my-org" / "rejected").exists()
 
 
 def test_delete_skill(git_repo: GitHubBackend):
