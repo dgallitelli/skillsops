@@ -23,7 +23,7 @@ from skillctl.registry.auth import AuthManager, PERMISSION_PATTERN, _anonymous_t
 from skillctl.registry.config import RegistryConfig
 from skillctl.registry.db import MetadataDB
 from skillctl.registry.github_backend import _validate_name_version
-from skillctl.registry.server import _validate_security_invariants
+from skillctl.registry.server import DataDirInUseError, _exclusive_data_dir_lock, _validate_security_invariants
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +135,26 @@ class TestC4_AuthDisabledLocalhost:
     def test_auth_enabled_any_host_ok(self):
         cfg = RegistryConfig(host="0.0.0.0", auth_disabled=False)
         _validate_security_invariants(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Registry process ownership
+# ---------------------------------------------------------------------------
+
+
+def test_registry_data_directory_has_one_process_owner(tmp_path):
+    data_dir = tmp_path / "registry"
+    data_dir.mkdir()
+
+    with _exclusive_data_dir_lock(data_dir):
+        with pytest.raises(DataDirInUseError) as exc_info:
+            with _exclusive_data_dir_lock(data_dir):
+                pass
+
+    assert exc_info.value.code == "E_REGISTRY_IN_USE"
+    assert exc_info.value.what.endswith(str(data_dir))
+    assert exc_info.value.why
+    assert exc_info.value.fix
 
 
 # ---------------------------------------------------------------------------

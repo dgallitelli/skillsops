@@ -105,6 +105,44 @@ skillctl rbac check  --registry $REG --user alice --permission skill:publish --n
 This is the headline RBAC guarantee: **who can do what, to which skills, and
 it's all in the HMAC-signed audit chain.**
 
+### Restart, backup, and restore
+
+The registry reopens the same database, blobs, audit chain, and generated HMAC
+key after an ordinary restart. Keep the entire data directory on one persistent
+volume; do not mount its files independently. Run one registry process per data
+directory: a second process, Uvicorn worker, or replica is rejected at startup
+with `E_REGISTRY_IN_USE`.
+
+Take an offline backup so SQLite and the blob store represent the same point in
+time:
+
+```bash
+# Stop the registry process or service first.
+cp -a /srv/skillsops/registry /srv/skillsops/backups/registry-2026-09-09
+```
+
+Back up the whole directory, including `registry.db`, any SQLite `-wal`/`-shm`
+files, `blobs/`, `audit.jsonl`, and `hmac.key`. If the HMAC key is supplied by
+an external secret manager instead, back up and restore that secret through the
+same system. A database-only backup loses content; a backup without the original
+key cannot verify the existing audit chain. For Docker Compose, stop the
+registry service and snapshot or copy the complete named volume.
+
+Restore into an empty directory, fix ownership and mode for the registry
+service account, then start SkillsOps against that directory:
+
+```bash
+cp -a /srv/skillsops/backups/registry-2026-09-09 /srv/skillsops/registry-restored
+skillctl serve --host 127.0.0.1 --port 8080 \
+    --data-dir /srv/skillsops/registry-restored --auto-generate-hmac-key
+```
+
+The existing HMAC key is reused; `--auto-generate-hmac-key` does not replace
+it. Confirm `/api/v1/health` reports `status: ok` and `storage_status: ok`, then
+verify the audit endpoint reports zero invalid entries before accepting writes.
+Keep the source backup unchanged until a new version can be created, published,
+and downloaded from the restored registry.
+
 ---
 
 ## 4. Publish lifecycle (create vs publish) (M1)

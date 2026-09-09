@@ -118,4 +118,8 @@ LLM-as-a-judge eval, AST-level review, and runtime sandboxing.
    `write:org-name` — never bare `admin` for day-to-day operations).
 6. Rotate tokens regularly; revoke promptly.
 7. Periodically run `audit.verify_integrity()` and alert on `invalid > 0`.
-8. Back up `audit.jsonl` and the SQLite index to immutable storage.
+8. Back up the complete registry data directory and external HMAC secret to
+   immutable storage while the registry is stopped.
+9. Run exactly one registry process per data directory. Startup rejects a
+   second owner; do not configure multiple Uvicorn workers or replicas against
+   one volume.

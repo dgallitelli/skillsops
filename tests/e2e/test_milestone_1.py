@@ -46,17 +46,25 @@ def _free_port() -> int:
 class RegistryFixture:
     """Manages a real registry server instance for testing."""
 
-    def __init__(self, tmp_path: Path, auth_disabled: bool = False):
+    def __init__(
+        self,
+        tmp_path: Path,
+        auth_disabled: bool = False,
+        data_dir: Path | None = None,
+    ):
         self.tmp_dir = tmp_path
-        self.data_dir = tmp_path / "registry-data"
+        self.data_dir = data_dir or tmp_path / "registry-data"
         self.port = _free_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
         self.auth_disabled = auth_disabled
         self.process: subprocess.Popen | None = None
+        self._drain_thread: threading.Thread | None = None
+        self._clients: list[httpx.Client] = []
         self.admin = {"username": None, "password": None, "token": None}
         self._lines: list[str] = []
 
-    def start(self) -> None:
+    def start(self, *, expect_bootstrap: bool = True) -> None:
+        self._lines = []
         args = [
             SKILLCTL,
             "serve",
@@ -72,14 +80,17 @@ class RegistryFixture:
         ]
         if self.auth_disabled:
             args.append("--auth-disabled")
-        self.process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-        threading.Thread(target=self._drain, daemon=True).start()
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        self.process = process
+        self._drain_thread = threading.Thread(target=self._drain, args=(process,), daemon=True)
+        self._drain_thread.start()
         self._wait_ready()
-        self._parse_bootstrap(timeout=5.0)
+        if expect_bootstrap:
+            self._parse_bootstrap(timeout=5.0)
 
-    def _drain(self) -> None:
-        assert self.process and self.process.stdout
-        for line in self.process.stdout:
+    def _drain(self, process: subprocess.Popen) -> None:
+        assert process.stdout
+        for line in process.stdout:
             self._lines.append(line.rstrip("\n"))
 
     def _wait_ready(self, timeout: float = 25.0) -> None:
@@ -112,16 +123,38 @@ class RegistryFixture:
         raise RuntimeError("did not capture bootstrap admin creds:\n" + "\n".join(self._lines))
 
     def stop(self) -> None:
-        if self.process and self.process.poll() is None:
-            self.process.terminate()
+        for client in self._clients:
+            client.close()
+        self._clients.clear()
+        process = self.process
+        if process is None:
+            return
+        if process.poll() is None:
+            process.terminate()
             try:
-                self.process.wait(timeout=5)
+                process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                self.process.kill()
+                process.kill()
+                process.wait(timeout=5)
+        if self._drain_thread is not None:
+            self._drain_thread.join(timeout=5)
+        if process.stdout is not None:
+            process.stdout.close()
+        self.process = None
+        self._drain_thread = None
+
+    def restart(self) -> None:
+        """Restart against the same data directory without re-bootstrap."""
+        self.stop()
+        self.port = _free_port()
+        self.base_url = f"http://127.0.0.1:{self.port}"
+        self.start(expect_bootstrap=False)
 
     def client(self, token: str | None = None) -> httpx.Client:
         headers = {"Authorization": f"Bearer {token}"} if token else {}
-        return httpx.Client(base_url=self.base_url, headers=headers, timeout=10.0)
+        client = httpx.Client(base_url=self.base_url, headers=headers, timeout=10.0)
+        self._clients.append(client)
+        return client
 
     # -- high-level helpers --------------------------------------------------
 
@@ -338,6 +371,121 @@ def test_e2e_backward_compatibility_no_auth(noauth_registry):
     assert "anonymous" in actors
 
 
+def test_e2e_persistent_restart_preserves_state_and_audit(registry):
+    content = b"# Restart proof\n\nPersistent registry content.\n"
+    ac = registry.admin_client()
+    created = _create_skill(ac, "ops/restart", "org/recovery", content=content)
+    assert created.status_code == 201, created.text
+    assert _publish(ac, "ops/restart", "org/recovery").status_code == 200
+    hmac_key = (registry.data_dir / "hmac.key").read_bytes()
+
+    registry.restart()
+
+    ac = registry.admin_client()
+    who = ac.get("/api/v1/auth/whoami")
+    assert who.status_code == 200
+    assert who.json()["username"] == "admin"
+    health = ac.get("/api/v1/health").json()
+    assert health["status"] == "ok"
+    assert health["storage_status"] == "ok"
+    assert health["skills_count"] == 1
+    downloaded = ac.get("/api/v1/skills/ops/restart/1.0.0/content")
+    assert downloaded.status_code == 200
+    assert downloaded.content == content
+    assert (registry.data_dir / "hmac.key").read_bytes() == hmac_key
+    assert ac.get("/api/v1/audit", params={"limit": 1000}).json()["integrity"]["invalid"] == 0
+
+
+def test_e2e_offline_backup_restore_preserves_state_and_remains_writable(registry, tmp_path):
+    content = b"# Backup proof\n\nContent before backup.\n"
+    ac = registry.admin_client()
+    created = _create_skill(ac, "ops/backup", "org/recovery", content=content)
+    assert created.status_code == 201, created.text
+    assert _publish(ac, "ops/backup", "org/recovery").status_code == 200
+
+    registry.stop()
+    backup_dir = tmp_path / "registry-backup"
+    restored_dir = tmp_path / "registry-restored"
+    shutil.copytree(registry.data_dir, backup_dir)
+    shutil.copytree(backup_dir, restored_dir)
+
+    restored = RegistryFixture(tmp_path / "restored-server", data_dir=restored_dir)
+    restored.admin = dict(registry.admin)
+    restored.start(expect_bootstrap=False)
+    try:
+        restored_admin = restored.admin_client()
+        downloaded = restored_admin.get("/api/v1/skills/ops/backup/1.0.0/content")
+        assert downloaded.status_code == 200
+        assert downloaded.content == content
+        audit_before = restored_admin.get("/api/v1/audit", params={"limit": 1000}).json()
+        assert audit_before["integrity"]["invalid"] == 0
+
+        created = _create_skill(
+            restored_admin,
+            "ops/backup",
+            "org/recovery",
+            version="1.1.0",
+            content=b"# Backup proof\n\nContent after restore.\n",
+        )
+        assert created.status_code == 201, created.text
+        assert _publish(restored_admin, "ops/backup", "org/recovery", version="1.1.0").status_code == 200
+        health = restored_admin.get("/api/v1/health").json()
+        assert health["status"] == "ok"
+        assert health["storage_status"] == "ok"
+        assert health["skills_count"] == 2
+        audit_after = restored_admin.get("/api/v1/audit", params={"limit": 1000}).json()
+        assert audit_after["integrity"]["invalid"] == 0
+        assert audit_after["integrity"]["valid"] > audit_before["integrity"]["valid"]
+    finally:
+        restored.stop()
+
+
+def test_e2e_new_version_repairs_shared_corrupted_content(registry):
+    content = b"# Repair proof\n\nShared content.\n"
+    ac = registry.admin_client()
+    created = _create_skill(ac, "ops/repair", "org/recovery", content=content)
+    assert created.status_code == 201, created.text
+    assert _publish(ac, "ops/repair", "org/recovery").status_code == 200
+    content_hash = created.json()["content_hash"]
+    blob_path = registry.data_dir / "blobs" / content_hash[:2] / content_hash
+    blob_path.write_bytes(b"corrupted")
+
+    damaged = ac.get("/api/v1/skills/ops/repair/1.0.0/content")
+    assert damaged.status_code == 500
+
+    repaired = _create_skill(
+        ac,
+        "ops/repair",
+        "org/recovery",
+        version="1.1.0",
+        content=content,
+    )
+    assert repaired.status_code == 201, repaired.text
+    assert repaired.json()["content_hash"] == content_hash
+    assert _publish(ac, "ops/repair", "org/recovery", version="1.1.0").status_code == 200
+    downloaded = ac.get("/api/v1/skills/ops/repair/1.0.0/content")
+    assert downloaded.status_code == 200
+    assert downloaded.content == content
+
+    registry.restart()
+    health = registry.admin_client().get("/api/v1/health").json()
+    assert health["status"] == "ok"
+    assert health["storage_status"] == "ok"
+
+
+def test_e2e_second_process_cannot_share_registry_data_dir(registry, tmp_path):
+    second = RegistryFixture(tmp_path / "second-server", data_dir=registry.data_dir)
+    try:
+        with pytest.raises(RuntimeError, match="E_REGISTRY_IN_USE"):
+            second.start(expect_bootstrap=False)
+    finally:
+        second.stop()
+
+    health = registry.admin_client().get("/api/v1/health")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+
+
 def test_e2e_unauthenticated_is_rejected(registry):
     # With auth enabled, a missing/invalid token is rejected (not silently allowed).
     assert registry.client().get("/api/v1/skills", params={"namespace": "org/test"}).status_code == 401
@@ -348,7 +496,7 @@ def test_e2e_cli_auth_flow(registry, tmp_path):
     """login → whoami → token create → logout, via the real CLI with a temp HOME."""
     home = tmp_path / "home"
     home.mkdir()
-    env = {"HOME": str(home), "PATH": __import__("os").environ["PATH"]}
+    env = {**__import__("os").environ, "HOME": str(home)}
 
     def run(*args):
         return subprocess.run([SKILLCTL, *args], capture_output=True, text=True, env=env, timeout=60)

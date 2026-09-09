@@ -55,9 +55,10 @@ class AuditLogger:
     file (but not the HMAC key) from deleting or reordering entries —
     ``verify_integrity()`` will detect breaks in the chain.
 
-    The logger is process-safe via an in-process lock; it is NOT cross-
-    process safe.  Multi-worker deployments should send audit events through
-    a single writer or use external append-only storage.
+    The logger serialises threads with an in-process lock and writers on the
+    same host filesystem with ``fcntl.flock``. The registry still enforces one
+    process per data directory because SQLite, blob, and lifecycle ownership
+    are not a coordinated multi-worker design.
     """
 
     def __init__(self, log_path: Path, hmac_key: bytes) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import tarfile
@@ -109,6 +110,47 @@ def test_new_version_repairs_shared_corrupted_content_blob(store):
 
     pulled, _ = store.pull("test-org/test-skill", "1.0.0")
     assert pulled == content
+
+
+def test_pull_artifact_upgrades_legacy_index_entry(tmp_path):
+    """A pre-artifact beta store remains readable without rewriting its index."""
+    from skillctl.artifact import inspect_artifact
+
+    root = tmp_path / "legacy-store"
+    content = b"# Legacy skill\n\nStored before complete artifacts.\n"
+    digest = hashlib.sha256(content).hexdigest()
+    blob_dir = root / "store" / digest[:2]
+    blob_dir.mkdir(parents=True)
+    (blob_dir / digest).write_bytes(content)
+
+    manifest = _make_manifest(name="legacy/skill", version="0.1.0")
+    (blob_dir / f"{digest}.manifest.yaml").write_text(yaml.safe_dump(manifest.to_dict(), sort_keys=False))
+    (root / "index.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name": "legacy/skill",
+                    "version": "0.1.0",
+                    "hash": digest,
+                    "tags": [],
+                    "pushed_at": "2026-01-01T00:00:00+00:00",
+                    "size": len(content),
+                }
+            ]
+        )
+    )
+
+    bundle, metadata = ContentStore(root=root).pull_artifact("legacy/skill", "0.1.0")
+
+    verified = inspect_artifact(
+        bundle,
+        expected_name="legacy/skill",
+        expected_version="0.1.0",
+        expected_content=content,
+    )
+    assert verified.file("SKILL.md").content == content
+    assert metadata["artifact_hash"] is None
+    assert metadata["artifact_size"] == 0
 
 
 # -- pull non-existent skill raises E_NOT_FOUND ------------------------------
