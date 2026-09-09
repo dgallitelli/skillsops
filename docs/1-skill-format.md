@@ -287,6 +287,14 @@ SKILLCTL_HMAC_KEY="replace-with-secret" skillctl serve --port 8080
 
 Data is stored at `~/.skillctl/registry/` by default. Use `--data-dir` to override.
 
+The SQLite/filesystem registry is deliberately single-process. It holds
+`<data-dir>/.registry.lock` for its full lifetime and refuses a second process,
+Uvicorn worker, or replica using the same directory. For coordinated
+high-availability scale-out, replace the local metadata, blob, and audit
+components with external transactional services; sharing a volume is not a
+supported substitute. Independent registries must use independent data
+directories.
+
 ### Configure the CLI
 
 ```bash
@@ -335,7 +343,13 @@ Every mutating operation is logged to an append-only JSONL file signed with HMAC
 
 ### GitHub storage backend
 
-The registry can use a GitHub repository as its backing store instead of local filesystem. See `skillctl serve --storage github` and configure via `skillctl configure` or `skillctl config set github.repo <url>`.
+The registry can use a GitHub repository as its backing store instead of local
+filesystem. Non-fast-forward races are fetched, rebased, and retried up to
+three times; conflicting or policy-rejected pushes fail with a structured error
+and restore the local clone to the remote state. This does not turn the local
+SQLite index and audit log into a coordinated multi-replica service. See
+`skillctl serve --storage github` and configure via `skillctl configure` or
+`skillctl config set github.repo <url>`.
 
 ---
 
@@ -395,7 +409,7 @@ skillctl eval audit examples/dependency-scanner
 | Python | Status |
 |--------|--------|
 | 3.10 | Supported (tested in CI) |
-| 3.11 | Supported (not explicitly tested) |
+| 3.11 | Supported (tested in CI) |
 | 3.12 | Supported (tested in CI) |
 | 3.13 | Supported (tested in CI) |
 

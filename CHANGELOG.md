@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## v0.1.0b9 (2026-09-09)
+
+### Production proof
+
+- Added real-process recovery coverage for persistent restarts, offline
+  full-data-directory backup/restore, post-restore writes, audit-chain
+  continuity, and content corruption repair.
+- Proved compatibility with pre-artifact local stores and existing
+  transactional registry migrations.
+- Enforced one registry process per persistent data directory with a
+  structured `E_REGISTRY_IN_USE` startup failure, and documented the external
+  services required for coordinated high availability.
+- Added bounded GitHub non-fast-forward rebase/retries, structured conflict and
+  policy-rejection failures, and clean local rollback after unsuccessful
+  publication.
+- Added Python 3.11 to the blocking CI matrix, resolved TestClient/AnyIO
+  deprecation warnings, and expanded Pyright coverage to the shipped MCP
+  server.
+
 ## v0.1.0b8 (2026-09-08)
 
 ### Stabilization

@@ -38,13 +38,13 @@ jobs:
         run: pip install -e ".[dev,plugin]" pyright
 
       - name: Type check
-        run: pyright skillctl/ --pythonversion 3.10
+        run: pyright skillctl/ plugin/scripts/mcp_server.py --pythonversion 3.10 --pythonpath "$(command -v python)"
 
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v6
 
@@ -76,7 +76,7 @@ jobs:
         run: pip install -e ".[dev,server,plugin,observability]"
 
       - name: Run real local end-to-end suite
-        run: pytest tests/e2e -q
+        run: pytest tests/e2e -q -W error::DeprecationWarning
 
   test-optimize:
     # The optimizer was extracted to packages/skillsops-optimize in

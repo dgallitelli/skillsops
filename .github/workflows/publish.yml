@@ -37,10 +37,10 @@ jobs:
         run: |
           pip install -e ".[dev,server,plugin,observability]" ruff pyright
           pytest tests/ -m "not integration" -q
-          pytest tests/e2e -q
+          pytest tests/e2e -q -W error::DeprecationWarning
           ruff check skillctl/ plugin/ tests/
           ruff format --check skillctl/ plugin/ tests/
-          pyright skillctl/ --pythonversion 3.10
+          pyright skillctl/ plugin/scripts/mcp_server.py --pythonversion 3.10 --pythonpath "$(command -v python)"
 
       - name: Build package
         run: python -m build
