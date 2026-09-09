@@ -15,8 +15,9 @@
   structured `E_REGISTRY_IN_USE` startup failure, and documented the external
   services required for coordinated high availability.
 - Added bounded GitHub non-fast-forward rebase/retries, structured conflict and
-  policy-rejection failures, and clean local rollback after unsuccessful
-  publication.
+  policy-rejection failures, clean local rollback after unsuccessful
+  publication, and isolation of explicit backend tokens from ambient Git
+  credential helpers.
 - Added Python 3.11 to the blocking CI matrix, resolved TestClient/AnyIO
   deprecation warnings, and expanded Pyright coverage to the shipped MCP
   server.

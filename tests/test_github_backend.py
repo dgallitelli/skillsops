@@ -130,6 +130,20 @@ def test_store_creates_git_commit(git_repo: GitHubBackend):
     assert "publish: my-org/hello@1.0.0" in log.stdout
 
 
+def test_explicit_token_disables_ambient_credential_helpers(tmp_path):
+    backend = GitHubBackend(
+        repo_url="https://github.com/example/registry.git",
+        clone_dir=tmp_path / "clone",
+        github_token="explicit-token",
+    )
+
+    with backend._git_env() as env:
+        assert env["GIT_CONFIG_COUNT"] == "1"
+        assert env["GIT_CONFIG_KEY_0"] == "credential.helper"
+        assert env["GIT_CONFIG_VALUE_0"] == ""
+        assert env["GIT_TOKEN"] == "explicit-token"
+
+
 def test_non_fast_forward_push_rebases_and_retries(git_repo: GitHubBackend, tmp_path):
     second = GitHubBackend(
         repo_url=git_repo._repo_url,

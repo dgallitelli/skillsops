@@ -435,6 +435,13 @@ class GitHubBackend(StorageBackend):
             env["GIT_CONFIG_NOSYSTEM"] = "1"
             tmp: tempfile.TemporaryDirectory | None = None
             if self._token:
+                # An ambient credential helper (for example `gh auth
+                # setup-git`) must not override the token explicitly supplied
+                # to this backend. An empty command-scoped helper resets the
+                # configured helper list before GIT_ASKPASS is consulted.
+                env["GIT_CONFIG_COUNT"] = "1"
+                env["GIT_CONFIG_KEY_0"] = "credential.helper"
+                env["GIT_CONFIG_VALUE_0"] = ""
                 tmp = tempfile.TemporaryDirectory(prefix="skillctl-askpass-")
                 helper_path = Path(tmp.name) / "askpass.sh"
                 helper_path.write_text(

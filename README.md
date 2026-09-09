@@ -285,7 +285,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for project conventions.
 
 Beta (`0.1.0b9`).  The core CLI surface (`apply`, `install`, `validate`,
 `eval audit`, `eval report`, `bump`, `diff`, `get`, `describe`, `delete`,
-`serve`, `logs`) is covered by 795 non-E2E tests and 43 real local
+`serve`, `logs`) is covered by 796 non-E2E tests and 43 real local
 end-to-end tests.  The registry's REST API
 shape and the `skillctl:` frontmatter block may change before `1.0.0`
 based on user feedback.  The optimizer now lives in the separate

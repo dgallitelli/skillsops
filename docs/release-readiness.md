@@ -8,9 +8,9 @@ Base: `origin/main@32a30f2`
 ## Decision
 
 **Pass for local beta qualification.** The stable CLI, registry, artifact,
-recovery, and RBAC paths passed. Merge or publication should still wait for a
-live GitHub-backend exercise and hosted CI to confirm its Python
-3.10/3.11/3.12/3.13 matrix and Docker Compose job.
+recovery, GitHub-backend, and RBAC paths passed. Merge or publication should
+still wait for hosted CI to confirm its Python 3.10/3.11/3.12/3.13 matrix and
+Docker Compose job.
 
 The policy, observability, compliance, deployment, identity/ABAC,
 lineage/forensics, federation, and generated CI surfaces remain experimental
@@ -20,8 +20,9 @@ or preview. They are not release-blocking enforcement claims.
 
 | Gate | Result |
 |---|---|
-| Non-E2E suite, including Git backend | 795 passed |
-| Git storage backend | 13 passed, including retry, conflict, rejection, and rollback |
+| Non-E2E suite, including Git backend | 796 passed |
+| Git storage backend | 14 passed, including retry, conflict, credential isolation, rejection, and rollback |
+| Live GitHub backend | Private disposable repository passed authenticated push, non-fast-forward retry, conflict, invalid-credential rejection, remote verification, and cleanup |
 | Local end-to-end suite with server/plugin/OTel extras | 43 passed with deprecations treated as errors |
 | Extracted optimizer unit suite | 111 passed, 3 external-provider tests deselected |
 | Registry migration, restart, backup/restore, corruption repair, process ownership, and archive-adversarial coverage | Passed within the suites above |
@@ -44,18 +45,15 @@ or preview. They are not release-blocking enforcement claims.
    validation.
 2. Local execution covered Python 3.13 and the Python 3.12 container. Python
    3.10, 3.11, and 3.12 package tests rely on the blocking hosted matrix.
-3. Local Git repositories proved conflicts, retries, rejections, and rollback,
-   but no disposable live GitHub repository has been authorized for the
-   network-backed exercise.
-4. External optimizer/provider tests were not run. The obsolete core Bedrock
+3. External optimizer/provider tests were not run. The obsolete core Bedrock
    test was removed because that integration moved to the separate optimizer
    package.
-5. TestClient/AnyIO compatibility is now enforced by running the E2E suite
+4. TestClient/AnyIO compatibility is now enforced by running the E2E suite
    with deprecation warnings treated as errors.
-6. A broad, non-blocking Pyright scan of tests and examples reports existing
+5. A broad, non-blocking Pyright scan of tests and examples reports existing
    annotation debt. CI now type-checks both `skillctl/` and the shipped MCP
    server; test-only annotation debt remains non-blocking.
-7. SQLite and filesystem persistence remain a single-node/single-process
+6. SQLite and filesystem persistence remain a single-node/single-process
    operational design. Startup now rejects a second process sharing the data
    directory; high availability still requires external transactional
    metadata, blob, and audit services.
