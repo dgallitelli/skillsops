@@ -33,16 +33,18 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from skillctl.errors import SkillctlError
 from skillctl.registry.db import MetadataDB, SkillRecord
-from skillctl.registry.storage import StorageBackend, NotFoundError
+from skillctl.registry.storage import NotFoundError, StorageBackend
 
 
 # Strict patterns matching the registry's published validator constraints.
 _NAMESPACE_NAME_PATTERN = re.compile(r"^[a-z0-9-]+/[a-z0-9-]+$")
 _VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
+_MAX_PUSH_ATTEMPTS = 3
 
 
 def _validate_name_version(name: str, version: str) -> None:
@@ -152,15 +154,7 @@ class GitHubBackend(StorageBackend):
 
         content_hash = hashlib.sha256(content).hexdigest()
 
-        # Git add + commit + push
-        self._git("add", "-A")
-        self._git(
-            "commit",
-            "-m",
-            f"publish: {name}@{version}",
-            "--allow-empty",
-        )
-        self._push()
+        self._commit_and_push(f"publish: {name}@{version}")
 
         return content_hash
 
@@ -183,9 +177,7 @@ class GitHubBackend(StorageBackend):
             if ns_dir.is_dir() and not any(ns_dir.iterdir()):
                 ns_dir.rmdir()
 
-        self._git("add", "-A")
-        self._git("commit", "-m", f"delete: {name}@{version}", "--allow-empty")
-        self._push()
+        self._commit_and_push(f"delete: {name}@{version}")
 
     def get_skill_content(self, name: str, version: str) -> bytes:
         """Read skill content bytes from the local clone."""
@@ -240,9 +232,7 @@ class GitHubBackend(StorageBackend):
                 existing = {}
         existing.update(metadata)
         meta_path.write_text(json.dumps(existing, indent=2))
-        self._git("add", "-A")
-        self._git("commit", "-m", f"update-meta: {name}@{version}", "--allow-empty")
-        self._push()
+        self._commit_and_push(f"update-meta: {name}@{version}")
 
     def pull(self) -> None:
         """Pull latest changes from remote."""
@@ -437,9 +427,6 @@ class GitHubBackend(StorageBackend):
         per-call temp directory and cleaned up on exit, so the token never
         lives on disk longer than the git invocation.
         """
-        # Defer the contextmanager import so the module stays importable
-        # without contextlib.contextmanager at top-level.
-        from contextlib import contextmanager
 
         @contextmanager
         def _env_ctx():
@@ -448,6 +435,13 @@ class GitHubBackend(StorageBackend):
             env["GIT_CONFIG_NOSYSTEM"] = "1"
             tmp: tempfile.TemporaryDirectory | None = None
             if self._token:
+                # An ambient credential helper (for example `gh auth
+                # setup-git`) must not override the token explicitly supplied
+                # to this backend. An empty command-scoped helper resets the
+                # configured helper list before GIT_ASKPASS is consulted.
+                env["GIT_CONFIG_COUNT"] = "1"
+                env["GIT_CONFIG_KEY_0"] = "credential.helper"
+                env["GIT_CONFIG_VALUE_0"] = ""
                 tmp = tempfile.TemporaryDirectory(prefix="skillctl-askpass-")
                 helper_path = Path(tmp.name) / "askpass.sh"
                 helper_path.write_text(
@@ -495,6 +489,111 @@ class GitHubBackend(StorageBackend):
                     sanitized_err,
                 ) from None
 
+    @staticmethod
+    def _git_failure(exc: subprocess.CalledProcessError) -> str:
+        """Return the most useful already-sanitized git diagnostic."""
+        return (exc.stderr or exc.stdout or str(exc)).strip()
+
+    def _push_error(
+        self,
+        code: str,
+        what: str,
+        exc: subprocess.CalledProcessError,
+        fix: str,
+    ) -> SkillctlError:
+        return SkillctlError(
+            code=code,
+            what=what,
+            why=self._git_failure(exc),
+            fix=fix,
+        )
+
+    def _commit_and_push(self, message: str) -> None:
+        """Commit one mutation and restore the remote state if publication fails."""
+        try:
+            self._git("add", "-A")
+            self._git("commit", "-m", message, "--allow-empty")
+            self._push()
+        except Exception:
+            self._restore_remote_state()
+            raise
+
+    def _restore_remote_state(self) -> None:
+        """Best-effort cleanup after a failed mutation."""
+        try:
+            self._git("rebase", "--abort")
+        except subprocess.CalledProcessError:
+            pass
+        try:
+            self._git("fetch", "origin", self._branch)
+        except subprocess.CalledProcessError:
+            pass
+        try:
+            self._git("reset", "--hard", f"origin/{self._branch}")
+            self._git("clean", "-fd", "--", "skills", "blobs")
+        except subprocess.CalledProcessError:
+            pass
+
     def _push(self) -> None:
-        """Push to remote (auth comes from GIT_ASKPASS env)."""
-        self._git("push", "origin", self._branch)
+        """Push, rebasing and retrying bounded non-fast-forward races."""
+        last_error: subprocess.CalledProcessError | None = None
+        for attempt in range(1, _MAX_PUSH_ATTEMPTS + 1):
+            try:
+                self._git("push", "origin", self._branch)
+                return
+            except subprocess.CalledProcessError as exc:
+                last_error = exc
+
+            try:
+                self._git("fetch", "origin", self._branch)
+                divergence = self._git(
+                    "rev-list",
+                    "--left-right",
+                    "--count",
+                    f"HEAD...origin/{self._branch}",
+                )
+                counts = divergence.stdout.split()
+                remote_ahead = int(counts[1]) if len(counts) == 2 else 0
+            except (subprocess.CalledProcessError, ValueError) as sync_exc:
+                why = self._git_failure(last_error)
+                if isinstance(sync_exc, subprocess.CalledProcessError):
+                    why = f"{why}; remote refresh failed: {self._git_failure(sync_exc)}"
+                raise SkillctlError(
+                    code="E_GIT_PUSH_REJECTED",
+                    what=f"GitHub rejected the update to branch {self._branch!r}",
+                    why=why,
+                    fix="Verify repository access, branch protection, network connectivity, and the configured branch.",
+                ) from sync_exc
+
+            if remote_ahead == 0:
+                raise self._push_error(
+                    "E_GIT_PUSH_REJECTED",
+                    f"GitHub rejected the update to branch {self._branch!r}",
+                    last_error,
+                    "Verify repository access and branch protection, then retry.",
+                )
+
+            try:
+                self._git("rebase", f"origin/{self._branch}")
+            except subprocess.CalledProcessError as exc:
+                try:
+                    self._git("rebase", "--abort")
+                except subprocess.CalledProcessError:
+                    pass
+                raise self._push_error(
+                    "E_GIT_CONFLICT",
+                    f"Remote changes conflict with the registry update on branch {self._branch!r}",
+                    exc,
+                    "Resolve the conflicting repository changes, then retry the registry operation.",
+                ) from exc
+
+            if attempt == _MAX_PUSH_ATTEMPTS:
+                break
+
+        assert last_error is not None
+        raise self._push_error(
+            "E_GIT_PUSH_RETRY_EXHAUSTED",
+            f"GitHub branch {self._branch!r} kept changing during publication",
+            last_error,
+            "Retry after concurrent publishers have settled, or serialize registry writes.",
+        )

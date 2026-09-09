@@ -30,10 +30,12 @@ Security defaults:
 
 from __future__ import annotations
 
+import errno
+import fcntl
 import os
 import secrets
 import sys
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 
 from fastapi import FastAPI  # type: ignore[import-not-found]
@@ -41,6 +43,7 @@ from starlette.middleware.cors import CORSMiddleware  # type: ignore[import-not-
 from starlette.middleware.trustedhost import TrustedHostMiddleware  # type: ignore[import-not-found]
 
 from skillctl._secure import atomic_write_secret
+from skillctl.errors import SkillctlError
 from skillctl.registry.api import api_router
 from skillctl.registry.audit import AuditLogger
 from skillctl.registry.auth import AuthManager
@@ -50,6 +53,49 @@ from skillctl.registry.storage import FilesystemBackend
 
 
 _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+class DataDirInUseError(SkillctlError):
+    """Raised when another registry process owns the persistent data directory."""
+
+    def __init__(self, data_dir: Path, owner: str | None = None) -> None:
+        owner_hint = f" (owner PID {owner})" if owner else ""
+        super().__init__(
+            code="E_REGISTRY_IN_USE",
+            what=f"Registry data directory is already in use{owner_hint}: {data_dir}",
+            why=("SkillsOps uses SQLite and local persistence with one registry process per data directory."),
+            fix=(
+                "Stop the other registry process or choose another --data-dir. "
+                "Do not use multiple Uvicorn workers or replicas against one data directory."
+            ),
+        )
+
+
+@contextmanager
+def _exclusive_data_dir_lock(data_dir: Path):
+    """Hold the registry's single-process ownership lock for one lifespan."""
+    lock_path = data_dir / ".registry.lock"
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    locked = False
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if exc.errno not in {errno.EACCES, errno.EAGAIN}:
+                raise
+            os.lseek(fd, 0, os.SEEK_SET)
+            owner = os.read(fd, 64).decode(errors="replace").strip() or None
+            raise DataDirInUseError(data_dir, owner) from exc
+        locked = True
+        os.fchmod(fd, 0o600)
+        os.ftruncate(fd, 0)
+        os.write(fd, str(os.getpid()).encode())
+        os.fsync(fd)
+        yield
+    finally:
+        if locked:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
 
 
 def _resolve_hmac_key(config: RegistryConfig, data_dir: Path) -> bytes:
@@ -110,92 +156,94 @@ async def _lifespan(app: FastAPI):
     except OSError:
         pass
 
-    db = MetadataDB(data_dir / "registry.db", check_same_thread=False)
-    db.initialize()
+    with _exclusive_data_dir_lock(data_dir):
+        db = MetadataDB(data_dir / "registry.db", check_same_thread=False)
+        try:
+            db.initialize()
 
-    if config.storage_backend == "github":
-        from skillctl.registry.github_backend import GitHubBackend
+            if config.storage_backend == "github":
+                from skillctl.registry.github_backend import GitHubBackend
 
-        if not config.github_repo:
-            raise RuntimeError("github_repo is required when storage_backend='github'")
-        clone_dir = data_dir / "git-clone"
-        storage = GitHubBackend(
-            repo_url=config.github_repo,
-            clone_dir=clone_dir,
-            branch=config.github_branch,
-            github_token=config.github_token,
-        )
-        storage.setup()
-        indexed = storage.rebuild_index(db)
-        print(f"GitHub backend: cloned {config.github_repo}, indexed {indexed} skills", file=sys.stderr)
-        app.state.github_backend = storage
-    else:
-        storage = FilesystemBackend(data_dir)
-        app.state.github_backend = None
+                if not config.github_repo:
+                    raise RuntimeError("github_repo is required when storage_backend='github'")
+                clone_dir = data_dir / "git-clone"
+                storage = GitHubBackend(
+                    repo_url=config.github_repo,
+                    clone_dir=clone_dir,
+                    branch=config.github_branch,
+                    github_token=config.github_token,
+                )
+                storage.setup()
+                indexed = storage.rebuild_index(db)
+                print(f"GitHub backend: cloned {config.github_repo}, indexed {indexed} skills", file=sys.stderr)
+                app.state.github_backend = storage
+            else:
+                storage = FilesystemBackend(data_dir)
+                app.state.github_backend = None
 
-    if isinstance(storage, FilesystemBackend):
-        storage_consistency = storage.check_consistency(db.referenced_blob_hashes())
-        if storage_consistency.status != "ok":
-            print(
-                "Registry storage consistency "
-                f"{storage_consistency.status}: "
-                f"missing={len(storage_consistency.missing)}, "
-                f"corrupted={len(storage_consistency.corrupted)}, "
-                f"orphaned={len(storage_consistency.orphaned)}, "
-                f"malformed={len(storage_consistency.malformed)}. "
-                "No files were changed.",
-                file=sys.stderr,
-            )
-    else:
-        storage_consistency = None
+            if isinstance(storage, FilesystemBackend):
+                storage_consistency = storage.check_consistency(db.referenced_blob_hashes())
+                if storage_consistency.status != "ok":
+                    print(
+                        "Registry storage consistency "
+                        f"{storage_consistency.status}: "
+                        f"missing={len(storage_consistency.missing)}, "
+                        f"corrupted={len(storage_consistency.corrupted)}, "
+                        f"orphaned={len(storage_consistency.orphaned)}, "
+                        f"malformed={len(storage_consistency.malformed)}. "
+                        "No files were changed.",
+                        file=sys.stderr,
+                    )
+            else:
+                storage_consistency = None
 
-    auth_manager = AuthManager(db, disabled=config.auth_disabled)
+            auth_manager = AuthManager(db, disabled=config.auth_disabled)
 
-    hmac_key = _resolve_hmac_key(config, data_dir)
-    audit = AuditLogger(data_dir / "audit.jsonl", hmac_key=hmac_key)
+            hmac_key = _resolve_hmac_key(config, data_dir)
+            audit = AuditLogger(data_dir / "audit.jsonl", hmac_key=hmac_key)
 
-    # RBAC (Milestone 1): shares the registry SQLite connection.
-    from skillctl.registry.rbac.engine import RBACEngine
-    from skillctl.registry.rbac.store import RBACStore
+            # RBAC (Milestone 1): shares the registry SQLite connection.
+            from skillctl.registry.rbac.engine import RBACEngine
+            from skillctl.registry.rbac.store import RBACStore
 
-    rbac_store = RBACStore(db.conn)
-    rbac_store.initialize()
-    rbac_engine = RBACEngine(rbac_store)
+            rbac_store = RBACStore(db.conn)
+            rbac_store.initialize()
+            rbac_engine = RBACEngine(rbac_store)
 
-    # First-run bootstrap: create an initial admin and print credentials once.
-    bootstrap = rbac_store.bootstrap_admin()
-    if bootstrap is not None:
-        print(
-            "\n".join(
-                [
-                    "",
-                    "=" * 64,
-                    "  No users found — created the initial admin.",
-                    f"  Username: {bootstrap['username']}",
-                    f"  Password: {bootstrap['password']}",
-                    f"  Token:    {bootstrap['token']}",
-                    "  Save these credentials — they won't be shown again.",
-                    "  Change the password: skillctl auth change-password",
-                    "=" * 64,
-                    "",
-                ]
-            ),
-            file=sys.stderr,
-            flush=True,
-        )
+            # First-run bootstrap: create an initial admin and print credentials once.
+            bootstrap = rbac_store.bootstrap_admin()
+            if bootstrap is not None:
+                print(
+                    "\n".join(
+                        [
+                            "",
+                            "=" * 64,
+                            "  No users found — created the initial admin.",
+                            f"  Username: {bootstrap['username']}",
+                            f"  Password: {bootstrap['password']}",
+                            f"  Token:    {bootstrap['token']}",
+                            "  Save these credentials — they won't be shown again.",
+                            "  Change the password: skillctl auth change-password",
+                            "=" * 64,
+                            "",
+                        ]
+                    ),
+                    file=sys.stderr,
+                    flush=True,
+                )
 
-    app.state.db = db
-    app.state.storage = storage
-    app.state.storage_consistency = storage_consistency
-    app.state.auth_manager = auth_manager
-    app.state.audit = audit
-    app.state.rbac_store = rbac_store
-    app.state.rbac_engine = rbac_engine
-    app.state.registry_config = config
+            app.state.db = db
+            app.state.storage = storage
+            app.state.storage_consistency = storage_consistency
+            app.state.auth_manager = auth_manager
+            app.state.audit = audit
+            app.state.rbac_store = rbac_store
+            app.state.rbac_engine = rbac_engine
+            app.state.registry_config = config
 
-    yield
-
-    db.close()
+            yield
+        finally:
+            db.close()
 
 
 def _install_rate_limiting(app: FastAPI) -> None:

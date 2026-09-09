@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/dgallitelli/skillsops/actions/workflows/ci.yml"><img src="https://github.com/dgallitelli/skillsops/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/python-3.10%20|%203.12%20|%203.13-blue" alt="Python">
+  <img src="https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13-blue" alt="Python">
   <img src="https://img.shields.io/badge/pyright-checked-green" alt="Type Checked">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue" alt="License">
   <img src="https://img.shields.io/badge/pip--audit-clean-green" alt="Security">
@@ -93,7 +93,9 @@ into a hash-chained audit log.  Tokens are SHA-256-hashed at rest;
 namespace-scoped permissions enforce tenant isolation; rate limiting,
 CORS, and TrustedHost middleware are on by default.  See
 [SECURITY.md](SECURITY.md) for the full threat model and hardening
-checklist.
+checklist. The current persistence design is single-process: a second
+registry process or worker using the same data directory is refused at
+startup.
 
 For a local container deployment:
 
@@ -281,9 +283,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for project conventions.
 
 ## Status
 
-Beta (`0.1.0b8`).  The core CLI surface (`apply`, `install`, `validate`,
+Beta (`0.1.0b9`).  The core CLI surface (`apply`, `install`, `validate`,
 `eval audit`, `eval report`, `bump`, `diff`, `get`, `describe`, `delete`,
-`serve`, `logs`) is covered by 790 non-E2E tests and 39 real local
+`serve`, `logs`) is covered by 796 non-E2E tests and 43 real local
 end-to-end tests.  The registry's REST API
 shape and the `skillctl:` frontmatter block may change before `1.0.0`
 based on user feedback.  The optimizer now lives in the separate

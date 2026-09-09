@@ -141,11 +141,17 @@ class TestInstallCLI:
     def test_install_from_local_path(self, tmp_path):
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
+        home = tmp_path / "home"
+        home.mkdir()
         (skill_dir / "SKILL.md").write_text(
             "---\nname: test-skill\ndescription: test\nskillctl:\n  namespace: test-org\n  version: 0.1.0\n---\n\nBody"
         )
         (tmp_path / ".claude").mkdir()
-        r = _run(["install", str(skill_dir), "--target", "claude"], cwd=str(tmp_path))
+        r = _run(
+            ["install", str(skill_dir), "--target", "claude"],
+            cwd=str(tmp_path),
+            env={**os.environ, "HOME": str(home)},
+        )
         # Should either succeed or give an actionable error about namespace
         assert r.returncode == 0 or "namespace" in r.stderr.lower()
 

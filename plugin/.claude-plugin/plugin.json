@@ -1,7 +1,7 @@
 {
   "name": "skillctl",
   "description": "SkillsOps governance toolkit — validate, audit, bump, diff, and publish agent skills from Claude Code",
-  "version": "0.1.0b8",
+  "version": "0.1.0b9",
   "author": {
     "name": "skillsops contributors"
   },

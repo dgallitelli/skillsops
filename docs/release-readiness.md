@@ -1,16 +1,15 @@
-# Release Readiness — Stabilization Candidate
+# Release Readiness — Production-Proof Candidate
 
-Date: 2026-09-08
-Version: `0.1.0b8`
-Branch: `codex/p0-stabilization`
-Base: `origin/main@1ff29fd`
+Date: 2026-09-09
+Version: `0.1.0b9`
+Branch: `codex/b9-production-proof`
+Base: `origin/main@32a30f2`
 
 ## Decision
 
-**Pass for a beta release candidate.** The stable CLI, registry, artifact, and
-RBAC paths passed local qualification. Merge or publication should still wait
-for hosted CI to confirm its Python 3.10/3.12/3.13 matrix and Docker Compose
-job.
+**Pass for a beta release candidate.** The stable CLI, registry, artifact,
+recovery, GitHub-backend, and RBAC paths passed local and hosted qualification.
+All 12 checks in GitHub Actions run `34301410119` passed.
 
 The policy, observability, compliance, deployment, identity/ABAC,
 lineage/forensics, federation, and generated CI surfaces remain experimental
@@ -20,48 +19,45 @@ or preview. They are not release-blocking enforcement claims.
 
 | Gate | Result |
 |---|---|
-| Core tests, excluding separately timed Git backend and E2E suites | 780 passed |
-| Git storage backend | 10 passed |
-| Local end-to-end suite with server/plugin/OTel extras | 39 passed |
+| Non-E2E suite, including Git backend | 796 passed |
+| Git storage backend | 14 passed, including retry, conflict, credential isolation, rejection, and rollback |
+| Live GitHub backend | Private disposable repository passed authenticated push, non-fast-forward retry, conflict, invalid-credential rejection, remote verification, and cleanup |
+| Local end-to-end suite with server/plugin/OTel extras | 43 passed with deprecations treated as errors |
 | Extracted optimizer unit suite | 111 passed, 3 external-provider tests deselected |
-| Registry migration, concurrency, recovery, and archive-adversarial coverage | Passed within the suites above |
+| Registry migration, restart, backup/restore, corruption repair, process ownership, and archive-adversarial coverage | Passed within the suites above |
 | Ruff lint | Passed for the full checkout |
-| Ruff format | 177 files clean |
-| Production type check | `pyright skillctl/ --pythonversion 3.10`: 0 errors |
-| Dependency audit | `pip-audit`: no known vulnerabilities after the CI-required pip upgrade |
+| Ruff format | 156 files clean |
+| Production type check | `pyright skillctl/ plugin/scripts/mcp_server.py --pythonversion 3.10`: 0 errors |
+| Dependency audit | `pip-audit`: no known vulnerabilities; local optimizer package was not on PyPI and was skipped |
 | Dogfood security audit | Three shipped examples passed with grade A and zero warnings/critical findings |
 | Package build | sdist and wheel built successfully |
 | Package metadata | `twine check`: passed for both artifacts |
-| Distribution contents | Wheel has 115 entries with framework data, CI templates, and artifact/migration modules; sdist has the separate Claude plugin bundle; neither contains bytecode/cache files |
-| Non-editable wheel install | CLI version/help, registry server import, and MCP runtime import passed in a fresh Python 3.13 venv |
-| Container | Rebuilt on Python 3.12, booted as `appuser`, API health `ok`, Docker healthcheck `healthy` |
-| Compose | YAML structure validated locally; `docker compose config` is blocking in CI |
+| Distribution contents | Wheel has 115 entries; sdist has 193 and includes the separate Claude plugin bundle; neither contains bytecode/cache files |
+| Non-editable wheel install | CLI version/help and registry-server import passed in a fresh Python 3.13 venv |
+| Container | Rebuilt on Python 3.12, booted as `appuser`, and reported API and storage health `ok` at version `0.1.0b9` |
+| Hosted CI | 12/12 checks passed, including Python 3.10/3.11/3.12/3.13, E2E, dependency audit, build smoke, and container smoke |
+| Compose | Hosted `docker compose config --quiet` and container boot/health passed |
 
 ## Remaining risks and follow-ups
 
-1. This host has Docker Engine but no Compose plugin. The file was
-   structurally parsed here; the new hosted CI job is the authoritative Compose
-   validation.
-2. Local execution covered Python 3.13 and the Python 3.12 container. Python
-   3.10 and 3.12 package tests rely on the blocking hosted matrix.
-3. The Git backend suite uses local repositories; no live GitHub network,
-   credentials, or conflict/retry environment was exercised.
-4. External optimizer/provider tests were not run. The obsolete core Bedrock
+1. External optimizer/provider tests were not run. The obsolete core Bedrock
    test was removed because that integration moved to the separate optimizer
    package.
-5. The fresh E2E environment emits two upstream TestClient/AnyIO deprecation
-   warnings. Tests pass, but dependency compatibility should be watched.
-6. A broad, non-blocking Pyright scan of tests and examples reports existing
-   annotation debt. The shipped `skillctl/` target enforced by CI is clean.
-7. SQLite and the file audit chain remain a single-node/single-process
-   operational design. Multi-worker deployments need external coordination for
-   audit serialization and metadata ownership.
+2. TestClient/AnyIO compatibility is now enforced by running the E2E suite
+   with deprecation warnings treated as errors.
+3. A broad, non-blocking Pyright scan of tests and examples reports existing
+   annotation debt. CI now type-checks both `skillctl/` and the shipped MCP
+   server; test-only annotation debt remains non-blocking.
+4. SQLite and filesystem persistence remain a single-node/single-process
+   operational design. Startup now rejects a second process sharing the data
+   directory; high availability still requires external transactional
+   metadata, blob, and audit services.
 
 ## Release controls now in CI
 
-- Core tests run on Python 3.10, 3.12, and 3.13 without excluding Git backend
-  coverage.
-- The 39-test local E2E suite is blocking with all required optional
+- Core tests run on Python 3.10, 3.11, 3.12, and 3.13 without excluding Git
+  backend coverage.
+- The 43-test local E2E suite is blocking with all required optional
   dependencies installed.
 - Publishing repeats tests, E2E, lint, format, type checking, package build,
   and metadata validation before PyPI trusted publishing.
