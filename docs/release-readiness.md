@@ -7,10 +7,9 @@ Base: `origin/main@32a30f2`
 
 ## Decision
 
-**Pass for local beta qualification.** The stable CLI, registry, artifact,
-recovery, GitHub-backend, and RBAC paths passed. Merge or publication should
-still wait for hosted CI to confirm its Python 3.10/3.11/3.12/3.13 matrix and
-Docker Compose job.
+**Pass for a beta release candidate.** The stable CLI, registry, artifact,
+recovery, GitHub-backend, and RBAC paths passed local and hosted qualification.
+All 12 checks in GitHub Actions run `34301410119` passed.
 
 The policy, observability, compliance, deployment, identity/ABAC,
 lineage/forensics, federation, and generated CI surfaces remain experimental
@@ -36,24 +35,20 @@ or preview. They are not release-blocking enforcement claims.
 | Distribution contents | Wheel has 115 entries; sdist has 193 and includes the separate Claude plugin bundle; neither contains bytecode/cache files |
 | Non-editable wheel install | CLI version/help and registry-server import passed in a fresh Python 3.13 venv |
 | Container | Rebuilt on Python 3.12, booted as `appuser`, and reported API and storage health `ok` at version `0.1.0b9` |
-| Compose | This host has no Compose plugin; `docker compose config` remains blocking in CI |
+| Hosted CI | 12/12 checks passed, including Python 3.10/3.11/3.12/3.13, E2E, dependency audit, build smoke, and container smoke |
+| Compose | Hosted `docker compose config --quiet` and container boot/health passed |
 
 ## Remaining risks and follow-ups
 
-1. This host has Docker Engine but no Compose plugin. The file was
-   structurally parsed here; the new hosted CI job is the authoritative Compose
-   validation.
-2. Local execution covered Python 3.13 and the Python 3.12 container. Python
-   3.10, 3.11, and 3.12 package tests rely on the blocking hosted matrix.
-3. External optimizer/provider tests were not run. The obsolete core Bedrock
+1. External optimizer/provider tests were not run. The obsolete core Bedrock
    test was removed because that integration moved to the separate optimizer
    package.
-4. TestClient/AnyIO compatibility is now enforced by running the E2E suite
+2. TestClient/AnyIO compatibility is now enforced by running the E2E suite
    with deprecation warnings treated as errors.
-5. A broad, non-blocking Pyright scan of tests and examples reports existing
+3. A broad, non-blocking Pyright scan of tests and examples reports existing
    annotation debt. CI now type-checks both `skillctl/` and the shipped MCP
    server; test-only annotation debt remains non-blocking.
-6. SQLite and filesystem persistence remain a single-node/single-process
+4. SQLite and filesystem persistence remain a single-node/single-process
    operational design. Startup now rejects a second process sharing the data
    directory; high availability still requires external transactional
    metadata, blob, and audit services.

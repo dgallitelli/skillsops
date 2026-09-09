@@ -21,4 +21,4 @@
 16. ✅ **Enforce deployment boundaries** — Prevent unsupported multi-worker operation and document the path to coordinated scale-out.
 17. ✅ **Close compatibility debt** — Add Python 3.11 CI, resolve upstream test-client warnings where possible, and expand type coverage.
 18. ✅ **Exercise live GitHub infrastructure** — Validate authenticated pushes, conflicts, retries, and rejected updates against a disposable repository.
-19. 🔄 **Qualify the b9 milestone** — Run the complete release matrix and prepare evidence-driven follow-up priorities.
+19. ✅ **Qualify the b9 milestone** — Run the complete release matrix and prepare evidence-driven follow-up priorities.
