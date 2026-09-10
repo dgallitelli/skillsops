@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  <strong>The governance layer for agent skills.</strong>
+  <strong>Check, version, and share the skills your AI agents use.</strong>
 </p>
 
 <p align="center">
-  <em>Validate, audit, version, deploy, and self-host agent skills.<br>
-  One CLI for the whole lifecycle — what kubectl does for Kubernetes, skillctl does for skills.</em>
+  SkillsOps is an open-source CLI and optional self-hosted registry for agent skills.<br>
+  Catch risky instructions, review changes, and install the same skill across your team's coding tools.
 </p>
 
 <p align="center">
@@ -21,30 +21,90 @@
 
 ---
 
-## Why SkillsOps
+An **agent skill** is a reusable set of instructions, usually in a `SKILL.md`
+file, that teaches an AI agent a task: review code against your standards,
+investigate an incident, or follow your release process.
 
-A `SKILL.md` is a typed resource with a manifest, versioned content, capabilities,
-and a lifecycle.  Treating it that way — instead of as "just a markdown file
-that lives in a folder" — is the difference between a hobby project and
-production governance.
+**SkillsOps is for developers and teams who write, reuse, or share these
+instructions.** As skills spread across projects and editors, it gets harder
+to know what's in them, which version people use, and whether a change helps.
+SkillsOps brings those checks and distribution into one command-line tool:
+`skillctl`.
 
-SkillsOps gives that resource one CLI:
+## What it helps you do
+
+| When you need to… | SkillsOps helps you… |
+|---|---|
+| Review a skill before using or sharing it | Validate its structure and scan for exposed secrets, prompt-injection patterns, and risky code. |
+| Keep instructions consistent across editors | Install one source skill into Claude Code, Cursor, Windsurf, GitHub Copilot, and Kiro in their native formats. |
+| Understand what changed | Store named versions, compare instructions and manifests, and install a specific version. |
+| Share private team skills | Run a registry on your infrastructure with scoped access tokens and a log of registry changes. |
+| Make review checks repeatable | Generate a deterministic report combining security findings and schema checks, without a model API call. |
+
+For example, keep your team's code-review checklist as one skill, audit each
+update in CI, compare it with the previous version, then install the selected
+version into the editors your team uses.
+
+**Start locally:** validation, static audits, version storage, and editor
+installation need no registry account or model API key. Add a self-hosted
+registry when you need shared access. The optional LLM-driven optimizer is
+available separately as `skillsops-optimize`.
+
+[Get started](#quickstart) · [Capabilities and maturity](#whats-in-the-box) · [Documentation](#documentation)
+
+---
+
+## Quickstart
+
+Python 3.10+. This example creates a starter skill in a new directory, checks
+it, stores version `0.1.0` locally, and installs it for Claude Code and Cursor.
 
 ```bash
-skillctl validate    ./my-skill        # schema, semver, capabilities
-skillctl eval audit  ./my-skill        # security audit -> A-F grade
-skillctl apply       ./my-skill        # push to a content-addressed store
-skillctl bump        --minor           # 1.2.0 -> 1.3.0
-skillctl diff        my-org/x@1.2.0 my-org/x@1.3.0
-skillctl install     ./my-skill --target all   # deploy to every IDE
-skillctl describe    skill my-org/x@1.3.0
-skillctl logs        my-org/x          # audit trail from the registry
+# Install the CLI and create a workspace.
+pip install skillsops
+mkdir code-reviewer && cd code-reviewer
+skillctl create skill my-org/code-reviewer
+
+# Write a skill with the required frontmatter.
+cat > SKILL.md <<'EOF'
+---
+name: code-reviewer
+description: Review code against our team's standards. Use when reviewing a pull request.
+---
+# Code reviewer
+Read the proposed changes. Identify correctness issues and missing tests.
+Explain each finding with a file location.
+EOF
+
+# In skill.yaml, set metadata.description (required), e.g.:
+#   description: "Review code against our team's standards"
+
+# Validate and audit.
+skillctl validate
+skillctl eval audit .
+
+# Save a version locally.
+skillctl apply --local
+
+# Write the editor-specific instruction files.
+skillctl install my-org/code-reviewer@0.1.0 --target claude,cursor
 ```
 
-Skills are written in the **same `SKILL.md` format Anthropic uses** —
-SkillsOps adds the governance layer so your team can keep them
-**secure, private, and auditable on infrastructure you control**.  No
-vendor lock-in, no requirement to host skills off-site.
+The installed files are `.claude/skills/code-reviewer/SKILL.md` and
+`.cursor/rules/code-reviewer.mdc`. Choose other editors with `--target`, or
+use `--target all` to detect editors already present in your workspace.
+
+Already have a skill? Start with its existing file:
+
+```bash
+skillctl validate   ~/.claude/skills/code-reviewer/SKILL.md
+skillctl eval audit ~/.claude/skills/code-reviewer/
+skillctl install    ~/.claude/skills/code-reviewer/ --target cursor,windsurf,kiro
+```
+
+`apply --local` accepts a bare-name skill (no namespace) for the local
+store.  Only the **remote registry** requires a namespaced name like
+`my-org/code-reviewer`, because that store is shared.
 
 ---
 
@@ -54,8 +114,9 @@ vendor lock-in, no requirement to host skills off-site.
 |---|---|---|
 | `validate` — schema, semver, capability checks | stable | Bad manifests should never reach the store. |
 | `eval audit` — static security audit (9 categories, ~35 finding codes, ~70 regex patterns; `--strict` adds an AST pass for Python) | stable | Block leaked secrets, prompt injection, exfil URLs, unsafe deserialization, encoded payloads in CI. |
-| `apply` / `get` / `describe` / `delete` / `diff` — content-addressed local store | stable | Deterministic complete-skill bundles, per-file SHA-256 integrity, structural version diffs. |
-| `bump` — semver version edits in `skill.yaml` | stable | `--major` / `--minor` / `--patch` with breaking-change detection. |
+| `apply` / `get` / `describe` / `delete` — content-addressed local store | stable | Deterministic complete-skill bundles with per-file SHA-256 integrity. |
+| `diff` — structural diff between two stored versions | stable | Compare manifests for breaking changes and review content changes between versions. |
+| `bump` — semver version edits in `skill.yaml` | stable | Update the version with `--major` / `--minor` / `--patch`. Pair with `skillctl diff` to review breaking changes. |
 | `install` / `uninstall` — multi-IDE deploy (Claude Code, Cursor, Windsurf, Copilot, Kiro) | stable | One source SKILL.md, native frontmatter on every IDE. |
 | `serve` — self-hosted FastAPI registry with token auth, hash-chained audit log | stable | Run governance on infra you control.  See [SECURITY.md](SECURITY.md) for the threat model. |
 | `auth` / `rbac` / `namespace` — role-based access control | stable | Users, 4 roles, hierarchical namespaces, scoped tokens; every decision audited.  See [docs/rbac.md](docs/rbac.md). |
@@ -70,13 +131,14 @@ vendor lock-in, no requirement to host skills off-site.
 
 ---
 
-## Self-hosted, by design
+## Share private skills on your infrastructure
 
-Skills often encode private prompts, internal IP, and security-sensitive
-review rules.  Most teams don't want to ship those to a vendor:
+Skills can contain internal processes and review rules. Install the optional
+server package to share them through a registry you control:
 
 ```bash
 # Run the registry on your own host (or a private VPC).
+pip install "skillsops[server]"
 skillctl serve --hmac-key "$SKILLCTL_HMAC_KEY"
 
 # Issue narrowly-scoped tokens to CI / authors.
@@ -145,7 +207,7 @@ validation (80% audit + 20% contract) for a reproducible governance score.
 
 ---
 
-## Multi-IDE install — what it actually does
+## Use one skill across your editors
 
 Each IDE has its own conventions:
 
@@ -161,6 +223,9 @@ Each IDE has its own conventions:
 target. Complete artifact support files are installed beside `SKILL.md` for
 Claude Code. Single-file IDE formats retain them in a versioned
 `.skillctl-artifacts/` sidecar and report that location explicitly.
+
+`--target all` detects editors already present in the workspace. Name targets
+explicitly to create their files in a new project.
 
 ```bash
 skillctl install ./my-skill --target all                    # auto-detect
@@ -192,39 +257,10 @@ concern from governance gatekeeping.
 
 ---
 
-## 60-second tour
+## Where it fits
 
-```bash
-# Author from scratch.
-skillctl create skill my-org/code-reviewer
-# (edit SKILL.md)
-
-# Validate and audit.
-skillctl validate
-skillctl eval audit .
-
-# Push to your local content-addressed store.
-skillctl apply
-
-# Deploy to every IDE in the workspace.
-skillctl install my-org/code-reviewer@0.1.0 --target all
-
-# Or, working from an existing SKILL.md:
-skillctl validate   ~/.claude/skills/code-reviewer/SKILL.md
-skillctl eval audit ~/.claude/skills/code-reviewer/
-skillctl install    ~/.claude/skills/code-reviewer/ --target cursor,windsurf,kiro
-```
-
-`apply --local` accepts a bare-name skill (no namespace) for the local
-store.  Only the **remote registry** requires a namespaced name like
-`my-org/code-reviewer`, because that store is shared.
-
----
-
-## What this replaces
-
-If you don't use SkillsOps, the typical alternative is a hand-rolled
-pipeline:
+SkillsOps connects checks, versions, and distribution around the same skill.
+Use it to reduce the scripts you maintain between those steps:
 
 | Without SkillsOps | With SkillsOps |
 |---|---|
@@ -234,10 +270,10 @@ pipeline:
 | Skills shipped to a vendor, or no central store at all | `skillctl serve` on your own host |
 | Ad-hoc "does the schema look right?" review before merging | `skillctl eval report` (deterministic 80% audit + 20% contract) |
 
-The wedge is the **integration**: one resource model, one error model,
-one config, one CLI, one audit trail.  Each individual capability has
-mature standalone alternatives — what those don't give you is the
-shared lifecycle.
+The benefit is having a shared workflow: review a skill, save a version,
+and install it through the same CLI. Dedicated security scanners and eval
+frameworks can complement it; the static audit detects known patterns and
+does not guarantee that a skill is safe to execute.
 
 ---
 

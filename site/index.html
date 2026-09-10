@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SkillsOps — Governance for Agent Skills</title>
-<meta name="description" content="The governed lifecycle for SKILL.md. Author with a typed scaffold, audit with a deterministic security + schema-contract score, version in a content-addressed registry, and consume across every IDE — with one chain of custody across all four stages." />
+<title>SkillsOps — Check, version, and share agent skills</title>
+<meta name="description" content="Check agent skills for risky instructions, track versions, and install them across Claude Code, Cursor, Windsurf, Copilot, and Kiro. Open-source CLI with an optional self-hosted registry." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -34,7 +34,7 @@
   };
 </script>
 <style>
-  html { background: #fafaf9; }
+  html { background: #fafaf9; scroll-padding-top: 5rem; }
   body {
     background: #fafaf9;
     color: #1c1917;
@@ -83,15 +83,13 @@
 <nav id="nav" class="fixed top-0 inset-x-0 z-50 transition-colors duration-200">
   <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
     <a href="#top" class="flex items-baseline gap-1.5">
-      <span class="display font-semibold text-[15px] tracking-tight text-ink">skillctl</span>
-      <span class="mono text-[11px] text-subtle tnum">v0.4.0</span>
+      <span class="display font-semibold text-[15px] tracking-tight text-ink">SkillsOps</span>
+      <span class="mono text-[11px] text-subtle tnum">beta</span>
     </a>
     <div class="hidden md:flex items-center gap-7 text-[13.5px] text-muted">
-      <a href="#problem" class="hover:text-ink transition-colors">Why</a>
-      <a href="#journey" class="hover:text-ink transition-colors">Journey</a>
-      <a href="#governance" class="hover:text-ink transition-colors">Governance</a>
-      <a href="#lifecycle" class="hover:text-ink transition-colors">Lifecycle</a>
-      <a href="#capabilities" class="hover:text-ink transition-colors">Capabilities</a>
+      <a href="#problem" class="hover:text-ink transition-colors">How it works</a>
+      <a href="#capabilities" class="hover:text-ink transition-colors">What you can do</a>
+      <a href="#governance" class="hover:text-ink transition-colors">For teams</a>
       <a href="#quickstart" class="hover:text-ink transition-colors">Quickstart</a>
       <a href="https://github.com/dgallitelli/skillsops" class="hover:text-ink transition-colors">GitHub ↗</a>
     </div>
@@ -102,28 +100,28 @@
 </nav>
 
 <!-- ──────────────────── HERO ──────────────────── -->
-<section id="top" class="pt-32 md:pt-40 pb-20 md:pb-28">
+<section id="top" class="pt-28 md:pt-32 pb-16 md:pb-20">
   <div class="max-w-6xl mx-auto px-6">
     <div class="reveal">
       <a href="https://github.com/dgallitelli/skillsops/releases" class="inline-flex items-center gap-2 mono text-[11px] text-muted hover:text-ink transition-colors">
         <span class="inline-block h-1.5 w-1.5 rounded-full bg-accent"></span>
-        v0.4.0 — public beta
+        Public beta
         <span class="text-line-strong">·</span>
         <span class="underline decoration-line-strong underline-offset-2 hover:decoration-ink">read the changelog</span>
       </a>
     </div>
 
-    <h1 class="reveal stagger-1 display-tight font-semibold text-5xl sm:text-6xl md:text-[88px] md:leading-[0.96] mt-7 max-w-4xl">
-      Governance for<br class="hidden sm:block" />
-      agent skills.
+    <h1 class="reveal stagger-1 display-tight font-semibold text-5xl sm:text-6xl md:text-[76px] leading-[1.05] md:leading-[1.02] mt-7 max-w-4xl">
+      Check, version, and share<br class="hidden sm:block" />
+      the skills your AI agents use.
     </h1>
 
-    <p class="reveal stagger-2 mt-7 max-w-2xl text-[18px] md:text-[19px] leading-[1.55] text-muted">
-      One chain of custody from the moment a skill is written to the moment an agent runs it.
-      <span class="text-ink">Author</span> with a typed scaffold,
-      <span class="text-ink">audit</span> with a deterministic security + schema score,
-      <span class="text-ink">register</span> in a content-addressed store, and
-      <span class="text-ink">consume</span> across every IDE — without losing the trail.
+    <p class="reveal stagger-2 mt-6 max-w-3xl text-[18px] md:text-[19px] leading-[1.55] text-muted">
+      <strong class="text-ink font-medium">SkillsOps is an open-source CLI and optional self-hosted registry for agent skills.</strong>
+      Catch risky instructions, review changes, and install the same skill across your team’s coding tools.
+    </p>
+    <p class="reveal stagger-2 mt-4 max-w-3xl text-[14px] leading-[1.6] text-muted">
+      A skill is a reusable set of instructions in a <code class="mono text-[12.5px] text-ink">SKILL.md</code> file — for tasks like code review, incident investigation, or release checklists.
     </p>
 
     <div class="reveal stagger-3 mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -135,347 +133,66 @@
         </button>
       </div>
       <a href="#quickstart" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-ink hover:bg-stone-800 text-white rounded-lg text-[14px] font-medium transition-colors">
-        60-second tour
+        Try it locally
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
       </a>
       <a href="https://github.com/dgallitelli/skillsops" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hairline border hover:border-line-strong text-ink rounded-lg text-[14px] font-medium transition-colors">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-        Star on GitHub
+        View on GitHub
       </a>
     </div>
 
-    <!-- Hero diagram: the governance journey — Author → Audit → Registry → Consumption -->
-    <div id="journey" class="reveal stagger-4 mt-20 md:mt-24">
-      <!-- Spine label -->
-      <div class="hidden md:flex items-center gap-3 mb-4">
-        <span class="mono text-[10.5px] text-accent uppercase tracking-widest">Governance</span>
-        <span class="flex-1 h-px bg-accent-line"></span>
-        <span class="mono text-[10.5px] text-subtle uppercase tracking-widest">one chain of custody</span>
+    <p class="reveal mt-4 text-[12.5px] text-subtle">Python 3.10+ · No account or model API key needed for local checks and installs.</p>
+
+    <div class="reveal mt-12 grid grid-cols-1 md:grid-cols-3 gap-px bg-line hairline border rounded-lg overflow-hidden">
+      <div class="bg-white p-6">
+        <h2 class="display font-semibold text-[19px]">Catch risks before sharing</h2>
+        <p class="mt-2 text-[14px] leading-[1.6] text-muted">Scan for exposed secrets, prompt-injection patterns, and risky code. Run the same checks in CI.</p>
       </div>
-
-      <!-- 4-stage track -->
-      <div class="hairline border rounded-lg bg-white overflow-hidden">
-        <!-- Stage headers -->
-        <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-line">
-          <!-- AUTHOR -->
-          <div class="p-5 md:p-6 relative">
-            <div class="flex items-center gap-2">
-              <span class="mono text-[10.5px] text-subtle tnum tracking-widest">01</span>
-              <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Author</span>
-            </div>
-            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">A typed scaffold replaces a folder somebody copied. Manifest, capabilities, semver — declared on day one.</p>
-            <div class="mt-5 space-y-1.5">
-              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">skillctl create skill</code>
-              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">skillctl validate</code>
-            </div>
-            <p class="mt-5 mono text-[10.5px] text-subtle">Inputs: SKILL.md · skill.yaml</p>
-          </div>
-
-          <!-- AUDIT -->
-          <div class="p-5 md:p-6 relative">
-            <div class="flex items-center gap-2">
-              <span class="mono text-[10.5px] text-subtle tnum tracking-widest">02</span>
-              <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Audit</span>
-            </div>
-            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">Static checks for prompt injection, secrets, unsafe tools, plus deterministic schema-contract validation. The score gates the next step — and is fully reproducible.</p>
-            <div class="mt-5 space-y-1.5">
-              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">eval audit · 9·35·70</code>
-              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">eval report · 80/20</code>
-            </div>
-            <p class="mt-5 mono text-[10.5px] text-subtle">Output: grade · findings</p>
-          </div>
-
-          <!-- REGISTRY -->
-          <div class="p-5 md:p-6 relative bg-accent-soft/40">
-            <div class="flex items-center gap-2">
-              <span class="mono text-[10.5px] text-accent tnum tracking-widest">03</span>
-              <span class="mono text-[10.5px] text-accent uppercase tracking-widest font-medium">Registry</span>
-            </div>
-            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">Content-addressed storage with a hash-chained log. Run on GitHub, in your cloud, or self-hosted — same contract.</p>
-            <div class="mt-5 space-y-1.5">
-              <code class="mono text-[11px] text-emerald-900 bg-white hairline border border-accent-line rounded px-2 py-1 block break-all">apply · bump · diff</code>
-              <code class="mono text-[11px] text-emerald-900 bg-white hairline border border-accent-line rounded px-2 py-1 block break-all">sha256 · semver · log</code>
-            </div>
-            <p class="mt-5 mono text-[10.5px] text-accent/80">Artifact: my-org/code-reviewer@0.1.0</p>
-          </div>
-
-          <!-- CONSUMPTION -->
-          <div class="p-5 md:p-6 relative">
-            <div class="flex items-center gap-2">
-              <span class="mono text-[10.5px] text-subtle tnum tracking-widest">04</span>
-              <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Consume</span>
-            </div>
-            <p class="mt-4 text-[13.5px] text-muted leading-[1.55]">Developers, agents (via MCP), and pipelines pull pinned digests. At runtime, every invocation passes policy hooks — governed end to end.</p>
-            <div class="mt-5 space-y-1.5">
-              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">install --target all</code>
-              <code class="mono text-[11px] text-ink bg-paper hairline border rounded px-2 py-1 block break-all">policy + OTel + audit</code>
-            </div>
-            <p class="mt-5 mono text-[10.5px] text-subtle">Targets: 5 IDEs · MCP · CI</p>
-          </div>
-        </div>
-
-        <!-- Chain-of-custody footer — one bar across all four stages -->
-        <div class="border-t hairline bg-paper px-5 py-3.5 flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
-          <span class="mono text-[10.5px] text-subtle uppercase tracking-widest whitespace-nowrap">Chain of custody</span>
-          <div class="flex-1 h-px bg-line relative">
-            <div class="absolute inset-0 h-px bg-accent"></div>
-            <div class="absolute left-[6.5%]  -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Author"></div>
-            <div class="absolute left-[37.5%] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Audit"></div>
-            <div class="absolute left-[62.5%] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Registry"></div>
-            <div class="absolute left-[93.5%] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-paper" title="Consume"></div>
-          </div>
-          <span class="mono text-[10.5px] text-muted tnum whitespace-nowrap">sha-256 · audit log · semver</span>
-        </div>
+      <div class="bg-white p-6">
+        <h2 class="display font-semibold text-[19px]">Keep editors in sync</h2>
+        <p class="mt-2 text-[14px] leading-[1.6] text-muted">Install one source skill into Claude Code, Cursor, Windsurf, Copilot, and Kiro in their native formats.</p>
+      </div>
+      <div class="bg-white p-6">
+        <h2 class="display font-semibold text-[19px]">Know which version you use</h2>
+        <p class="mt-2 text-[14px] leading-[1.6] text-muted">Save named versions, compare changes, and choose the version to install across your projects.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ──────────────────── PROBLEM ──────────────────── -->
+<!-- ──────────────────── WORKFLOW ──────────────────── -->
 <section id="problem" class="border-t hairline">
-  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+  <div id="journey" class="max-w-6xl mx-auto px-6 py-20 md:py-24">
     <div class="reveal max-w-3xl">
-      <p class="eyebrow">The gap</p>
-      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
-        Four stages. <span class="text-muted">Zero governance between them.</span>
-      </h2>
-      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted max-w-2xl">
-        Authoring lives in a folder, audit lives in someone's head, the "registry" is a Slack thread, consumption is copy-paste. Each stage is fine in isolation. The chain between them is what's missing.
-      </p>
+      <p class="eyebrow">How it works</p>
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">One team checklist.<br /><span class="text-muted">Every developer’s editor.</span></h2>
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted">Your team has a code-review skill. As people copy and edit it, versions drift and changes become harder to review. SkillsOps gives you a repeatable way to check, version, and distribute each update.</p>
     </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-px bg-line mt-14 hairline border rounded-lg overflow-hidden">
-      <div class="reveal stagger-1 bg-paper p-6">
-        <div class="flex items-center gap-2">
-          <span class="mono text-[11px] text-subtle tnum">01</span>
-          <span class="eyebrow !text-[10.5px]">Author</span>
-        </div>
-        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">Schema drift goes unnoticed.</h3>
-        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
-          Manifests fall out of sync. Capabilities get bumped without semver. No <span class="mono text-[12px] text-ink">CI</span> step fails on a malformed skill.
-        </p>
+    <div id="lifecycle" class="reveal grid grid-cols-1 md:grid-cols-4 gap-px bg-line mt-10 hairline border rounded-lg overflow-hidden">
+      <div class="bg-white p-6">
+        <p class="eyebrow">01 · Write</p>
+        <h3 class="display font-semibold text-[18px] mt-3">Keep one source</h3>
+        <p class="mt-3 text-[14px] leading-[1.6] text-muted">Start with your existing SKILL.md or create a starter skill. Add your team’s review instructions.</p>
+        <code class="mono text-[12px] text-accent mt-5 block">skillctl create skill</code>
       </div>
-      <div class="reveal stagger-2 bg-paper p-6">
-        <div class="flex items-center gap-2">
-          <span class="mono text-[11px] text-subtle tnum">02</span>
-          <span class="eyebrow !text-[10.5px]">Audit</span>
-        </div>
-        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">Prompt injection ships by default.</h3>
-        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
-          Without a static audit, sensitive instructions, secret-leakage patterns, and unsafe tool calls land in production skills that nobody reviewed.
-        </p>
+      <div class="bg-white p-6">
+        <p class="eyebrow">02 · Check</p>
+        <h3 class="display font-semibold text-[18px] mt-3">Review before sharing</h3>
+        <p class="mt-3 text-[14px] leading-[1.6] text-muted">Validate the skill and scan for security findings. Add these checks to pull requests in CI.</p>
+        <code class="mono text-[12px] text-accent mt-5 block">skillctl eval audit</code>
       </div>
-      <div class="reveal stagger-3 bg-paper p-6">
-        <div class="flex items-center gap-2">
-          <span class="mono text-[11px] text-subtle tnum">03</span>
-          <span class="eyebrow !text-[10.5px]">Registry</span>
-        </div>
-        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">No identity, no rollback.</h3>
-        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
-          Skills land in folders, not artifacts. There is no digest to pin, no audit log to replay, no rollback when a release goes wrong.
-        </p>
+      <div class="bg-white p-6">
+        <p class="eyebrow">03 · Version</p>
+        <h3 class="display font-semibold text-[18px] mt-3">Make changes visible</h3>
+        <p class="mt-3 text-[14px] leading-[1.6] text-muted">Save a version locally or publish to your registry. Compare it with the previous version before rolling it out.</p>
+        <code class="mono text-[12px] text-accent mt-5 block">skillctl apply · diff</code>
       </div>
-      <div class="reveal stagger-4 bg-paper p-6">
-        <div class="flex items-center gap-2">
-          <span class="mono text-[11px] text-subtle tnum">04</span>
-          <span class="eyebrow !text-[10.5px]">Consume</span>
-        </div>
-        <h3 class="display font-semibold text-[17px] mt-3 leading-tight">Five copies, five paths.</h3>
-        <p class="mt-3 text-[13.5px] leading-[1.6] text-muted">
-          Claude, Cursor, Windsurf, Copilot, Kiro — each wants its own format. The same skill drifts five different ways within a week.
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ──────────────────── GOVERNANCE PILLARS ──────────────────── -->
-<section id="governance" class="border-t hairline bg-white">
-  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
-    <div class="reveal flex flex-col md:flex-row md:items-end md:justify-between gap-6 max-w-5xl">
-      <div>
-        <p class="eyebrow text-accent">Governance</p>
-        <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
-          One contract. <span class="text-muted">Every stage of the journey.</span>
-        </h2>
-      </div>
-      <p class="text-[15.5px] text-muted max-w-md">
-        Each stage produces a verifiable artifact. The next stage refuses to accept anything else.
-      </p>
-    </div>
-
-    <!-- 4 stage guarantees, equal weight -->
-    <div class="reveal mt-12 grid grid-cols-1 md:grid-cols-4 gap-px bg-line hairline border rounded-lg overflow-hidden">
-      <div class="bg-paper p-6 card-hover">
-        <div class="flex items-center justify-between">
-          <span class="mono text-[10.5px] text-subtle tnum tracking-widest uppercase">01 · author</span>
-          <span class="mono text-[10.5px] text-subtle">guarantee</span>
-        </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Typed at birth.</h3>
-        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
-          A scaffolded skill is a manifest, not a folder. Schema, semver, and declared capabilities are required to leave this stage.
-        </p>
-        <p class="mt-5 mono text-[10.5px] text-accent">→ schema-valid SKILL.md</p>
-      </div>
-
-      <div class="bg-paper p-6 card-hover">
-        <div class="flex items-center justify-between">
-          <span class="mono text-[10.5px] text-subtle tnum tracking-widest uppercase">02 · audit</span>
-          <span class="mono text-[10.5px] text-subtle">guarantee</span>
-        </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Graded before it ships.</h3>
-        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
-          9 categories · 35 codes · 70 patterns of static checks, plus deterministic schema-contract validation. A reproducible 80/20 score gates the registry push.
-        </p>
-        <p class="mt-5 mono text-[10.5px] text-accent">→ grade · findings report</p>
-      </div>
-
-      <div class="bg-paper p-6 card-hover bg-accent-soft/40">
-        <div class="flex items-center justify-between">
-          <span class="mono text-[10.5px] text-accent tnum tracking-widest uppercase">03 · registry</span>
-          <span class="mono text-[10.5px] text-accent">guarantee</span>
-        </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Identity by hash.</h3>
-        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
-          SHA-256 content addressing, semver + structural diff, and a hash-chained audit log — tamper-evident across hosts.
-        </p>
-        <p class="mt-5 mono text-[10.5px] text-accent">→ <span class="text-emerald-900">@sha256:8a2f1c…</span></p>
-      </div>
-
-      <div class="bg-paper p-6 card-hover">
-        <div class="flex items-center justify-between">
-          <span class="mono text-[10.5px] text-subtle tnum tracking-widest uppercase">04 · consume</span>
-          <span class="mono text-[10.5px] text-subtle">guarantee</span>
-        </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Pinned, never copied.</h3>
-        <p class="mt-2.5 text-[13px] leading-[1.6] text-muted">
-          Developers, agents (via 5 core MCP tools), and CI all install by digest. Rollback is one command. Every install lands in the audit log.
-        </p>
-        <p class="mt-5 mono text-[10.5px] text-accent">→ install --target all</p>
-      </div>
-    </div>
-
-    <!-- Hosting note — secondary, not the headline -->
-    <div class="reveal mt-10 hairline border rounded-lg bg-paper">
-      <div class="px-6 py-4 border-b hairline flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <div class="flex items-center gap-3">
-          <span class="eyebrow">Where the registry lives</span>
-          <span class="mono text-[11px] text-subtle">— same contract, your boundary</span>
-        </div>
-        <span class="mono text-[11px] text-subtle">3 hosting modes</span>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line">
-        <div class="p-5">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">GitHub-backed</span>
-            <span class="mono text-[10px] text-accent bg-accent-soft border border-accent-line px-1.5 py-[1px] rounded">recommended</span>
-          </div>
-          <p class="mt-3 text-[12.5px] leading-[1.55] text-muted">Tags become versions, commits become the audit log, PR review is the gate.</p>
-          <code class="mono text-[11px] text-ink bg-white hairline border rounded mt-4 block px-2 py-1.5 break-all">skillctl config registry github://my-org/skills</code>
-        </div>
-        <div class="p-5">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Cloud-hosted</span>
-            <span class="mono text-[10px] text-subtle">soon</span>
-          </div>
-          <p class="mt-3 text-[12.5px] leading-[1.55] text-muted">HTTPS endpoint, SSO, scoped tokens, org-private namespaces.</p>
-          <code class="mono text-[11px] text-ink bg-white hairline border rounded mt-4 block px-2 py-1.5 break-all">skillctl login registry.skillsops.dev</code>
-        </div>
-        <div class="p-5">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-ink uppercase tracking-widest font-medium">Self-hosted</span>
-            <span class="mono text-[10px] text-subtle">stable</span>
-          </div>
-          <p class="mt-3 text-[12.5px] leading-[1.55] text-muted">Single binary: FastAPI + SQLite with FTS5. Air-gap friendly.</p>
-          <code class="mono text-[11px] text-ink bg-white hairline border rounded mt-4 block px-2 py-1.5 break-all">skillctl serve --hmac-key "$KEY"</code>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ──────────────────── LIFECYCLE ──────────────────── -->
-<section id="lifecycle" class="border-t hairline">
-  <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
-    <div class="reveal flex flex-col md:flex-row md:items-end md:justify-between gap-6 max-w-4xl">
-      <div>
-        <p class="eyebrow">Lifecycle</p>
-        <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
-          The four stages, broken into seven verbs.
-        </h2>
-      </div>
-      <p class="text-[15.5px] text-muted max-w-md">
-        <span class="text-ink">Author</span> · <span class="text-ink">audit</span> · <span class="text-ink">register</span> · <span class="text-ink">consume</span>. Each verb is a checkpoint with a verifiable artifact behind it.
-      </p>
-    </div>
-
-    <div class="reveal mt-14 hairline border rounded-lg bg-white overflow-hidden">
-      <div class="grid grid-cols-2 md:grid-cols-7">
-        <div class="p-5 border-r border-b md:border-b-0 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">01</span>
-            <span class="mono text-[10.5px] text-subtle">stable</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">create</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Scaffold a typed skill from a template.</p>
-        </div>
-        <div class="p-5 border-r border-b md:border-b-0 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">02</span>
-            <span class="mono text-[10.5px] text-subtle">stable</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">validate</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Schema, semver, capability checks.</p>
-        </div>
-        <div class="p-5 border-r border-b md:border-b-0 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">03</span>
-            <span class="mono text-[10.5px] text-subtle">stable</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">eval audit</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">9 categories · 35 codes · 70 patterns.</p>
-        </div>
-        <div class="p-5 border-r border-b md:border-b-0 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">04</span>
-            <span class="mono text-[10.5px] text-subtle">stable</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">eval report</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Deterministic 80% audit + 20% schema.</p>
-        </div>
-        <div class="p-5 border-r border-b md:border-b-0 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">05</span>
-            <span class="mono text-[10.5px] text-subtle">stable</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">bump · diff</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Semver + content diff between versions.</p>
-        </div>
-        <div class="p-5 border-r md:border-b-0 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">06</span>
-            <span class="mono text-[10.5px] text-subtle">stable</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">apply</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Push to local or self-hosted registry.</p>
-        </div>
-        <div class="p-5 hairline">
-          <div class="flex items-center justify-between">
-            <span class="mono text-[10.5px] text-subtle tnum tracking-wider">07</span>
-            <span class="mono text-[10.5px] text-accent font-medium">deploy</span>
-          </div>
-          <div class="mt-6 mono text-[13.5px] text-ink font-medium">install</div>
-          <p class="mt-1.5 text-[12px] leading-[1.5] text-muted">Five IDE targets. One command.</p>
-        </div>
-      </div>
-
-      <div class="border-t hairline bg-paper px-5 py-3.5 flex items-center justify-between">
-        <span class="mono text-[11px] text-subtle">artifact graph</span>
-        <div class="flex-1 mx-5 h-px bg-line relative">
-          <div class="absolute left-0 top-0 h-px bg-accent" style="width: 86%"></div>
-          <div class="absolute right-[14%] top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-accent ring-2 ring-paper"></div>
-        </div>
-        <span class="mono text-[11px] text-muted tnum">7 stages · sha-256 chain</span>
+      <div class="bg-white p-6">
+        <p class="eyebrow">04 · Install</p>
+        <h3 class="display font-semibold text-[18px] mt-3">Use it across editors</h3>
+        <p class="mt-3 text-[14px] leading-[1.6] text-muted">Install the selected version into your coding tools. SkillsOps writes each editor’s instruction format.</p>
+        <code class="mono text-[12px] text-accent mt-5 block">skillctl install</code>
       </div>
     </div>
   </div>
@@ -485,13 +202,9 @@
 <section id="capabilities" class="border-t hairline">
   <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
     <div class="reveal max-w-3xl">
-      <p class="eyebrow">Capabilities</p>
-      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
-        The plumbing behind each stage.
-      </h2>
-      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted max-w-2xl">
-        What it actually takes to make the journey enforceable — typed authoring, real audit, content-addressed storage, and pinned consumption across every IDE.
-      </p>
+      <p class="eyebrow">What you can do</p>
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">Less manual upkeep.<br /><span class="text-muted">More confidence in each update.</span></h2>
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted">Use the checks and tools you need today. Add a shared registry and repeatable review reports as your skill library grows.</p>
     </div>
 
     <div class="reveal mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-line hairline border rounded-lg overflow-hidden">
@@ -499,9 +212,9 @@
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Static security audit</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Find risky instructions</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">eval audit</span> covers 9 categories with 35 finding codes and 70 regex patterns. <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">--strict</span> adds an AST pass for Python.
+          Validate skill structure and scan for known security patterns before sharing. Get findings in your terminal or GitHub Actions. Static checks help review; they do not guarantee safe execution.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
@@ -517,81 +230,81 @@
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Runtime policy &amp; OTel</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Policy and telemetry hooks (experimental)</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          Every invocation passes pre/post hooks — rate limits, data boundaries, PII redaction, OPA/Cedar. Traced via OpenTelemetry, recorded in the audit chain.
+          Explore opt-in policy checks and OpenTelemetry integration. These libraries require your own integration; the registry and installed agent runtimes do not invoke them automatically.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Compliance evidence</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Control mappings (experimental)</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          Map governance to <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">eu-ai-act</span>, ISO 42001, NIST AI RMF. Risk classification, attestations, and audit-ready reports — generated from real evidence.
+          Preview mappings to EU AI Act, ISO 42001, and NIST AI RMF controls. Use the deterministic gap analysis to guide review; it does not certify compliance or gate a release.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Progressive deployment</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Rollout modeling (experimental)</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">deploy canary</span>, blue-green, and staged rollouts with consistent-hash routing, health checks, and automatic rollback.
+          Model canary, blue-green, and staged rollout states locally in SQLite. These tools model routing and rollback; they do not control live registry or runtime traffic.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><circle cx="12" cy="11" r="2.5"/><path d="M12 13.5V17"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Enterprise identity &amp; lineage</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Identity and lineage utilities (experimental)</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          OIDC/SAML federation mapped to roles, attribute-based access (ABAC), data lineage with forensic queries, and CI/CD templates for GitHub, GitLab, and Jenkins.
+          Explore local token inspection, caller-recorded lineage queries, and registry-copy helpers. Trust boundaries require integration. CI/CD starter templates are also available for review and adaptation.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19V6l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Multi-IDE install</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Use the editors you already have</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          One command, five targets. <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">--target all</span> deploys to Claude, Cursor, Windsurf, Copilot, Kiro — each in its native format.
+          Maintain one source skill and install it into five supported editors. Choose targets explicitly, or use <code class="mono text-[12.5px] text-ink">--target all</code> to detect editors in your workspace.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Content-addressed store</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Review changes between versions</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">apply</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">get</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">describe</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">diff</span>. Every version is a SHA-256 blob with a stable identity.
+          Save named versions with content hashes. Compare instructions and manifests with <code class="mono text-[12.5px] text-ink">skillctl diff</code>, then install a specific version.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Provenance &amp; rollback</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Make review checks repeatable</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          Every push appends to a hash-chained audit log. <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">install @sha256:…</span> pins to an exact digest; rollback is one command.
+          Generate a deterministic report combining security findings and schema checks with <code class="mono text-[12.5px] text-ink">skillctl eval report</code>. The same inputs produce the same score, without a model API call.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Export &amp; import</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Back up and move your skills</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          Portable archives. Move skills between registries, branches, and environments without losing version history.
+          Export skill versions and manifests as tar.gz or zip archives. Import them on another host for backup or migration.
         </p>
       </div>
       <div class="bg-paper p-6 md:p-7 card-hover">
         <div class="h-9 w-9 hairline border bg-white rounded-md flex items-center justify-center text-accent">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </div>
-        <h3 class="display font-semibold text-[18px] mt-5">Claude Code MCP plugin</h3>
+        <h3 class="display font-semibold text-[18px] mt-5">Manage skills from Claude Code</h3>
         <p class="mt-2.5 text-[13.5px] leading-[1.6] text-muted">
-          5 core governance tools — <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">validate</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">audit</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">bump</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">diff</span>, <span class="mono text-[12.5px] text-ink bg-white hairline border px-1 rounded">publish</span> — give Claude Code a direct line into the registry.
+          Use the optional MCP plugin to validate, audit, bump versions, compare changes, and publish skills from your Claude Code conversation. Five tools connect those checks to your workflow.
         </p>
       </div>
     </div>
@@ -609,16 +322,40 @@
   </div>
 </section>
 
+<!-- ──────────────────── TEAM REGISTRY ──────────────────── -->
+<section id="governance" class="border-t hairline bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-24">
+    <div class="reveal max-w-3xl">
+      <p class="eyebrow">For teams</p>
+      <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">Share private skills<br /><span class="text-muted">on your infrastructure.</span></h2>
+      <p class="mt-6 text-[16.5px] leading-[1.6] text-muted">Your skills can contain internal processes, coding standards, and review rules. The optional registry gives your team a shared place to publish and retrieve them, with scoped access tokens and a log of registry changes.</p>
+    </div>
+    <div class="reveal mt-10 grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="hairline border rounded-lg bg-paper p-6">
+        <h3 class="display font-semibold text-[20px]">Start on your machine</h3>
+        <p class="mt-3 text-[14px] leading-[1.6] text-muted">Validate, audit, store versions, and install skills locally. The core CLI needs no registry account or model API key.</p>
+        <code class="mono text-[12.5px] text-ink mt-5 block">pip install skillsops</code>
+      </div>
+      <div class="hairline border rounded-lg bg-paper p-6">
+        <h3 class="display font-semibold text-[20px]">Add a registry when you need one</h3>
+        <p class="mt-3 text-[14px] leading-[1.6] text-muted">Run the Python registry server on your own host or private cloud. Use filesystem or GitHub-backed storage, with namespace permissions and a tamper-evident audit log.</p>
+        <code class="mono text-[12.5px] text-ink mt-5 block">pip install "skillsops[server]"</code>
+        <a href="https://github.com/dgallitelli/skillsops/blob/main/docs/1-skill-format.md" class="inline-block mt-4 text-[13px] text-accent underline underline-offset-4">Registry setup documentation ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ──────────────────── QUICKSTART ──────────────────── -->
 <section id="quickstart" class="border-t hairline">
   <div class="max-w-6xl mx-auto px-6 py-20 md:py-28">
     <div class="reveal max-w-3xl">
       <p class="eyebrow">Quickstart</p>
       <h2 class="display-tight font-semibold text-3xl md:text-5xl mt-4 leading-[1.05]">
-        Sixty seconds, end to end.
+        Try it with a local skill.
       </h2>
       <p class="mt-6 text-[16.5px] leading-[1.6] text-muted">
-        Real commands. <span class="mono text-[14.5px] text-ink">skillctl</span> doesn't do anything fancy — it just does the boring lifecycle work for you.
+        Create a starter skill, add your instructions and description, then check and install it. This example saves a local version and writes instruction files for Claude Code and Cursor. Python 3.10+ required.
       </p>
     </div>
 
@@ -629,41 +366,59 @@
           <span class="block h-3 w-3 rounded-full bg-stone-300"></span>
           <span class="block h-3 w-3 rounded-full bg-stone-300"></span>
         </div>
-        <div class="flex-1 text-center mono text-[11.5px] text-subtle">~/projects/my-org-skills</div>
+        <div class="flex-1 text-center mono text-[11.5px] text-subtle">~/projects/code-reviewer</div>
         <button data-copy="pip install skillsops
+mkdir code-reviewer &amp;&amp; cd code-reviewer
 skillctl create skill my-org/code-reviewer
+cat &gt; SKILL.md &lt;&lt;'EOF'
+---
+name: code-reviewer
+description: Review code against our team's standards. Use when reviewing a pull request.
+---
+# Code reviewer
+Read the proposed changes. Identify correctness issues and missing tests.
+Explain each finding with a file location.
+EOF
+# In skill.yaml, set metadata.description (required).
 skillctl validate
 skillctl eval audit .
-skillctl apply
-skillctl install my-org/code-reviewer@0.1.0 --target all" class="copy-btn inline-flex items-center gap-1 mono text-[11px] text-muted hover:text-ink transition-colors" aria-label="Copy all commands">
+skillctl apply --local
+skillctl install my-org/code-reviewer@0.1.0 --target claude,cursor" class="copy-btn inline-flex items-center gap-1 mono text-[11px] text-muted hover:text-ink transition-colors" aria-label="Copy all commands">
           <svg class="copy-icon w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           copy
         </button>
       </div>
 
-      <pre class="mono text-[13px] md:text-[13.5px] leading-[1.85] text-ink p-6 md:p-8 overflow-x-auto"><span class="text-subtle"># 1. Install the CLI</span>
-<span class="text-accent">$</span> pip install skillsops
+      <pre class="mono text-[13px] md:text-[13.5px] leading-[1.85] text-ink p-6 md:p-8 overflow-x-auto"><code><span class="text-subtle"># 1. Install the CLI and create a workspace</span>
+pip install skillsops
+mkdir code-reviewer &amp;&amp; cd code-reviewer
+skillctl create skill my-org/code-reviewer
 
-<span class="text-subtle"># 2. Scaffold a typed skill</span>
-<span class="text-accent">$</span> skillctl create skill <span class="text-muted">my-org/code-reviewer</span>
-<span class="text-accent">✓</span> <span class="text-muted">created skill.yaml, SKILL.md, README.md</span>
+<span class="text-subtle"># 2. Write a skill with the required frontmatter</span>
+cat &gt; SKILL.md &lt;&lt;'EOF'
+---
+name: code-reviewer
+description: Review code against our team's standards. Use when reviewing a pull request.
+---
+# Code reviewer
+Read the proposed changes. Identify correctness issues and missing tests.
+Explain each finding with a file location.
+EOF
 
-<span class="text-subtle"># 3. Validate the manifest, capabilities, semver</span>
-<span class="text-accent">$</span> skillctl validate
-<span class="text-accent">✓</span> <span class="text-muted">schema · 0 errors    semver · OK    capabilities · 4 declared</span>
+<span class="text-subtle"># 3. In skill.yaml, set metadata.description (required), e.g.:
+#   description: "Review code against our team's standards"
+# Then run the checks:</span>
+skillctl validate
+skillctl eval audit .
 
-<span class="text-subtle"># 4. Run the static security audit</span>
-<span class="text-accent">$</span> skillctl eval audit <span class="text-muted">.</span>
-<span class="text-accent">✓</span> <span class="text-muted">9 categories · 0 findings · grade </span><span class="text-ink font-medium">A</span>
+<span class="text-subtle"># 4. Save version 0.1.0 locally</span>
+skillctl apply --local
 
-<span class="text-subtle"># 5. Push to the content-addressed store</span>
-<span class="text-accent">$</span> skillctl apply
-<span class="text-accent">✓</span> <span class="text-muted">my-org/code-reviewer@0.1.0  sha256:8a2f1c…</span>
-
-<span class="text-subtle"># 6. Deploy to every IDE in one command</span>
-<span class="text-accent">$</span> skillctl install <span class="text-muted">my-org/code-reviewer@0.1.0</span> <span class="text-stone-500">--target all</span>
-<span class="text-accent">✓</span> <span class="text-muted">claude · cursor · windsurf · copilot · kiro</span><span class="inline-block w-1.5 h-3.5 align-middle bg-ink ml-1 animate-pulse"></span></pre>
+<span class="text-subtle"># 5. Write the instruction files for Claude Code and Cursor</span>
+skillctl install my-org/code-reviewer@0.1.0 --target claude,cursor</code></pre>
     </div>
+
+    <p class="reveal mt-5 text-[14px] leading-[1.6] text-muted">You’ll find the installed files at <code class="mono text-[12px] break-all">.claude/skills/code-reviewer/SKILL.md</code> and <code class="mono text-[12px] break-all">.cursor/rules/code-reviewer.mdc</code>. Choose other targets by name, or use <code class="mono text-[12px]">--target all</code> to detect editors already in your workspace.</p>
 
     <div class="reveal grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
       <div class="hairline border bg-white rounded-lg px-4 py-3">
@@ -671,7 +426,7 @@ skillctl install my-org/code-reviewer@0.1.0 --target all" class="copy-btn inline
         <code class="mono text-[12.5px] text-ink mt-1.5 block break-all">skillctl eval audit ./skills/ --fail-on-warning --format=github</code>
       </div>
       <div class="hairline border bg-white rounded-lg px-4 py-3">
-        <p class="mono text-[10.5px] text-subtle uppercase tracking-widest">Self-hosted registry</p>
+        <p class="mono text-[10.5px] text-subtle uppercase tracking-widest">Registry server (optional extra)</p>
         <code class="mono text-[12.5px] text-ink mt-1.5 block break-all">skillctl serve --hmac-key "$SKILLCTL_HMAC_KEY"</code>
       </div>
       <div class="hairline border bg-white rounded-lg px-4 py-3">
@@ -687,11 +442,11 @@ skillctl install my-org/code-reviewer@0.1.0 --target all" class="copy-btn inline
   <div class="max-w-6xl mx-auto px-6 py-24 md:py-32">
     <div class="reveal max-w-3xl">
       <h2 class="display-tight font-semibold text-3xl md:text-5xl leading-[1.05]">
-        Author. Audit. Register. Consume.<br />
-        <span class="text-muted">All in one chain of custody.</span>
+        Start with one skill.<br />
+        <span class="text-muted">Make it easier to check and share.</span>
       </h2>
       <p class="mt-6 text-[16.5px] leading-[1.6] text-muted max-w-xl">
-        Free and open source under MPL-2.0. Public beta — feedback issues get a same-week reply.
+        Free and open source under MPL-2.0. Public beta. Start with local checks and installs; add a team registry when you need it.
       </p>
 
       <div class="mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -715,11 +470,11 @@ skillctl install my-org/code-reviewer@0.1.0 --target all" class="copy-btn inline
 <footer class="border-t hairline bg-paper">
   <div class="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
     <div class="flex items-baseline gap-2">
-      <span class="display font-semibold text-[14px] text-ink">skillctl</span>
+      <span class="display font-semibold text-[14px] text-ink">SkillsOps</span>
       <span class="mono text-[11px] text-subtle">·</span>
       <span class="mono text-[11px] text-muted">MPL-2.0</span>
       <span class="mono text-[11px] text-subtle">·</span>
-      <span class="mono text-[11px] text-muted">v0.4.0</span>
+      <span class="mono text-[11px] text-muted">public beta</span>
     </div>
     <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted">
       <a href="https://pypi.org/project/skillsops/" class="hover:text-ink transition-colors">PyPI ↗</a>
