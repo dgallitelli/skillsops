@@ -1,0 +1,15 @@
+$ skillctl eval audit .
+
+══════════════════════════════════════════════════════════
+  Agent Skill Security Audit Report
+══════════════════════════════════════════════════════════
+  Skill:  code-reviewer
+  Path:   /tmp/skillsops-site-j29i08kt/code-reviewer
+  Score:  96/100 (Grade: A)
+──────────────────────────────────────────────────────────
+  ✅ CRITICAL: 0 │ ⚠️  WARNING: 0 │ ℹ️  INFO: 2
+──────────────────────────────────────────────────────────
+  Result: ✅ PASSED (no critical findings)
+══════════════════════════════════════════════════════════
+
+  ℹ️  2 INFO findings: QLT-001, QLT-017 (use --verbose for details)

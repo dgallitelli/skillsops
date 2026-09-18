@@ -1,0 +1,11 @@
+apiVersion: skillctl.io/v1
+kind: Skill
+metadata:
+  name: my-org/code-reviewer
+  version: 0.1.0
+  description: Review a pull request for correctness and missing tests.
+spec:
+  content:
+    path: ./SKILL.md
+  capabilities:
+    - read_file

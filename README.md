@@ -21,34 +21,24 @@
 
 ---
 
-An **agent skill** is a reusable set of instructions, usually in a `SKILL.md`
-file, that teaches an AI agent a task: review code against your standards,
-investigate an incident, or follow your release process.
+**SkillsOps is for developers and teams sharing agent skills across projects and
+editors.** A skill is a reusable set of instructions in a `SKILL.md` file:
+a code-review checklist, an incident playbook, or a release process.
 
-**SkillsOps is for developers and teams who write, reuse, or share these
-instructions.** As skills spread across projects and editors, it gets harder
-to know what's in them, which version people use, and whether a change helps.
-SkillsOps brings those checks and distribution into one command-line tool:
-`skillctl`.
+Use the `skillctl` CLI to check those instructions, save a version, and install
+it where your team works. Add a self-hosted registry when you need shared access.
 
 ## What it helps you do
 
-| When you need to… | SkillsOps helps you… |
+| Your goal | Start here |
 |---|---|
-| Review a skill before using or sharing it | Validate its structure and scan for exposed secrets, prompt-injection patterns, and risky code. |
-| Keep instructions consistent across editors | Install one source skill into Claude Code, Cursor, Windsurf, GitHub Copilot, and Kiro in their native formats. |
-| Understand what changed | Store named versions, compare instructions and manifests, and install a specific version. |
-| Share private team skills | Run a registry on your infrastructure with scoped access tokens and a log of registry changes. |
-| Make review checks repeatable | Generate a deterministic report combining security findings and schema checks, without a model API call. |
+| Catch exposed secrets, injection patterns, and risky code before sharing | `skillctl eval audit ./my-skill` |
+| Review instruction and manifest changes between versions | `skillctl diff my-org/skill@0.1.0 my-org/skill@0.1.1` |
+| Install one skill across Claude Code, Cursor, Windsurf, Copilot, and Kiro | `skillctl install ./my-skill --target all` |
+| Share private skills with scoped access and a registry audit log | `skillctl serve` (optional server package) |
 
-For example, keep your team's code-review checklist as one skill, audit each
-update in CI, compare it with the previous version, then install the selected
-version into the editors your team uses.
-
-**Start locally:** validation, static audits, version storage, and editor
-installation need no registry account or model API key. Add a self-hosted
-registry when you need shared access. The optional LLM-driven optimizer is
-available separately as `skillsops-optimize`.
+**Local checks and installs need no account, server, or model API key.**
+Static audits flag known patterns; they do not guarantee safe execution.
 
 [Get started](#quickstart) · [Capabilities and maturity](#whats-in-the-box) · [Documentation](#documentation)
 
@@ -56,59 +46,53 @@ available separately as `skillsops-optimize`.
 
 ## Quickstart
 
-Python 3.10+. This example creates a starter skill in a new directory, checks
-it, stores version `0.1.0` locally, and installs it for Claude Code and Cursor.
+Python 3.10+. If you already have a skill, install the CLI and audit its folder:
 
 ```bash
-# Install the CLI and create a workspace.
 pip install skillsops
-mkdir code-reviewer && cd code-reviewer
-skillctl create skill my-org/code-reviewer
+skillctl eval audit ./my-skill
+```
 
-# Write a skill with the required frontmatter.
-cat > SKILL.md <<'EOF'
----
-name: code-reviewer
-description: Review code against our team's standards. Use when reviewing a pull request.
----
-# Code reviewer
-Read the proposed changes. Identify correctness issues and missing tests.
-Explain each finding with a file location.
-EOF
+To try the full workflow, [download the example skill](https://dgallitelli.github.io/skillsops/assets/code-reviewer.zip)
+and unzip it. It includes the instructions and manifest, ready to validate.
+Run these commands inside the `code-reviewer` folder:
 
-# In skill.yaml, set metadata.description (required), e.g.:
-#   description: "Review code against our team's standards"
+```bash
+pip install skillsops
 
-# Validate and audit.
+# Check the skill
 skillctl validate
 skillctl eval audit .
 
-# Save a version locally.
+# Save this version locally
 skillctl apply --local
 
-# Write the editor-specific instruction files.
+# Install for Claude Code and Cursor
 skillctl install my-org/code-reviewer@0.1.0 --target claude,cursor
 ```
 
-The installed files are `.claude/skills/code-reviewer/SKILL.md` and
-`.cursor/rules/code-reviewer.mdc`. Choose other editors with `--target`, or
-use `--target all` to detect editors already present in your workspace.
+This writes `.claude/skills/code-reviewer/SKILL.md` and
+`.cursor/rules/code-reviewer.mdc`. Choose other editors by name, or use
+`--target all` to detect editors already present in your workspace.
 
-Already have a skill? Start with its existing file:
+See the [example source](examples/code-reviewer/SKILL.md) and
+[manifest](examples/code-reviewer/skill.yaml). To author your own skill, run
+`skillctl create skill my-org/my-skill` in an empty directory, then add your
+instructions, required frontmatter, and manifest description.
 
-```bash
-skillctl validate   ~/.claude/skills/code-reviewer/SKILL.md
-skillctl eval audit ~/.claude/skills/code-reviewer/
-skillctl install    ~/.claude/skills/code-reviewer/ --target cursor,windsurf,kiro
-```
-
-`apply --local` accepts a bare-name skill (no namespace) for the local
-store.  Only the **remote registry** requires a namespaced name like
-`my-org/code-reviewer`, because that store is shared.
+`apply --local` stores a version on your machine. A shared remote registry
+requires a namespaced name such as `my-org/code-reviewer`.
 
 ---
 
 ## What's in the box
+
+The core workflow covers validation, static audits, version storage, editor
+installation, and a self-hosted registry. Advanced features have separate
+maturity labels below. The LLM-driven optimizer lives in `skillsops-optimize`.
+
+<details>
+<summary>Full capability list and maturity</summary>
 
 | Capability | Status | Why it's here |
 |---|---|---|
@@ -128,6 +112,8 @@ store.  Only the **remote registry** requires a namespaced name like
 | `eval report` — deterministic governance score (80% security audit + 20% schema contract) | stable | Reproducible: same inputs always yield the same score. |
 | Claude Code MCP plugin (5 core tools: validate, audit, bump, diff, publish) | stable | Use SkillsOps from inside an agentic IDE. |
 | `export` / `import` — portable archives | stable | Backup, share, migrate between hosts. |
+
+</details>
 
 ---
 

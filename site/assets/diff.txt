@@ -1,0 +1,16 @@
+$ skillctl diff my-org/code-reviewer@0.1.0 my-org/code-reviewer@0.1.1
+Comparing my-org/code-reviewer@0.1.0 → my-org/code-reviewer@0.1.1
+
+Metadata changes:
+  version: '0.1.0' → '0.1.1'
+
+Content diff:
+--- my-org/code-reviewer@0.1.0
++++ my-org/code-reviewer@0.1.1
+@@ -21,3 +21,5 @@
+ 
+ List findings in order of severity. If you find no actionable issues, say so
+ and describe any remaining gaps in verification.
++
++Call out missing tests for changes to error handling.
+

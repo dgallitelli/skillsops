@@ -1,0 +1,3 @@
+$ skillctl install my-org/code-reviewer@0.1.0 --target claude,cursor
+  ✓ claude: Installed to /tmp/skillsops-site-j29i08kt/code-reviewer/.claude/skills/code-reviewer/SKILL.md
+  ✓ cursor: Installed to /tmp/skillsops-site-j29i08kt/code-reviewer/.cursor/rules/code-reviewer.mdc; supporting files preserved at /tmp/skillsops-site-j29i08kt/code-reviewer/.cursor/rules/.skillctl-artifacts/code-reviewer/0.1.0
